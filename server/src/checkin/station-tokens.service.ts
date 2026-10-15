@@ -2,11 +2,13 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { StationTokenBatch } from '@got/shared';
 import { DomainException } from '../common/exceptions/domain.exception';
+import { addDays, gymToday, zonedTimeToInstant } from '../common/time/gym-time';
 import { GymConfigService } from '../config/gym.config';
 import type { Env } from '../config/env.validation';
+import { OpeningHoursService } from '../config/opening-hours.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { StationTokenService } from './station-token.service';
-import { gymHoursWindow, nextOpensAt, type GymHours, type GymHoursWindow } from './gym-hours';
+import { gymHoursWindow, type GymHours, type GymHoursWindow } from './gym-hours';
 import type { AuthenticatedStation } from './station.guard';
 
 interface ResolveStationInput {
@@ -38,11 +40,12 @@ export class StationTokensService {
     private readonly config: ConfigService<Env, true>,
     private readonly gymConfig: GymConfigService,
     private readonly tokens: StationTokenService,
+    private readonly openingHours: OpeningHoursService,
   ) {}
 
   async issueBatch(input: ResolveStationInput, now: Date = new Date()): Promise<StationTokenBatch> {
     const station = await this.resolveStation(input);
-    this.assertMintWindow(now);
+    const window = await this.assertMintWindow(now);
 
     const secret: string = this.config.get('STATION_TOKEN_SECRET');
     const slotSeconds = this.gymConfig.stationTokenSlotSeconds;
@@ -81,7 +84,7 @@ export class StationTokensService {
       slotSeconds,
       serverTime: now.toISOString(),
       tokenEpoch: station.tokenEpoch,
-      openUntil: this.mintWindow(now).closesAt.toISOString(),
+      openUntil: window.closesAt.toISOString(),
       batchEtag: this.buildEtag(station, currentSlot),
       tokens,
     };
@@ -158,38 +161,70 @@ export class StationTokensService {
   }
 
   /**
-   * `[GYM_OPEN_TIME − 15m, GYM_CLOSE_TIME + 15m]` for the gym's civil TODAY.
-   *
-   * Delegated to `gym-hours.ts` because `POST /checkin` applies the SAME
-   * window independently (§6.2.4). Two copies of this arithmetic would be two
-   * windows that drift apart in the one release nobody tests at 04:59.
+   * The hours for the gym-local day containing `instant`, from Admin →
+   * Settings with `GYM_OPEN_TIME` / `GYM_CLOSE_TIME` as the floor — the SAME
+   * source `POST /checkin`'s gate reads (§6.2.4). This used to read the
+   * environment directly, so after an owner edited the hours the lobby display
+   * went dark at the old closing time while the door would still have
+   * admitted the scan.
    */
-  private get hours(): GymHours {
+  private async hoursOn(instant: Date): Promise<GymHours> {
+    const day = await this.openingHours.forDate(instant);
     return {
       timeZone: this.gymConfig.timeZone,
-      openTime: this.gymConfig.openTime,
-      closeTime: this.gymConfig.closeTime,
+      openTime: day.opensAt,
+      closeTime: day.closesAt,
+      isClosed: day.isClosed,
     };
-  }
-
-  private mintWindow(now: Date): GymHoursWindow {
-    return gymHoursWindow(now, this.hours);
   }
 
   /**
    * §6.2.4 rule 1: the token endpoint refuses to mint outside the window,
    * `410 GYM_CLOSED` with `nextOpensAt` — the display renders `CLOSED —
-   * opens 5:00 AM` from it. This gate applies HERE only; it never touches
-   * `POST /front-desk/check-ins` or `MANUAL`, and it never lives inside
-   * `accessVerdict()`.
+   * opens 5:00 AM` from it. A day marked closed refuses all day. This gate
+   * applies HERE only; it never touches `POST /front-desk/check-ins` or
+   * `MANUAL`, and it never lives inside `accessVerdict()`.
    */
-  private assertMintWindow(now: Date): void {
-    const window = this.mintWindow(now);
-    if (now >= window.opensAt && now <= window.closesAt) return;
+  private async assertMintWindow(now: Date): Promise<GymHoursWindow> {
+    const hours = await this.hoursOn(now);
+    const window = gymHoursWindow(now, hours);
+    if (hours.isClosed !== true && now >= window.opensAt && now <= window.closesAt) {
+      return window;
+    }
 
-    throw new DomainException('GYM_CLOSED', 'The gym is closed.', HttpStatus.GONE, {
-      nextOpensAt: nextOpensAt(now, this.hours).toISOString(),
-    });
+    const next = await this.nextOpening(now, hours, window);
+    throw new DomainException(
+      'GYM_CLOSED',
+      'The gym is closed.',
+      HttpStatus.GONE,
+      next === null ? undefined : { nextOpensAt: next.toISOString() },
+    );
+  }
+
+  /**
+   * The next real opening — today's if the gym has not opened yet, otherwise
+   * the first later day not marked closed, at THAT day's own opening time.
+   * Unbuffered: the doors open at 05:00, not at the gate's 04:45. `null` only
+   * when all seven days are marked closed; the display then shows no time.
+   */
+  private async nextOpening(
+    now: Date,
+    today: GymHours,
+    window: GymHoursWindow,
+  ): Promise<Date | null> {
+    const timeZone = this.gymConfig.timeZone;
+    const civilToday = gymToday(now, timeZone);
+    if (today.isClosed !== true && now < window.opensAt) {
+      return zonedTimeToInstant(civilToday, today.openTime, timeZone);
+    }
+
+    for (let ahead = 1; ahead <= 7; ahead += 1) {
+      const day = addDays(civilToday, ahead);
+      // Midday is safely inside that civil day whatever the offset.
+      const hours = await this.hoursOn(zonedTimeToInstant(day, '12:00', timeZone));
+      if (hours.isClosed !== true) return zonedTimeToInstant(day, hours.openTime, timeZone);
+    }
+    return null;
   }
 
   private buildEtag(station: MinimalStation, leadingSlot: number): string {

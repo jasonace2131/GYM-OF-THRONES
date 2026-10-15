@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { GymConfigService } from '../config/gym.config';
 import type { Env } from '../config/env.validation';
+import { OpeningHoursService } from '../config/opening-hours.service';
 import { StationTokenService } from './station-token.service';
 import { StationTokensService } from './station-tokens.service';
 
@@ -57,7 +58,14 @@ function stationRow(
 describe('StationTokensService', () => {
   const NOON_MANILA = new Date('2026-08-18T04:00:00.000Z'); // 12:00 PM Manila
 
-  function build(configOverrides: Partial<Env> = {}) {
+  /**
+   * `hours` are Admin → Settings rows (`OpeningHours`). None by default, so
+   * every day falls back to GYM_OPEN_TIME / GYM_CLOSE_TIME.
+   */
+  function build(
+    configOverrides: Partial<Env> = {},
+    hours: { dayOfWeek: number; opensAt: string; closesAt: string; isClosed: boolean }[] = [],
+  ) {
     const config = fakeConfigService({ STATION_TOKEN_SECRET: 's'.repeat(32), ...configOverrides });
     const gymConfig = new GymConfigService(config);
     const prisma = {
@@ -66,12 +74,15 @@ describe('StationTokensService', () => {
         findMany: jest.fn(),
         update: jest.fn().mockResolvedValue(undefined),
       },
+      openingHours: { findMany: jest.fn().mockResolvedValue(hours) },
     };
+    const openingHours = new OpeningHoursService(prisma as never, gymConfig, {} as never);
     const service = new StationTokensService(
       prisma as never,
       config,
       gymConfig,
       new StationTokenService(),
+      openingHours,
     );
     return { service, prisma, gymConfig };
   }
@@ -124,6 +135,74 @@ describe('StationTokensService', () => {
           details: { nextOpensAt: '2026-08-18T21:00:00.000Z' }, // next day 05:00 Manila
         },
       });
+    });
+  });
+
+  // 2026-08-18 is a TUESDAY in Manila (dayOfWeek 2).
+  describe('hours edited in Admin → Settings win over the environment', () => {
+    const day = (dayOfWeek: number, opensAt: string, closesAt: string, isClosed = false) => ({
+      dayOfWeek,
+      opensAt,
+      closesAt,
+      isClosed,
+    });
+    const everyDay = (opensAt: string, closesAt: string) =>
+      Array.from({ length: 7 }, (_, d) => day(d, opensAt, closesAt));
+
+    it('keeps minting past the env close when Settings closes later', async () => {
+      const { service, prisma } = build({}, everyDay('05:00', '23:00'));
+      prisma.station.findMany.mockResolvedValue([stationRow()]);
+
+      // 22:30 Manila: past GYM_CLOSE_TIME 22:00 + 15m, inside Settings' 23:00.
+      const batch = await service.issueBatch({}, new Date('2026-08-18T14:30:00.000Z'));
+      expect(batch.tokens).toHaveLength(10);
+      expect(batch.openUntil).toBe('2026-08-18T15:15:00.000Z'); // 23:15 Manila
+    });
+
+    it('refuses before a later Settings opening, and names that opening', async () => {
+      const { service, prisma } = build({}, everyDay('07:00', '22:00'));
+      prisma.station.findMany.mockResolvedValue([stationRow()]);
+
+      // 06:00 Manila: inside the env window, an hour before Settings' 07:00.
+      await expect(
+        service.issueBatch({}, new Date('2026-08-17T22:00:00.000Z')),
+      ).rejects.toMatchObject({
+        response: { code: 'GYM_CLOSED', details: { nextOpensAt: '2026-08-17T23:00:00.000Z' } },
+      });
+    });
+
+    it('refuses all day on a day marked closed, pointing at the next open day', async () => {
+      const { service, prisma } = build({}, [day(2, '05:00', '22:00', true)]);
+      prisma.station.findMany.mockResolvedValue([stationRow()]);
+
+      await expect(service.issueBatch({}, NOON_MANILA)).rejects.toMatchObject({
+        response: { code: 'GYM_CLOSED', details: { nextOpensAt: '2026-08-18T21:00:00.000Z' } }, // Wed 05:00
+      });
+    });
+
+    it('skips a closed tomorrow and uses the next open day’s own opening time', async () => {
+      const { service, prisma } = build({}, [
+        day(3, '05:00', '22:00', true), // Wednesday closed
+        day(4, '06:00', '22:00'), // Thursday opens late
+      ]);
+      prisma.station.findMany.mockResolvedValue([stationRow()]);
+
+      // Tuesday 22:30 Manila, after closing.
+      await expect(
+        service.issueBatch({}, new Date('2026-08-18T14:30:00.000Z')),
+      ).rejects.toMatchObject({
+        response: { code: 'GYM_CLOSED', details: { nextOpensAt: '2026-08-19T22:00:00.000Z' } }, // Thu 06:00
+      });
+    });
+
+    it('names no opening when every day is marked closed', async () => {
+      const allClosed = Array.from({ length: 7 }, (_, d) => day(d, '05:00', '22:00', true));
+      const { service, prisma } = build({}, allClosed);
+      prisma.station.findMany.mockResolvedValue([stationRow()]);
+
+      const refusal = await service.issueBatch({}, NOON_MANILA).catch((caught: unknown) => caught);
+      expect(refusal).toMatchObject({ response: { code: 'GYM_CLOSED' } });
+      expect((refusal as { response: { details?: unknown } }).response.details).toBeUndefined();
     });
   });
 
