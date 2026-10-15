@@ -49,16 +49,16 @@ interface RoleAccount {
  * about day to day, even though the schema calls it DEV.
  */
 const ROLE_ACCOUNTS: RoleAccount[] = [
-  { role: 'CLIENT', email: 'ysa+client@test.com', firstName: 'Client', lastName: 'Test' },
+  { role: 'CLIENT', email: 'jason+client@test.com', firstName: 'Client', lastName: 'Test' },
   {
     role: 'FRONT_DESK',
-    email: 'ysa+frontdesk@test.com',
+    email: 'jason+frontdesk@test.com',
     firstName: 'Front Desk',
     lastName: 'Test',
   },
-  { role: 'COACH', email: 'ysa+coach@test.com', firstName: 'Coach', lastName: 'Test' },
-  { role: 'ADMIN', email: 'ysa+admin@test.com', firstName: 'Admin', lastName: 'Test' },
-  { role: 'DEV', email: 'ysa+superadmin@test.com', firstName: 'Super', lastName: 'Admin' },
+  { role: 'COACH', email: 'jason+coach@test.com', firstName: 'Coach', lastName: 'Test' },
+  { role: 'ADMIN', email: 'jason+admin@test.com', firstName: 'Admin', lastName: 'Test' },
+  { role: 'DEV', email: 'jason+superadmin@test.com', firstName: 'Super', lastName: 'Admin' },
 ];
 
 type AdminApi = ReturnType<typeof createClient>['auth']['admin'];
