@@ -1,0 +1,73 @@
+/// What a member agreed to, when, and which wording they saw.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// THIS TABLE EXISTS BECAUSE A CHECKBOX IS NOT A RECORD.
+///
+/// Registration collected `agreedToWaiver`, marked the input `required`, and
+/// labelled it "I agree to the gym rules and waiver" — then never sent it. It
+/// was absent from the Supabase `signUp` payload, there was no column to hold
+/// it, and the server's claim extractor whitelists five metadata fields that
+/// did not include it, so it would have been dropped at three separate layers
+/// even if the client had tried.
+///
+/// That is a worse position than having no waiver at all: the member believes
+/// they signed something, the UI asserts an agreement was made, and the gym
+/// cannot produce it. In a dispute the product's own screenshots become
+/// evidence of a promise it cannot evidence.
+///
+/// RA 10173 §3(b) requires consent to be "freely given, specific, informed"
+/// AND **evidenced by recorded means**. A row here is that evidence.
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// APPEND-ONLY BY CONVENTION, not by trigger. Re-accepting after a version
+/// bump writes a NEW row; nothing is ever updated. The history is the point —
+/// "which wording did this member agree to in March" must stay answerable,
+/// and an UPDATE would erase exactly that. `MembershipEvent` makes the same
+/// guarantee with a database trigger; this one is enforced by having no
+/// service method that updates, because a trigger here would make a member's
+/// erasure request (RA 10173 §16(e)) impossible to honour.
+model ConsentRecord {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  kind ConsentKind
+
+  /// The document version the member actually saw, e.g. "2026-09-01".
+  /// Stored rather than derived: the point of the record is what THEY read,
+  /// which stops being the current text the moment the document is edited.
+  version String
+
+  acceptedAt DateTime @db.Timestamptz(3)
+
+  /// Peppered SHA-256, never a raw address — the same control
+  /// `StationScan.originIpHash` uses, for the same reason. An IP is personal
+  /// data under the Act, and evidencing consent must not itself create a
+  /// privacy problem. Nullable because a staff-recorded paper acceptance has
+  /// no request behind it.
+  ipHash String? @db.Char(64)
+
+  /// Truncated at 400 chars by the service. Weak evidence on its own, but it
+  /// distinguishes "accepted on their phone at the counter" from "accepted by
+  /// a script", which is what a dispute actually turns on.
+  userAgent String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation("UserConsent", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One acceptance per user per kind per version. A double-submit or a
+  /// refresh is idempotent rather than a second row — re-acceptance is only
+  /// meaningful when the VERSION changed.
+  @@unique([userId, kind, version])
+  /// "What is this member's current standing on each document" — the query
+  /// the portal gate runs on every load.
+  @@index([userId, kind, acceptedAt(sort: Desc)])
+  /// "Who has not yet accepted 2026-09-01" — the re-prompt sweep.
+  @@index([kind, version])
+}
+
+enum ConsentKind {
+  WAIVER
+  TERMS
+  PRIVACY
+}

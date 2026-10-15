@@ -1,0 +1,42 @@
+// A physical check-in point: a screen that renders the rotating QR members
+// scan with their own phones. One row in v1 ("Front desk").
+//
+// The token MAC covers this row's `id` and `tokenEpoch`, never `code` and
+// never `gymCode` — `id` already determines both, and a second copy of a fact
+// is a second thing that can disagree with itself (§6.3).
+model Station {
+  id String @id @default(uuid()) @db.Uuid
+
+  // 4 chars Crockford base32, CSPRNG, printed under the screen and carried in
+  // the QR payload. GLOBALLY unique, so a second branch allocates from the
+  // same space and the payload never needs a gym segment.
+  code String @unique
+  name String
+
+  // Reporting only, and the seat the future `gymId` FK takes over. Deliberately
+  // NOT a Gym table (§5.0 already forecloses a second location via
+  // Membership.userId @unique) — the token FORMAT already carries a gym
+  // dimension, so a second branch is a data change, not a new QR or new labels.
+  gymCode String @default("GOT")
+
+  // Per-station key version, covered by the MAC. Bumping it invalidates every
+  // outstanding token for THIS station within one slot (the head check in
+  // §6.2.3 is what makes "within one slot" true rather than "within five
+  // minutes"), with no effect on any other station and no secret rotation.
+  // Verification never tries epoch − 1: immediacy is the whole point.
+  tokenEpoch Int @default(1)
+
+  isActive          Boolean   @default(true)
+  lastTokenIssuedAt DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  checkIns       CheckIn[]           @relation("CheckInStation")
+  closedCheckIns CheckIn[]           @relation("CheckInCloseStation")
+  denials        CheckInDenial[]
+  stationScans   StationScan[]
+  credentials    StationCredential[]
+
+  @@index([isActive])
+}

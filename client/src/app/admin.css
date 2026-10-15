@@ -1,0 +1,3079 @@
+/* Form primitives (.a-sheet, .a-toolbar, .a-input, .a-select, .a-person-sub,
+   .a-secret) now live in portal.css. They were here alone, and admin.css is
+   imported only by the admin layout — so the two portal screens that use them
+   rendered raw unstyled inputs. Admin is unaffected: its layout imports
+   portal.css first. */
+
+/* ══════════════════════════════════════════════════════════
+   Admin CRM.
+
+   Built ON TOP of portal.css rather than beside it: the admin shell carries
+   `class="portal-root admin-root"`, so every token, card, table, badge and
+   button below is the portal's. That is deliberate — the member portal and
+   the CRM are two halves of one product, and a second design system is two
+   places to change a colour and one place to forget.
+
+   Only what the CRM needs and the portal does not is defined here.
+   ══════════════════════════════════════════════════════════ */
+
+.admin-root {
+  /* A CRM row carries eight columns; the console keeps its own centred
+     1440px column (the portal's now starts at the sidebar and grows). */
+  --a-content-w: 1440px;
+}
+
+.admin-root .p-content {
+  max-width: var(--a-content-w);
+  margin: 0 auto;
+}
+
+.admin-root .p-brand-sub {
+  color: var(--gold);
+}
+
+
+
+/* ══════════════════════════════════════════════════════════
+   Dashboard — the command centre
+
+   ICONS DO NOT APPEAR IN THIS SECTION, and that is the point of the rewrite.
+   The previous dashboard carried ten tinted icon chips — six on the quick
+   actions, five on the KPI tiles — in green, blue, amber, purple, rose and
+   teal. Colour spent on decoration is colour unavailable for meaning: when
+   every tile is already coloured, the one that turns red because something is
+   wrong reads as another swatch.
+
+   So: icons live in the sidebar and inside buttons. Tiles are typography.
+   The semantic four — ok, warn, danger, info — appear only on a value that is
+   genuinely good, expiring, wrong, or informational.
+   ══════════════════════════════════════════════════════════ */
+
+.a-dash {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+
+/* ── Greeting + real actions ─────────────────────────────── */
+
+.a-hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.a-greeting {
+  font-family: var(--font-heading);
+  font-size: clamp(21px, 2.4vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--p-ink);
+  margin: 0;
+}
+
+.a-date {
+  font-size: 12.5px;
+  color: var(--p-ink3);
+  margin: 5px 0 0;
+}
+
+.a-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* A real action, not a nav link dressed as one. */
+.a-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--p-border-2);
+  background: var(--p-paper);
+  color: var(--p-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+}
+
+.a-btn svg {
+  opacity: 0.6;
+}
+
+.a-btn:hover {
+  border-color: var(--gold);
+  background: var(--gold-film);
+}
+
+.a-btn:active {
+  transform: translateY(1px);
+}
+
+.a-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+
+/* ── KPI row ─────────────────────────────────────────────── */
+
+.a-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.a-kpi {
+  position: relative;
+  padding: 15px 16px;
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius);
+  background: var(--p-paper);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04);
+}
+
+.a-kpi-value {
+  font-family: var(--font-heading);
+  font-size: clamp(26px, 3vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--p-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.a-kpi-label {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+.a-kpi-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--p-ink3);
+}
+
+/* The one place a KPI tile carries colour, and it is carrying meaning:
+   the direction of the week-on-week move. Tabular figures so the number does
+   not jitter as it re-polls. */
+.a-kpi-delta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.a-kpi-delta[data-tone='ok']     { color: var(--p-ok); }
+.a-kpi-delta[data-tone='danger'] { color: var(--p-danger); }
+
+/* The only ornament on a tile, and it earns its place: it says the number
+   above it is being refreshed rather than frozen at page load. */
+.a-kpi-live {
+  position: absolute;
+  top: 14px;
+  right: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--p-ok);
+}
+
+.a-kpi-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: a-pulse 2.4s ease-in-out infinite;
+}
+
+
+/* ── Needs you — the work queue ──────────────────────────── */
+
+.a-attention {
+  padding: 14px 16px;
+  border: 1px solid var(--p-border);
+  border-left: 3px solid var(--p-warn);
+  border-radius: var(--p-radius);
+  background: var(--p-paper);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04);
+}
+
+/* Nothing to do is a calm state, not an alarm-coloured one. */
+.a-attention:has(.a-attention-clear) {
+  border-left-color: var(--p-border-2);
+}
+
+.a-attention-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+
+.a-attention-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--p-ink);
+  margin: 0;
+}
+
+.a-attention-count {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--p-warn-bg);
+  color: var(--p-warn);
+}
+
+.a-attention-clear {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--p-ink3);
+}
+
+.a-attention-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.a-attention-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper2);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.a-attention-item:hover {
+  border-color: var(--p-border-2);
+  background: var(--p-paper);
+}
+
+.a-attention-pip {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 2px;
+  flex: none;
+}
+
+.a-attention-pip[data-tone='danger'] { background: var(--p-danger); }
+.a-attention-pip[data-tone='warn']   { background: var(--p-warn); }
+.a-attention-pip[data-tone='info']   { background: var(--p-info); }
+
+.a-attention-item-title {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--p-ink);
+}
+
+.a-attention-item-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--p-ink3);
+}
+
+.a-attention-go {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--gold-dark, var(--gold));
+  flex: none;
+}
+
+
+/* ── Two-column body ─────────────────────────────────────── */
+
+.a-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 306px;
+  gap: 14px;
+  align-items: start;
+}
+
+.a-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.a-card {
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius);
+  background: var(--p-paper);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.04);
+  overflow: hidden;
+}
+
+.a-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px 0;
+}
+
+.a-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--p-ink);
+  margin: 0;
+}
+
+.a-card-sub {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--p-ink3);
+}
+
+.a-card-head > :last-child:not(:first-child) {
+  margin-left: auto;
+  flex: none;
+}
+
+.a-card-foot {
+  padding: 10px 16px 14px;
+  text-align: right;
+}
+
+.a-link-btn {
+  margin-top: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 11px;
+  color: var(--gold-dark, var(--gold));
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+
+/* ── Attendance chart ────────────────────────────────────── */
+
+.a-chart {
+  padding: 12px 16px 16px;
+}
+
+.a-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 6px;
+}
+
+.a-chart-svg:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.a-chart-grid {
+  stroke: rgba(26, 26, 26, 0.07);
+  stroke-width: 1;
+}
+
+.a-chart-line {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.a-chart-cross {
+  stroke: var(--p-border-2);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.a-chart-dot {
+  fill: var(--p-paper);
+  stroke: var(--gold);
+  stroke-width: 2.4;
+}
+
+.a-chart-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--p-ink3);
+}
+
+/* First and last hug the plot edges so a tick never sits outside the line
+   it labels. */
+.a-chart-axis span:first-child { text-align: left; }
+.a-chart-axis span:last-child  { text-align: right; }
+
+/* The readout is why the chart is readable rather than merely shaped. */
+.a-chart-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--p-border);
+  font-size: 11.5px;
+  color: var(--p-ink2);
+  min-height: 34px;
+}
+
+.a-chart-hint {
+  color: var(--p-ink3);
+}
+
+.a-chart-figure {
+  font-weight: 700;
+  color: var(--p-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.a-chart-split {
+  color: var(--p-ink3);
+}
+
+
+/* ── Renewals calendar ───────────────────────────────────── */
+
+.a-cal {
+  padding: 14px 16px 16px;
+}
+
+.a-cal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.a-cal-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
+}
+
+.a-cal-arrow {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.a-cal-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.a-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-top: 11px;
+}
+
+.a-cal-dow {
+  text-align: center;
+  padding: 4px 0;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+.a-cal-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink2);
+}
+
+.a-cal-day:disabled {
+  cursor: default;
+}
+
+.a-cal-day[data-mute] {
+  color: #c8c5c0;
+}
+
+.a-cal-day[data-has] {
+  background: var(--p-paper2);
+  font-weight: 700;
+  color: var(--p-ink);
+  cursor: pointer;
+}
+
+.a-cal-day[data-has]:hover {
+  background: var(--p-paper3);
+}
+
+.a-cal-day[data-today] {
+  background: linear-gradient(135deg, var(--gold-lit), var(--gold));
+  color: #241a05;
+  font-weight: 800;
+}
+
+.a-cal-day[data-selected] {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.a-cal-day:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -1px;
+}
+
+.a-cal-day i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  display: block;
+}
+
+.a-cal-day i[data-tone='warn']   { background: var(--p-warn); }
+.a-cal-day i[data-tone='danger'] { background: var(--p-danger); }
+
+.a-cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--p-border);
+  font-size: 10px;
+  color: var(--p-ink3);
+}
+
+.a-cal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.a-cal-legend i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: block;
+}
+
+.a-cal-legend i[data-tone='warn']   { background: var(--p-warn); }
+.a-cal-legend i[data-tone='danger'] { background: var(--p-danger); }
+
+.a-cal-hint {
+  margin-left: auto;
+}
+
+/* Said out loud rather than silently drawing an incomplete month. */
+.a-cal-truncated {
+  margin: 10px 0 0;
+  font-size: 10.5px;
+  color: var(--p-warn);
+}
+
+
+/* ── Payment list ────────────────────────────────────────── */
+
+.a-pay-list {
+  list-style: none;
+  margin: 9px 0 0;
+  padding: 0;
+}
+
+.a-pay-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.a-pay-row:last-child {
+  border-bottom: 0;
+}
+
+.a-pay-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--p-ink);
+}
+
+.a-pay-meta {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--p-ink3);
+}
+
+.a-pay-amount {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink);
+}
+
+
+/* ── Shift pill (topbar, every admin page) ───────────────── */
+
+.a-shift {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.a-shift i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.a-shift[data-state='open'] {
+  background: var(--p-ok-bg);
+  color: var(--p-ok);
+}
+
+.a-shift[data-state='closed'] {
+  background: var(--p-paper3);
+  color: var(--p-ink3);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   Modal shell + form fields
+   ══════════════════════════════════════════════════════════ */
+
+.a-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(20, 19, 17, 0.42);
+  backdrop-filter: blur(2px);
+  animation: a-fade 0.14s ease both;
+}
+
+.a-modal {
+  /* A dialog can be rendered from inside a table cell (a row's own
+     confirmation). Its text must not inherit the cell's alignment or
+     nowrap, or the consequence becomes one right-aligned line. */
+  text-align: left;
+  white-space: normal;
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: var(--p-paper);
+  border: 1px solid var(--p-border-2);
+  border-radius: 14px;
+  box-shadow: var(--p-shadow-lift);
+  animation: a-rise 0.18s ease both;
+}
+
+.a-modal:focus {
+  outline: none;
+}
+
+.a-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.a-modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--p-ink);
+}
+
+.a-modal-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--p-ink3);
+}
+
+.a-modal-x {
+  margin-left: auto;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  cursor: pointer;
+}
+
+.a-modal-x:hover:not(:disabled) {
+  background: var(--p-paper2);
+}
+
+.a-modal-x:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.a-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.a-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--p-border);
+}
+
+/* ConfirmDialog's one sentence — the consequence is the point of the dialog,
+   so it reads at body size rather than as a grey subtitle. */
+.a-confirm-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--p-ink2);
+}
+
+/* Supporting facts under the consequence: an amount, the days that moved. */
+.a-confirm-facts {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper2);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--p-ink2);
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.a-confirm-facts strong {
+  color: var(--p-ink);
+}
+
+.a-modal-err {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(140, 26, 20, 0.25);
+  background: var(--p-danger-bg);
+  color: var(--p-danger);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.a-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.a-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--p-ink2);
+}
+
+.a-field-opt {
+  font-weight: 400;
+  color: var(--p-ink3);
+}
+
+.a-field-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--p-ink3);
+}
+
+.a-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+.a-or::before,
+.a-or::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--p-border);
+}
+
+.a-money {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.a-money > span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--p-ink3);
+}
+
+.a-money .a-input {
+  flex: 1;
+}
+
+.a-seg {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--p-paper2);
+  border: 1px solid var(--p-border);
+  align-self: flex-start;
+}
+
+.a-seg-btn {
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--p-ink3);
+  cursor: pointer;
+}
+
+.a-seg-btn[data-on] {
+  background: var(--p-paper);
+  color: var(--p-ink);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.08);
+}
+
+/* Report tabs — Attendance · Memberships · Walk-ins · Revenue. One panel at a
+   time over one shared date range, so they read as views of a single report
+   rather than as separate screens. `font-family` is stated for the reason
+   given above `.a-seg button`. */
+.a-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--p-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.a-tab {
+  flex: none;
+  margin-bottom: -1px;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--p-ink3);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.a-tab:hover {
+  color: var(--p-ink);
+}
+
+.a-tab[aria-selected='true'] {
+  color: var(--p-ink);
+  border-bottom-color: var(--gold);
+}
+
+.a-tab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+  border-radius: 6px 6px 0 0;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   Drawer — the member detail panel
+
+   `.a-drawer-backdrop` reuses `.a-modal-backdrop` (fixed, blurred, z-60) and
+   only overrides where the panel sits: stretched to the right edge instead of
+   centred, no padding around it. `.a-drawer` is `Modal.tsx`'s a11y wired up
+   to a fixed ~460px slab instead of a centred card, sliding in on
+   `translateX` rather than rising. Below 620px it collapses to the same
+   bottom-sheet the modal uses, for the same reason: a panel pinned to an edge
+   under a soft keyboard is a panel with its footer hidden.
+   ══════════════════════════════════════════════════════════ */
+
+.a-drawer-backdrop {
+  place-items: stretch end;
+  padding: 0;
+}
+
+.a-drawer {
+  width: 460px;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--p-paper);
+  border-left: 1px solid var(--p-border-2);
+  box-shadow: var(--p-shadow-lift);
+  animation: a-drawer-in 0.18s ease both;
+  overflow: hidden;
+}
+
+.a-drawer:focus {
+  outline: none;
+}
+
+.a-drawer-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 18px 14px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.a-drawer-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.a-drawer-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.a-drawer-code {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink3);
+}
+
+.a-drawer-head-actions {
+  margin-left: auto;
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.a-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.a-drawer-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.a-drawer-section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+.a-drawer-section-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.a-drawer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--p-border);
+  font-size: 12.5px;
+}
+
+.a-drawer-row:last-child {
+  border-bottom: 0;
+}
+
+.a-drawer-row-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.a-drawer-row-title {
+  font-weight: 600;
+  color: var(--p-ink);
+}
+
+.a-drawer-row-sub {
+  margin-top: 1px;
+  font-size: 11px;
+  color: var(--p-ink3);
+}
+
+.a-drawer-row-amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink);
+  white-space: nowrap;
+}
+
+.a-drawer-row-actions {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.a-drawer-empty {
+  padding: 10px 0;
+  font-size: 12px;
+  color: var(--p-ink3);
+}
+
+/* Ends on `none`, not `translateX(0)`: with `animation-fill-mode: both` the
+   last frame is kept forever, and any transform left on the panel makes it
+   the containing block for `position: fixed` — a confirmation opened from
+   inside the drawer would then be pinned to the drawer, not the screen. */
+@keyframes a-drawer-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+@media (max-width: 620px) {
+  .a-drawer-backdrop {
+    place-items: end stretch;
+  }
+
+  .a-drawer {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: 92vh;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+    animation: a-sheet 0.2s ease both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a-drawer {
+    animation: none;
+  }
+}
+
+
+/* ── ⋯ menu ───────────────────────────────────────────────── */
+
+.a-kebab {
+  position: relative;
+  flex: none;
+}
+
+.a-kebab-btn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.a-kebab-btn:hover {
+  background: var(--p-paper2);
+}
+
+.a-kebab-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 15;
+  min-width: 176px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--p-border-2);
+  border-radius: 10px;
+  background: var(--p-paper);
+  box-shadow: var(--p-shadow-lift);
+}
+
+.a-kebab-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  font-size: 12.5px;
+  color: var(--p-ink);
+  cursor: pointer;
+}
+
+.a-kebab-item:hover {
+  background: var(--p-paper2);
+}
+
+.a-kebab-item[data-danger] {
+  color: var(--p-danger);
+}
+
+
+/* ── Row-as-button (opens the drawer) ──────────────────────
+   Migrated to `.p-table[data-clickable]` in portal.css — the same opt-in
+   shape as `[data-stack]`, so it lives with the rest of the table rules
+   rather than as a CRM-only class with an identical portal-owned twin. */
+
+
+/* ── Danger-toned button (Delete, Void) ──────────────────── */
+
+.p-btn-danger {
+  border-color: rgba(140, 26, 20, 0.3);
+  color: var(--p-danger);
+}
+
+.p-btn-danger:hover:not(:disabled) {
+  background: var(--p-danger-bg);
+}
+
+
+/* ── Member picker ───────────────────────────────────────── */
+
+.a-picker {
+  position: relative;
+}
+
+.a-picker-list {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 232px;
+  overflow-y: auto;
+  border: 1px solid var(--p-border-2);
+  border-radius: 10px;
+  background: var(--p-paper);
+  box-shadow: var(--p-shadow-lift);
+}
+
+.a-picker-note {
+  padding: 10px 12px;
+  font-size: 11.5px;
+  color: var(--p-ink3);
+}
+
+.a-picker-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  cursor: pointer;
+}
+
+.a-picker-row[data-active='true'] {
+  background: var(--gold-film);
+}
+
+.a-picked {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 9px;
+  background: var(--p-paper2);
+}
+
+.a-picked-x {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold-dark, var(--gold));
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+
+/* ── Check-in verdict ────────────────────────────────────── */
+
+/* TONE MAPS TO COLOUR AND NOTHING ELSE BRANCHES — never on denial.reason.
+   GOODBYE is deliberately not green: a check-out must not read as an
+   admission. */
+.a-verdict {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--p-border);
+}
+
+.a-verdict[data-tone='ok']     { background: var(--p-ok-bg);     border-color: rgba(26, 102, 55, 0.22); }
+.a-verdict[data-tone='warn']   { background: var(--p-warn-bg);   border-color: rgba(138, 96, 24, 0.22); }
+.a-verdict[data-tone='danger'] { background: var(--p-danger-bg); border-color: rgba(140, 26, 20, 0.22); }
+.a-verdict[data-tone='info']   { background: var(--p-info-bg);   border-color: rgba(26, 58, 140, 0.22); }
+
+.a-verdict-head {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.a-verdict[data-tone='ok']     .a-verdict-head { color: var(--p-ok); }
+.a-verdict[data-tone='warn']   .a-verdict-head { color: var(--p-warn); }
+.a-verdict[data-tone='danger'] .a-verdict-head { color: var(--p-danger); }
+.a-verdict[data-tone='info']   .a-verdict-head { color: var(--p-info); }
+
+.a-verdict-msg {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--p-ink);
+}
+
+/* Body size, NEVER larger — the queue behind the member reads this too. */
+.a-verdict-sub,
+.a-verdict-detail {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--p-ink2);
+}
+
+.a-verdict-next {
+  margin: 11px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--p-border);
+  font-size: 12px;
+  color: var(--p-ink2);
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   Existing CRM components — kept intact
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Toolbar: filters and actions above a table ────────── */
+
+.a-toolbar .a-grow {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* ── Bulk selection bar (C6) — rendered outside `DataState` ─ */
+
+.a-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--p-border-2);
+  background: var(--p-paper2);
+}
+
+.a-bulk-bar-count {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.a-bulk-bar-warn {
+  font-size: 12px;
+  color: var(--p-danger);
+}
+
+.a-bulk-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* ── Tables ────────────────────────────────────────────── */
+
+.a-checkbox-col {
+  width: 34px;
+  padding-right: 0 !important;
+}
+
+.a-checkbox-col input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+/* A CRM table is wide by nature. It scrolls INSIDE its own container rather
+   than pushing the page sideways — a horizontally scrolling page loses the
+   sidebar and the topbar, which is how a staffer ends up lost.
+
+   `max-height` is what makes the sticky header below mean anything: a plain
+   `overflow-x: auto` with no vertical bound never actually scrolls on the Y
+   axis (nothing to scroll — the box just grows to fit its rows), so a sticky
+   `top: 0` inside it is a no-op. Bounded here, the common case (a paginated
+   15–20 row page) still renders in full without an inner scrollbar; the
+   genuinely long lists — the 50-row live check-in feed, an unpaginated plan
+   or credential list that grows past this — scroll internally instead of
+   stretching the page, with the header staying put while they do.
+
+   ⚠ THE PAIR OF `overflow` VALUES BELOW CLIPS DESCENDANTS. Any absolutely
+   positioned popover rendered INSIDE a `.a-scroll` — a row kebab menu, a
+   filter dropdown, a tooltip — is cut off at this box's edge no matter how
+   high its `z-index` is, because a scroll container establishes a clipping
+   context and z-index cannot escape one. The existing `.a-kebab-menu` is safe
+   only because it lives in a drawer header, outside any `.a-scroll`. A future
+   per-row menu inside a table must portal to the body (or the table must drop
+   this class) rather than reach for a bigger z-index. */
+.a-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+  max-height: 70vh;
+}
+
+.a-scroll .p-table {
+  min-width: 760px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   The member roster — the one table that absorbed a whole screen.
+
+   Seven data columns plus a checkbox is more than the CRM's other tables
+   carry, so it sheds two of them as the viewport narrows and stacks the
+   days-left bar under the standing badge rather than spending a ninth
+   column on it (~118px of `.a-days` min-width plus the cell gap, saying
+   the same thing the badge already says at higher resolution).
+
+   WATCH THE SPECIFICITY. `.a-scroll .p-table` above is (0,2,0); a bare
+   `.a-roster-table` is (0,1,0) and would silently lose to its 760px
+   min-width. Every override below is written as
+   `.a-scroll .p-table.a-roster-table` — (0,3,0) — on purpose.
+   ══════════════════════════════════════════════════════════ */
+
+.a-scroll .p-table.a-roster-table {
+  min-width: 940px;
+}
+
+/* Badge over a thin bar: "Expiring" / "▓▓▓░ 4d". `min-width` keeps the two
+   from reflowing into each other on a short label. */
+.a-standing-cell {
+  display: grid;
+  gap: 5px;
+  justify-items: start;
+  min-width: 118px;
+}
+
+.a-standing-cell .a-days {
+  width: 100%;
+}
+
+/* Chip row left, sort toggle pushed right. Wraps rather than scrolls — a
+   filter you cannot see is a filter nobody uses. */
+.a-roster-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.a-roster-filters .a-chips {
+  flex: 1 1 auto;
+}
+
+/* Visits and Joined. Both are reference figures rather than working ones,
+   and both are in the member drawer. */
+@media (max-width: 1180px) {
+  .a-roster-table .a-col-lg {
+    display: none;
+  }
+
+  .a-scroll .p-table.a-roster-table {
+    min-width: 760px;
+  }
+}
+
+/* Contact and Plan, leaving Member · Standing(+days) · Ends. `min-width: 0`
+   is the point of this breakpoint: no horizontal drag on a phone at all. */
+@media (max-width: 760px) {
+  .a-roster-table .a-col-md {
+    display: none;
+  }
+
+  .a-scroll .p-table.a-roster-table {
+    min-width: 0;
+  }
+}
+
+/* A table row that IS the control — `role="button"` + tabIndex on the <tr>.
+   The focus ring is not decoration: without it a keyboard user tabbing down
+   the register has no idea which row Enter would open. `outline-offset` is
+   negative because a row's outline is clipped by `.a-scroll` otherwise. */
+.a-row-click {
+  cursor: pointer;
+}
+
+.a-row-click:hover {
+  background: var(--p-paper2, rgba(0, 0, 0, 0.025));
+}
+
+.a-row-click:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+/* z-index 2: above table rows, well below `.a-kebab-menu` (15) and the
+   modal/drawer backdrop (60) — a drawer opening over a scrolled table must
+   still cover its stuck header, not sit behind it. */
+.a-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--p-paper);
+}
+
+.a-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.a-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--p-paper3);
+  color: var(--p-ink2);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 12px;
+  object-fit: cover;
+}
+
+/* BLOCK, and it is load-bearing rather than cosmetic. `Person` renders the
+   name and the sub-line as sibling spans, and inline spans only LOOK stacked
+   while the cell around them is narrow enough to wrap. In a wide container
+   they run together and a member with no code renders as "Client Test—".
+   Stacking is what every caller means. */
+.a-person-name {
+  display: block;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A name in a table that opens a record.
+   A <button>, never an <a>: it opens a drawer in place rather than navigating,
+   so a link would promise a destination and an href that does not exist. It is
+   styled to read as tappable without the blue-underline weight of a real link,
+   because a register full of underlined names is a register nobody can scan. */
+.a-linkish {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--p-ink);
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px dotted var(--p-border-2);
+}
+
+.a-linkish:hover:not(:disabled) {
+  color: var(--gold-dark);
+  border-bottom-color: currentColor;
+}
+
+.a-linkish:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.a-linkish:disabled {
+  cursor: progress;
+  color: var(--p-ink3);
+}
+
+/* ── Days-left bar ─────────────────────────────────────── */
+
+.a-days {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+}
+
+.a-days-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--p-paper3);
+  overflow: hidden;
+}
+
+.a-days-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--p-ok);
+}
+
+.a-days-fill[data-tone='warn'] {
+  background: var(--p-warn);
+}
+
+.a-days-fill[data-tone='danger'] {
+  background: var(--p-danger);
+}
+
+/* ── Pagination ────────────────────────────────────────── */
+
+.a-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  font-size: 13px;
+  color: var(--p-ink3);
+}
+
+.a-pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── Live feed ─────────────────────────────────────────── */
+
+.a-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--p-ink3);
+}
+
+.a-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--p-ok);
+  animation: a-pulse 2.2s ease-in-out infinite;
+}
+
+.a-live-dot[data-live='false'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--p-ink3);
+  animation: none;
+}
+
+/* The denial rail. Amber-led rather than red-led even here: the desk console
+   SHOULD be louder than the member's phone, but a wall of red on a screen
+   that shows two to five real denials a day trains staff to ignore it. */
+.a-denial {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--p-border-2);
+  border-left: 4px solid var(--p-warn);
+  background: var(--p-warn-bg);
+}
+
+.a-denial[data-resolved='true'] {
+  border-left-color: var(--p-border-2);
+  background: var(--p-paper);
+  opacity: 0.72;
+}
+
+.a-denial-say {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--p-ink);
+}
+
+.a-arrival {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.a-arrival:last-child {
+  border-bottom: 0;
+}
+
+/* ── Reveal-once secret ────────────────────────────────── */
+
+/* ── Desk console: the manual check-in sheet ───────────── */
+
+.a-result {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 12px;
+  border-left: 4px solid var(--p-ok);
+  background: var(--p-ok-bg);
+}
+
+.a-result[data-tone='GRACE'] {
+  border-left-color: var(--p-warn);
+  background: var(--p-warn-bg);
+}
+
+/* The desk SHOULD shout — it is the authority and staff needs the volume.
+   This is the deliberate opposite of the member's own phone, which never
+   goes red because a member is standing in public. */
+.a-result[data-tone='SEE_DESK'] {
+  border-left-color: var(--p-danger);
+  background: var(--p-danger-bg);
+}
+
+.a-result[data-tone='GOODBYE'] {
+  border-left-color: var(--p-ink3);
+  background: var(--p-paper2);
+}
+
+.a-result-head {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.a-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--p-ink);
+}
+
+.a-hit:hover {
+  border-color: var(--p-border-2);
+  background: var(--p-paper2);
+}
+
+.a-hit:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+
+
+
+/* ══════════════════════════════════════════════════════════
+   Animations
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes a-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes a-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes a-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   Responsive
+
+   The rail drops below the main column before the tables start to crush,
+   and the KPI row halves rather than shrinking its numbers to illegibility.
+   Wide content scrolls inside its own card (.a-scroll); the page body must
+   never scroll sideways.
+   ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 1100px) {
+  .a-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .a-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .a-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .a-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .a-attention-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .a-actions .a-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* A centred card on a phone is a card with its footer under the keyboard.
+     Below this width the dialog becomes a bottom sheet. */
+  .a-modal-backdrop {
+    padding: 0;
+    place-items: end stretch;
+  }
+
+  .a-modal {
+    max-width: none;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    animation: a-sheet 0.2s ease both;
+  }
+}
+
+@keyframes a-sheet {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .a-modal-backdrop,
+  .a-modal,
+  .a-kpi-live i {
+    animation: none;
+  }
+}
+
+/* ── Console topbar, narrow ────────────────────────────── */
+/*
+  Two rules, CRM only, both about fitting the surface switch on a phone.
+
+  `.a-shift` has `white-space: nowrap` and had no responsive rule at all, so
+  "OPEN · ₱4,320" simply pushed the bar wider than the viewport — and because
+  `body { overflow-x: hidden }` the excess was CLIPPED rather than scrollable,
+  so the avatar and the switch went somewhere unreachable rather than
+  somewhere scrollable. Collapsing it to its status dot keeps the signal (a
+  shift is open) and drops the part staff can read on the Payments screen.
+
+  `.p-page-title` is the flex item that should absorb the pressure instead.
+  It needs `min-width: 0` because a flex child's default `min-width: auto`
+  refuses to shrink below its content — the single most common reason an
+  ellipsis "does not work".
+*/
+@media (max-width: 900px) {
+  .admin-root .a-shift {
+    gap: 0;
+    padding: 5px;
+  }
+
+  .admin-root .a-shift span {
+    display: none;
+  }
+
+  .admin-root .p-page-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ── The walk-in checkout ─────────────────────────────────────────────────
+   A POS charge surface, not a settings form. The rules it encodes:
+   hierarchy = the money (total + charge live in a persistent footer, the
+   largest things on screen); Fitts = the two per-sale choices (method,
+   discount) are large one-tap targets, never dropdowns; Gestalt = two
+   labelled zones, WHO on the left and PAYMENT on the right, collapsing to
+   one column under 680px; consent is a bordered box because signing a
+   waiver is a legal act, not another field. */
+
+.a-modal--wide {
+  max-width: 760px;
+}
+
+.a-co-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 680px) {
+  .a-co-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.a-co-section {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.a-co-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+/* Segmented control — payment method. Two equal targets, one tap. */
+.a-seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+}
+
+/* `font-family` is stated, not inherited, on these two button groups.
+   They are the only <button>s in the whole console with no className of their
+   own, so nothing else sets it — and a <button> with no font rule paints in
+   the USER AGENT's font, which here meant Arial sitting beside `.a-input`'s
+   `var(--font-body)` in the same sheet. Nobody noticed because it is inside a
+   drawer. Stating it also decouples them from `tailwind.css`'s @layer base
+   reset, which the admin console started loading for the reports range
+   picker: with this line their rendering is identical either way. */
+.a-seg button {
+  padding: 12px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--p-border-2);
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.a-seg button[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, var(--p-paper));
+  color: var(--p-ink);
+}
+
+/* Discount chips. */
+.a-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.a-chips button {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--p-border-2);
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  /* See the note above .a-seg button. */
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.a-chips button[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, var(--p-paper));
+  color: var(--p-ink);
+}
+
+/* The consent box — visually a contract, not a field. */
+.a-co-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 10px;
+  background: var(--p-paper2);
+  cursor: pointer;
+}
+
+/* The charge bar: total left, one big irreversible-feeling button right.
+   Sits inside the sheet so every mount (modal, attendance card) gets it. */
+.a-co-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-top: 1px solid var(--p-border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.a-co-total {
+  display: grid;
+  line-height: 1.15;
+}
+
+.a-co-total strong {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.a-co-foot .p-btn {
+  margin-left: auto;
+  padding: 12px 22px;
+  font-size: 15px;
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   Rich-text announcement composer (components/admin/announcements).
+
+   Tiptap is headless, so all of this is ours — built from the portal's
+   tokens, no Tailwind (the folder is deliberately not Tailwind-scanned).
+   The editing surface mirrors how RichContent renders the notice, so what
+   the admin types looks like what members will read.
+   ══════════════════════════════════════════════════════════ */
+
+.a-rich {
+  display: grid;
+  margin-top: 4px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 9px;
+  background: var(--p-paper);
+  overflow: hidden;
+}
+
+.a-rich:focus-within {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-rich[data-disabled] {
+  opacity: 0.7;
+}
+
+.a-rich-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border-bottom: 1px solid var(--p-border);
+  background: var(--p-paper2);
+}
+
+.a-rich-tool {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--p-ink2);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.a-rich-tool:hover {
+  background: var(--p-paper);
+  color: var(--p-ink);
+}
+
+.a-rich-tool:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+/* Pressed = the selection already has it. Gold film, not a fill: the toolbar
+   must still read as controls, not as a row of status lights. */
+.a-rich-tool[aria-pressed='true'] {
+  background: var(--gold-film);
+  border-color: var(--gold);
+  color: var(--gold-deep);
+}
+
+.a-rich-tool[aria-disabled='true'] {
+  color: var(--p-ink3);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.a-rich-status {
+  margin-left: auto;
+  padding: 0 8px;
+  font-size: 12.5px;
+  color: var(--p-ink3);
+}
+
+.a-rich-panel {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--p-border);
+  background: var(--p-paper2);
+}
+
+.a-rich-panel-field {
+  display: grid;
+  gap: 4px;
+}
+
+.a-rich-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.a-rich-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--p-danger);
+}
+
+.a-rich-notice {
+  margin: 0;
+  font-size: 13px;
+  color: var(--p-danger);
+}
+
+.a-rich-notice:empty {
+  display: none;
+}
+
+.a-rich-surface .a-rich-prose {
+  min-height: 180px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--p-ink);
+  outline: none;
+  overflow-wrap: anywhere;
+}
+
+.a-rich-prose > * + * {
+  margin-top: 10px;
+}
+
+.a-rich-prose p {
+  margin: 0;
+}
+
+.a-rich-prose h2,
+.a-rich-prose h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.a-rich-prose h2 {
+  font-size: 17px;
+}
+
+.a-rich-prose h3 {
+  font-size: 15px;
+}
+
+.a-rich-prose ul,
+.a-rich-prose ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.a-rich-prose ul {
+  list-style: disc;
+}
+
+.a-rich-prose ol {
+  list-style: decimal;
+}
+
+.a-rich-prose blockquote {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--gold);
+  font-style: italic;
+}
+
+.a-rich-prose hr {
+  border: 0;
+  border-top: 1px solid var(--p-border-2);
+}
+
+.a-rich-prose a {
+  color: var(--gold-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.a-rich-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--p-border);
+}
+
+/* A selected image is what the description field below the toolbar edits. */
+.a-rich-prose img.ProseMirror-selectednode {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.a-rich-preview {
+  border: 1px dashed var(--p-border-2);
+  border-radius: 9px;
+  background: var(--p-paper2);
+}
+
+.a-rich-preview > summary {
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.a-rich-preview-body {
+  padding: 4px 14px 14px;
+}
+
+.a-rich-cover {
+  display: grid;
+  gap: 8px;
+}
+
+/* ── Notifications (owner, 2026-10-08: "it floods the screen") ──
+   Two panels, each a header, a list of hairline-separated rows and a footer
+   that holds the pager. Every row is the same height whatever it says: the
+   title and body are one line each and clip, so ten rows read as a list
+   rather than as a wall. */
+
+.a-notify {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (min-width: 1180px) {
+  .a-notify {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  }
+}
+
+.a-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.a-panel-head {
+  display: grid;
+  gap: 6px;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.a-panel-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 34px;
+}
+
+.a-panel-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--p-ink2);
+}
+
+.a-panel-count {
+  font-size: 12.5px;
+  color: var(--p-ink3);
+  font-variant-numeric: tabular-nums;
+}
+
+.a-panel-lede {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--p-ink3);
+}
+
+.a-notify-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper2);
+}
+
+.a-notify-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 10px 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--p-ink3);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.a-notify-tab:hover {
+  color: var(--p-ink);
+}
+
+.a-notify-tab[aria-selected='true'] {
+  background: var(--p-paper);
+  color: var(--p-ink);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.08);
+}
+
+.a-notify-tab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-notify-tab-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(26, 26, 26, 0.06);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.a-notify-tab[aria-selected='true'] .a-notify-tab-n {
+  background: color-mix(in srgb, var(--gold) 20%, transparent);
+  color: var(--gold-deep);
+}
+
+/* Search, in a panel header under the description. Native clear button
+   hidden: the × below is the same on every browser. */
+.a-panel-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.a-panel-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--p-ink3);
+  pointer-events: none;
+}
+
+.a-panel-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 36px;
+  padding: 0 36px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 9px;
+  background: var(--p-paper);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--p-ink);
+}
+
+.a-panel-search-input::placeholder {
+  color: var(--p-ink3);
+}
+
+.a-panel-search-input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.a-panel-search-input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-panel-search-clear {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--p-ink3);
+  cursor: pointer;
+}
+
+.a-panel-search-clear:hover {
+  color: var(--p-ink);
+  background: var(--p-paper2);
+}
+
+.a-panel-search-clear:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+@media (max-width: 900px) {
+  /* iOS zooms the page into any focused field under 16px. */
+  .a-panel-search-input {
+    font-size: 16px;
+  }
+}
+
+/* A page loading over the last one fades it rather than blanking it. */
+.a-notify-list[aria-busy='true'] {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.a-icon-btn {
+  width: 34px;
+  padding-inline: 0;
+}
+
+.a-alert-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.a-notify-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.a-notify-list > li {
+  border-bottom: 1px solid var(--p-border);
+}
+
+.a-notify-list > li:last-child {
+  border-bottom: 0;
+}
+
+.a-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 20px;
+}
+
+.a-alert-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.a-alert-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+/* `.a-person-sub` is an inline span, so its ellipsis never applies; as a
+   block it clips instead of running under the badge. */
+.a-alert-row .a-person-sub {
+  display: block;
+}
+
+.a-notice {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+  padding: 14px 20px;
+  transition: background-color 0.15s ease;
+}
+
+.a-notice:hover {
+  background: color-mix(in srgb, var(--p-paper2) 70%, transparent);
+}
+
+.a-notice-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 7px;
+  border-radius: 50%;
+}
+
+.a-notice[data-unread] .a-notice-dot {
+  background: var(--gold);
+}
+
+.a-notice-main {
+  min-width: 0;
+}
+
+.a-notice-title {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--p-ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.a-notice[data-unread] .a-notice-title {
+  font-weight: 700;
+}
+
+.a-notice-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--p-ink3);
+}
+
+.a-notice-meta .p-badge {
+  padding: 2px 8px;
+  font-size: 9.5px;
+}
+
+.a-notice-body {
+  margin: 5px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--p-ink2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.a-notice-actions {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+}
+
+.a-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-top: 1px solid var(--p-border);
+  background: var(--p-paper2);
+}
+
+.a-panel-foot .a-pager {
+  margin-left: auto;
+  padding-top: 0;
+  gap: 16px;
+}
+
+.a-inset-state {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 28px 20px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--p-ink3);
+}
+
+.a-inset-state strong {
+  font-size: 14.5px;
+  color: var(--p-ink);
+}
+
+/* A phone: the actions move under the text instead of squeezing it. */
+@media (max-width: 640px) {
+  .a-panel-head,
+  .a-panel-foot {
+    padding-inline: 16px;
+  }
+
+  .a-notice,
+  .a-alert-row {
+    padding-inline: 16px;
+  }
+
+  .a-alert-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+
+  /* Under the name, lined up with it (32px avatar + 10px gap). */
+  .a-alert-actions {
+    width: 100%;
+    padding-left: 42px;
+    justify-content: space-between;
+  }
+
+  .a-notice {
+    grid-template-columns: 8px minmax(0, 1fr);
+  }
+
+  .a-notice-actions {
+    grid-column: 2;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .a-notify-tabs {
+    width: 100%;
+  }
+
+  .a-notify-tab {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* ── Filter bar (payments) ──────────────────────────────────
+   Owner, 2026-10-08: "align these boxes". Two rows behind one fixed-width
+   label column, so Period's controls and Show's controls start on the same
+   line; every control is exactly 40px tall. Its own classes rather than
+   `.a-seg`, which this sheet defines twice with different sizes. */
+
+.a-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius);
+  background: var(--p-paper);
+  box-shadow: var(--p-shadow);
+}
+
+.a-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 12px 16px;
+}
+
+.a-filters-row + .a-filters-row {
+  border-top: 1px solid var(--p-border);
+}
+
+.a-filters-label {
+  flex: 0 0 52px;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+.a-filters-controls {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.a-filters-reset {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.a-range {
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: 2px;
+  height: 40px;
+  padding: 3px;
+  border: 1px solid var(--p-border);
+  border-radius: 9px;
+  background: var(--p-paper2);
+}
+
+.a-range-btn {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--p-ink3);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.a-range-btn:hover {
+  color: var(--p-ink);
+}
+
+.a-range-btn[aria-checked='true'] {
+  background: var(--p-paper);
+  color: var(--p-ink);
+  box-shadow: 0 1px 2px rgba(26, 26, 26, 0.08);
+}
+
+.a-range-btn:focus-visible,
+.a-filters-select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-daterange {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 9px;
+  background: var(--p-paper);
+}
+
+.a-daterange:focus-within {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-daterange-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: text;
+}
+
+.a-daterange-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+.a-daterange-input {
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink);
+}
+
+.a-daterange-input:focus {
+  outline: none;
+}
+
+.a-daterange-sep {
+  padding: 0 6px;
+  color: var(--p-ink3);
+}
+
+.a-filters-select {
+  box-sizing: border-box;
+  height: 40px;
+  min-width: 150px;
+  padding: 0 12px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 9px;
+  background-color: var(--p-paper);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--p-ink);
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .a-filters-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .a-filters-label {
+    flex: none;
+  }
+
+  .a-filters-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .a-range {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Sized to their labels, so "This month" gets the room it needs. */
+  .a-range-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 4px;
+    font-size: 12.5px;
+  }
+
+  /* From and To become two boxes side by side: one box cannot hold both
+     dates at the 16px a phone needs to stop iOS zooming the page. */
+  .a-daterange {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .a-daterange:focus-within {
+    outline: none;
+  }
+
+  .a-daterange-sep {
+    display: none;
+  }
+
+  .a-daterange-part {
+    box-sizing: border-box;
+    min-width: 0;
+    gap: 6px;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--p-border-2);
+    border-radius: 9px;
+    background: var(--p-paper);
+  }
+
+  .a-daterange-part:focus-within {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  .a-daterange-input {
+    flex: 1;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* A phone opens its date picker on a tap anywhere in the field, so the
+     desktop calendar icon only costs the date its last two digits here. */
+  .a-daterange-input::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
+  .a-filters-selects {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .a-filters-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .a-filters-reset {
+    margin-left: 0;
+  }
+}
+
+/* ── Discount entry and price summary (owner, 2026-10-08) ────
+   The operator types a percentage or a peso amount; the summary below shows
+   the total, which nobody types. Controls are 40px like the filter bar. */
+
+.a-disc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.a-disc-mode .a-range-btn {
+  width: 40px;
+  padding: 0;
+  font-size: 14px;
+}
+
+.a-disc-box {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 124px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 9px;
+  background: var(--p-paper);
+}
+
+.a-disc-box:focus-within {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-disc-box[data-invalid] {
+  border-color: var(--p-danger);
+}
+
+.a-disc-input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--p-ink);
+}
+
+.a-disc-input:focus {
+  outline: none;
+}
+
+.a-disc-affix {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--p-ink3);
+}
+
+.a-disc-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.a-disc-chip {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--p-border-2);
+  border-radius: 999px;
+  background: var(--p-paper);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink2);
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.a-disc-chip:hover {
+  border-color: var(--gold);
+}
+
+.a-disc-chip[aria-pressed='true'] {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, var(--p-paper));
+  color: var(--p-ink);
+}
+
+.a-disc-chip:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-field-hint[data-tone='danger'] {
+  color: var(--p-danger);
+}
+
+.a-summary {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--p-border);
+  border-radius: 12px;
+  background: var(--p-paper2);
+}
+
+.a-summary-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--p-ink2);
+}
+
+.a-summary-row[data-tone='muted'] {
+  color: var(--p-ink3);
+}
+
+.a-summary-row[data-tone='discount'] .a-summary-amt {
+  color: var(--p-ok);
+}
+
+.a-summary-amt {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.a-summary-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--p-border-2);
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--p-ink2);
+}
+
+.a-summary-total strong {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--p-ink);
+}
+
+.a-summary-was {
+  font-size: 12px;
+  text-align: right;
+  color: var(--p-ink3);
+}
+
+/* ── Classes: the inline schedule / edit form (2026-10-11) ────
+   It scrolls itself into view when it opens (`block: 'nearest'`). The top
+   margin clears the sticky topbar. On a phone the bottom one clears the
+   fixed tab bar (.p-tabbar, about 60px, plus the iPhone home-indicator
+   inset), which otherwise sat over "Save changes". The `0px` fallback is a
+   length on purpose: a bare `0` inside calc() voids the whole declaration. */
+.a-class-form {
+  scroll-margin-top: 80px;
+  scroll-margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .a-class-form {
+    scroll-margin-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}

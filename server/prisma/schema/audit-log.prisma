@@ -1,0 +1,81 @@
+// Who did what, on the actions that can take money away from somebody, let
+// somebody through a door they should not have gone through, or change what an
+// account is allowed to do.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// `audit.read` HAS BEEN A SEEDED PERMISSION WITH NO TABLE BEHIND IT SINCE THE
+// RBAC WORK SHIPPED. This is that table. The specs carried an "AuditLog is
+// absent" caveat for the whole of that time; it retires here.
+//
+// FORWARD-ONLY (owner decision). Nothing is back-filled. A row exists exactly
+// when the action ran after this shipped, and a gap before that date means
+// "not recorded", never "did not happen" — which is why the screen says so
+// rather than presenting an empty list as an innocent history.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// APPEND-ONLY BY CONSTRUCTION, not by convention. There is no `updatedAt`, no
+// update path in the service, and no delete route. The one thing that makes
+// that real rather than aspirational is `onDelete: Restrict` on the actor: a
+// staff account named by an audit row cannot be removed out from under it.
+// Members are soft-deleted anyway, so this costs nothing in normal operation.
+//
+// WHAT THIS IS NOT: the notification board. Audit answers "who did this, and
+// why" for accountability. Notifications answer "what needs somebody's
+// attention now". A payment void belongs here; an enquiry nobody has rung back
+// belongs there. Writing either fact to both would be two places to keep in
+// step, and the second one would rot.
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+
+  action AuditAction
+
+  actorId String @db.Uuid
+  /// The actor's role AT THE TIME, snapshotted.
+  ///
+  /// Not read through the relation on purpose: a later promotion or demotion
+  /// must not rewrite what somebody was when they did it, which is the single
+  /// most common way an audit trail quietly starts lying.
+  actorRole Role
+
+  /// What was acted on. A string rather than a foreign key per source: this
+  /// table names rows in five different tables, and a nullable FK column for
+  /// each would be five columns of which four are always NULL.
+  subjectType String
+  subjectId   String? @db.Uuid
+
+  /// How the subject read at the time — a member's name, a plan's code.
+  ///
+  /// Denormalised deliberately. A row that has since been deleted, renamed or
+  /// soft-deleted must still produce a legible line, and an audit entry that
+  /// renders as "voided payment 6f2a…" is one nobody can act on.
+  subjectLabel String?
+
+  /// Why. Present exactly when the action's own DTO demanded a reason —
+  /// voiding a payment, overriding a denial, suspending a member — and NULL
+  /// for the ones that do not, rather than filled with a placeholder.
+  reason String?
+
+  /// The specific change, as a small object: `{ "before": …, "after": … }`.
+  /// Never the whole row. An audit log that stores full records is a second
+  /// copy of the database with none of its constraints.
+  details Json?
+
+  /// Hashed request origin, never a raw address — the same rule `CheckIn` and
+  /// `Lead` already follow, with the same pepper.
+  originIpHash String? @db.Char(64)
+
+  occurredAt DateTime @default(now()) @db.Timestamptz(3)
+
+  // Restrict, and it is the whole append-only story: an actor named here can
+  // never be deleted out from under their own entry.
+  actor User @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  // The screen's default: newest first.
+  @@index([occurredAt(sort: Desc)])
+  // "What has this operator been doing?"
+  @@index([actorId, occurredAt(sort: Desc)])
+  // "Show me every void."
+  @@index([action, occurredAt(sort: Desc)])
+  // "Everything that ever happened to this member."
+  @@index([subjectType, subjectId])
+}

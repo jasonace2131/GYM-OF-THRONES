@@ -1,0 +1,37 @@
+// A member's current workout plan, written by their assigned coach
+// (feat/coach-tools).
+//
+// ONE PER MEMBER (`memberId` is unique): the plan on the member's dashboard is
+// "the plan", not a history of drafts. Each save replaces the body, and the
+// audit log (WORKOUT_PLAN_SAVED) is the history of who saved it and when.
+//
+// `body` is JSON of a fixed shape — `{ summary, days: [{ day, focus,
+// exercises: [{ name, sets, reps, notes? }] }] }` — validated by
+// `parseWorkoutPlan` in @got/shared on the model's reply AND on every save.
+// `WorkoutPlan_body_shape` is the floor under that: an object with a days array.
+//
+// A suggestion from the AI is a DRAFT the coach edits; it is never saved here
+// until the coach presses Save.
+model WorkoutPlan {
+  id       String @id @default(uuid()) @db.Uuid
+  memberId String @unique @db.Uuid
+  /// The coach whose plan it is — the member's coach when it was saved.
+  coachId  String @db.Uuid
+
+  body Json
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  updatedById String   @db.Uuid
+
+  member    User @relation("WorkoutPlanMember", fields: [memberId], references: [id], onDelete: Restrict)
+  coach     User @relation("WorkoutPlanCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  updatedBy User @relation("WorkoutPlanUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  // ── Workout sessions ──
+  // Workouts the member started from this plan. SET NULL on their side:
+  // deleting the plan keeps the history, which carries its own snapshot.
+  workoutSessions WorkoutSession[] @relation("WorkoutSessionCoachPlan")
+
+  @@index([coachId])
+}

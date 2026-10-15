@@ -1,0 +1,13 @@
+// Default permission grants per role. DEV holds no rows here — it bypasses
+// the catalogue entirely in PermissionsService, per §6 of the RBAC design.
+model RolePermission {
+  id           String          @id @default(uuid()) @db.Uuid
+  role         Role
+  permissionId String          @db.Uuid
+  scope        PermissionScope @default(OWN)
+
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@index([role])
+}

@@ -1,0 +1,18 @@
+// Replay protection for staff-typed writes. A member's own station scan is
+// covered by StationScan's (userId, stationId, slot) claim in chunk 2; this
+// covers everything a human types twice.
+//
+// `endpoint` is part of the identity check, not decoration: the key is the
+// primary key, so without it one key reused on a different route would replay
+// the wrong receipt.
+model IdempotencyRecord {
+  key            String   @id
+  userId         String   @db.Uuid
+  endpoint       String
+  requestHash    String   @db.Char(64)
+  responseStatus Int
+  responseBody   Json
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+}

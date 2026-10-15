@@ -1,0 +1,189 @@
+// Which of the two things a VOIDED payment actually was. VOID: recorded in
+// error, no money moved. REFUND: money was returned to the member, and the
+// gym records the cash-out in its own books — this column exists only to
+// tell the two apart on the drawer and in reports; it never adds a second
+// amount or a negative one (see Payment's own comment below).
+enum PaymentVoidKind {
+  VOID
+  REFUND
+}
+
+// A record that money changed hands, entered by staff after the fact. This
+// system never processes a payment, never holds a card, and STILL never
+// accepts an upload — including a GCash "proof" screenshot. GCash's own
+// advisory is that a reference absent from your account is worthless even
+// under a perfect-looking screenshot (AI fakes render one in seconds), and
+// RA 10173 proportionality forbids collecting a wallet capture (payer name,
+// balance, unrelated rows, EXIF) when the reference alone reconciles. What
+// replaced the screenshot: the normalized reference + the all-time partial
+// unique index on it (a reused receipt is, definitionally, a duplicate
+// reference) + a NAMED staff attestation that the payment was seen in the
+// gym's own GCash Transactions tab. GCASH means "staff typed the reference
+// from the member's screen".
+//
+// Rows are immutable in practice: a mistake is VOIDED, with who and why.
+// The gcashVerified pair below is written at INSERT only, never after.
+// There is no partial refund and there are no negative amounts — a refund is
+// a void plus a cash-out the gym records in its own books.
+model Payment {
+  id           String  @id @default(uuid()) @db.Uuid
+  // NULL for an off-the-street walk-in guest with no account.
+  userId       String? @db.Uuid
+  // NOT NULL exactly when purpose IN (MEMBERSHIP, FREEZE_FEE).
+  membershipId String? @db.Uuid
+  planId       String  @db.Uuid
+
+  purpose PaymentPurpose
+  status  PaymentStatus  @default(RECORDED)
+
+  // Snapshot of the plan as sold. A renamed or repriced plan cannot rewrite a
+  // receipt already handed to a member.
+  planCode String
+  planName String
+
+  // ── Money (§5.7.2). All Int centavos, all non-negative. ──
+  // List price × what was sold. Always > 0.
+  grossCentavos    Int
+  // The base the discount applies to. Equals grossCentavos unless vatExempt,
+  // in which case it is gross net of the 12% VAT.
+  vatBaseCentavos  Int
+  discountType     DiscountType @default(NONE)
+  discountCentavos Int          @default(0)
+  // vatBaseCentavos - discountCentavos. This is what was collected.
+  netCentavos      Int
+  vatExempt        Boolean      @default(false)
+  // Required when discountType IN (SENIOR, PWD). BIR keeps this record
+  // separately, so it is a column and not a note.
+  statutoryIdNo    String?
+  // Free text for the discretionary types. Required when discountType IN
+  // (PROMO, STAFF, GOODWILL).
+  discountReason   String?
+
+  // ── The term this payment bought. NOT NULL exactly when purpose =
+  //    MEMBERSHIP. This pair is what makes per-term reporting a single query
+  //    against a one-row-per-member Membership table. ──
+  termMonths   Int?
+  termStartsOn DateTime? @db.Date
+  termEndsOn   DateTime? @db.Date
+
+  method        PaymentMethod
+  // The GCash reference the member showed. Required when method = GCASH — a
+  // GCash payment with no reference cannot be reconciled and is worthless.
+  reference     String?
+  // `reference` exactly as staff typed it stays above, for audit. This is
+  // that value with every non-alphanumeric stripped and the rest uppercased,
+  // and it is the ONLY thing compared: GCash renders one reference both as
+  // 6028871884223 and 6028 871 884223, so without this the same payment
+  // stores as two distinct strings and duplicate detection silently never
+  // fires. Unique among live GCASH rows (Payment_gcash_reference_unique,
+  // hand-written partial index).
+  referenceNormalized String?
+  // Staff opened the gym's own GCash Transactions tab and saw this payment.
+  // Per GCash's own advisory a reference that is not in your account is
+  // worth nothing even with a perfect-looking screenshot, so this — not an
+  // image — is what turns a claim into a verification. NOT NULL together,
+  // and only ever on a GCASH row (Payment_gcash_verified_shape).
+  gcashVerifiedAt   DateTime? @db.Timestamptz(3)
+  gcashVerifiedById String?   @db.Uuid
+  // The number staff physically wrote in the BIR-registered booklet. Free
+  // text, deliberately NOT a Postgres sequence: the reconciliation problem is
+  // tying a booklet number to a system row, not generating one (§5.7.6).
+  receiptNo     String?
+  receiptIssued Boolean       @default(false)
+
+  /// The GCash send-confirmation screenshot, as an object path in the private
+  /// proof bucket. Never a URL: reads go through a short-lived signed link
+  /// minted server-side, so a path in a log is not an image on the internet.
+  ///
+  /// THE ONE PLACE TO LOOK, whichever way the payment arrived. A counter sale
+  /// attaches it directly and optionally; an approved remote claim copies its
+  /// own path here at approval. A screen asking "is there proof for this
+  /// payment" reads one column either way.
+  ///
+  /// Only ever set on a GCASH row (Payment_proof_gcash_only).
+  proofPath     String?
+
+  // When money changed hands, and the gym-local day it counts toward. Both
+  // separate from createdAt because staff can backdate an entry they forgot
+  // to make yesterday, and the daily till report keys on businessDate.
+  receivedAt   DateTime @db.Timestamptz(3)
+  businessDate DateTime @db.Date
+
+  // The cash-drawer session this belongs to. NOT NULL: an unattributed
+  // payment cannot be reconciled, which is the entire point of the model.
+  shiftId      String  @db.Uuid
+  recordedById String  @db.Uuid
+  notes        String?
+
+  // ── Idempotency (§5.7.4) ──
+  idempotencyKey  String @unique
+  // SHA-256 of the canonical request body. A replay with a DIFFERENT body is
+  // a 409, not a silent stale 200.
+  idempotencyHash String @db.Char(64)
+
+  /// The payment this one corrects. An amend VOIDS the original and writes
+  /// this row in its place, in the same transaction, on the same business day
+  /// and in the same shift — because an amendment moves no money.
+  ///
+  /// ONE column, not a replacesPaymentId/replacedByPaymentId pair: the back
+  /// reference is derivable and a stored pair can disagree. @unique makes the
+  /// chain a linked LIST rather than a tree — an original is superseded at
+  /// most once, which is what makes "the live row" unambiguous.
+  replacesPaymentId String? @unique @db.Uuid
+
+  /// ARCHIVE = SOFT DELETE, mirroring User.deletedAt exactly.
+  ///
+  /// It hides a row from the register and NOTHING ELSE. No report, no shift
+  /// closure and no BIR register reads these columns, in the same way none of
+  /// them reads User.deletedAt — a soft-deleted member's past payments still
+  /// count toward revenue. Archiving changes what is SHOWN, never what is
+  /// COUNTED, and that is the whole reason the column is safe to have.
+  ///
+  /// The pair is all-or-nothing (Payment_archive_shape, hand-written SQL).
+  archivedAt   DateTime? @db.Timestamptz(3)
+  archivedById String?   @db.Uuid
+
+  voidedAt   DateTime?        @db.Timestamptz(3)
+  voidedById String?          @db.Uuid
+  voidReason String?
+  // NOT NULL exactly when voidedAt is (Payment_void_kind_shape, hand-written
+  // migration SQL). Distinguishes a plain mistake from a refund without ever
+  // introducing a second amount — see PaymentVoidKind above.
+  voidKind   PaymentVoidKind?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user       User?       @relation("PaymentMember", fields: [userId], references: [id], onDelete: Restrict)
+  membership Membership? @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  plan       Plan        @relation(fields: [planId], references: [id], onDelete: Restrict)
+  shift      Shift       @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  recordedBy User        @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  voidedBy   User?       @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  archivedBy User?       @relation("PaymentArchivedBy", fields: [archivedById], references: [id], onDelete: Restrict)
+  gcashVerifiedBy User?  @relation("PaymentGcashVerifiedBy", fields: [gcashVerifiedById], references: [id], onDelete: Restrict)
+
+  // Restrict, like every other Payment reference: the original a correction
+  // names can never be deleted out from under it.
+  replaces   Payment? @relation("PaymentAmendment", fields: [replacesPaymentId], references: [id], onDelete: Restrict)
+  replacedBy Payment? @relation("PaymentAmendment")
+
+  /// The member's remote claim this payment was created from, when it was.
+  /// Absent for an ordinary counter sale, which is most of them.
+  gcashSubmission GcashSubmission?
+
+  events  MembershipEvent[]
+  // Chunk 2: the one WALK_IN CheckIn this payment funded, if any (1:1 via
+  // CheckIn.paymentId @unique).
+  checkIn CheckIn?
+
+  // Payment history on the member's billing screen.
+  @@index([userId, receivedAt(sort: Desc)])
+  // Daily till report and the shift close.
+  @@index([shiftId, status])
+  @@index([businessDate, status])
+  // "Which plan was this member on in March", revenue per term.
+  @@index([membershipId, termStartsOn])
+  // The statutory-discount register BIR asks for.
+  @@index([discountType, businessDate])
+}

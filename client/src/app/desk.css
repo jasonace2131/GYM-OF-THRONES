@@ -1,0 +1,284 @@
+/* ══════════════════════════════════════════════════════════
+   The desk surfaces — the station display and the staff console.
+
+   Namespaced under .desk-root so globals.css and portal.css are both
+   untouched. Gold tokens are inherited from globals.css unchanged, which
+   is what keeps the three surfaces reading as one product.
+   ══════════════════════════════════════════════════════════ */
+
+.desk-root {
+  --d-ground: #0b0b0d;
+  --d-panel: #121216;
+  --d-panel-2: #1a1a20;
+  --d-line: rgba(255, 255, 255, 0.09);
+  --d-line-2: rgba(255, 255, 255, 0.16);
+  --d-text: #f4f2ee;
+  --d-text-2: #a9a6a0;
+  --d-text-3: #6e6b66;
+
+  /* AMBER, NEVER RED, and never green. The station display is a public
+     surface rendering exactly two states — working and not working — and a
+     red panel at eye level in a lobby reads as "you did something wrong"
+     to the member standing in front of it. */
+  --d-grace: #d9a13b;
+  --d-grace-film: rgba(217, 161, 59, 0.12);
+
+  /* Console-only. The station display never uses these. */
+  --d-ok: #3fae6d;
+  --d-deny: #d8483c;
+  --d-deny-film: rgba(216, 72, 60, 0.12);
+
+  min-height: 100dvh;
+  background: var(--d-ground);
+  color: var(--d-text);
+  font-family: var(--font-body);
+}
+
+body:has(.desk-root) {
+  background: var(--d-ground);
+}
+
+/* ── Station display ───────────────────────────────────── */
+
+.st-screen {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: clamp(12px, 2.4vh, 28px);
+  padding: clamp(16px, 3vh, 34px) clamp(14px, 3vw, 30px);
+  text-align: center;
+  /* A mounted tablet is a display, not a document. */
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+.st-brand {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: clamp(16px, 2.6vh, 22px);
+  letter-spacing: 0.06em;
+  color: var(--gold);
+}
+
+.st-brand-sub {
+  margin-top: 4px;
+  font-size: clamp(9px, 1.4vh, 11px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--d-text-3);
+}
+
+.st-stage {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: clamp(14px, 3vh, 32px);
+  min-height: 0;
+}
+
+/* THE WHITE CARD. #000 on #FFF, in every state, with no exceptions.
+   Gold-on-dark is how a designer breaks a scanner — and on iOS, which
+   exposes no torch API at all, this white field is the only light source
+   the member's camera gets. It is load-bearing, not decorative. */
+.st-card {
+  background: #fff;
+  border-radius: 8px;
+  /* ≥ 15mm of white beyond the 4-module quiet zone, so a loosely framed
+     shot still fills the sensor with white and the exposure lands. */
+  padding: clamp(10px, 2.2vh, 18px);
+  line-height: 0;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.st-card svg {
+  display: block;
+  /* A half-device-pixel module edge is the single most common cause of a
+     screen QR that "sometimes" reads. */
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+}
+
+/* 180 ms crossfade on the slot boundary, NEVER a blank frame — a blank
+   frame while a phone is aimed at the panel is a failed scan and a re-aim. */
+.st-swap {
+  animation: st-fade 180ms ease-out;
+}
+
+@keyframes st-fade {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.st-headline {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(30px, 6.4vh, 56px);
+  letter-spacing: 0.01em;
+  line-height: 1.04;
+}
+
+.st-sub {
+  margin-top: clamp(6px, 1.4vh, 12px);
+  font-size: clamp(15px, 2.8vh, 26px);
+  font-weight: 500;
+  color: var(--d-text-2);
+  max-width: 24ch;
+  margin-inline: auto;
+  line-height: 1.32;
+}
+
+.st-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: clamp(8px, 1.6vh, 14px);
+  border-top: 1px solid var(--d-line);
+  text-align: left;
+}
+
+.st-clock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(15px, 2.6vh, 24px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* Members trust a clock. The dot answers "is this thing alive" with zero
+   invented time pressure, and it sits far from the symbol — movement
+   within 40mm of a QR makes phone autofocus hunt. */
+.st-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  animation: st-pulse 2.4s ease-in-out infinite;
+  flex: none;
+}
+
+/* Hollow means "the batch is still good but we are offline" — a
+   staff-legible tell with no member-facing alarm, because there is no
+   member-facing effect. */
+.st-dot[data-offline='true'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--d-text-3);
+  animation: none;
+}
+
+@keyframes st-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.st-aside {
+  text-align: right;
+  font-size: clamp(11px, 1.9vh, 18px);
+  color: var(--d-text-2);
+  line-height: 1.45;
+}
+
+/* Deliberately small and dull. This line is for the staff member who walks
+   around the counter, and it must not read as part of the member's message. */
+.st-diag {
+  font-size: clamp(9px, 1.3vh, 12px);
+  color: var(--d-text-3);
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 45° stripes, not hazard bars: nothing is wrong with the MEMBER. */
+.st-stripe {
+  height: 24px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(45deg, var(--d-grace) 0 10px, transparent 10px 20px);
+  opacity: 0.85;
+}
+
+.st-glyph {
+  font-size: clamp(48px, 11vh, 96px);
+  line-height: 1;
+  color: var(--d-grace);
+}
+
+.st-arrow {
+  font-size: clamp(28px, 6vh, 52px);
+  color: var(--d-grace);
+  line-height: 1;
+}
+
+/* Outside hours the panel drops to near-black: burn-in on a cheap panel is
+   a real cost when a thing runs 365 days a year, and a hot tablet in a
+   closed gym is a real risk. */
+.st-screen[data-state='CLOSED'] {
+  background: #050506;
+  color: var(--d-text-3);
+}
+
+.st-screen[data-state='CLOSED'] .st-brand {
+  color: var(--d-text-3);
+}
+
+.st-setup {
+  width: min(520px, 100%);
+  margin-inline: auto;
+  text-align: left;
+  background: var(--d-panel);
+  border: 1px solid var(--d-line);
+  border-radius: 14px;
+  padding: 22px;
+}
+
+.st-input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--d-line-2);
+  background: var(--d-ground);
+  color: var(--d-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+}
+
+.st-input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.st-action {
+  margin-top: 14px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--gold);
+  background: var(--gold-film);
+  color: var(--gold-lit);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.st-action:hover {
+  background: rgba(201, 146, 42, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-dot,
+  .st-swap {
+    animation: none;
+  }
+}

@@ -1,0 +1,74 @@
+/// A promo code: "SUMMER20", "₱500 off in January".
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// THIS IS NOT A SECOND DISCOUNT SYSTEM.
+///
+/// A redeemed promotion writes an ordinary `Payment` with
+/// `discountType = PROMO` and a `discountReason` naming the code. It flows
+/// through `computeAmounts`, `Payment_money_consistent`,
+/// `Payment_discount_shape` and every existing report unchanged.
+///
+/// The alternative — a parallel money path that knows about promos — would
+/// mean two places that compute a net, and the day they disagree is the day
+/// the drawer stops reconciling. The `DiscountType.PROMO` member already
+/// existed for exactly this; nothing had ever set it.
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// A PROMOTION CAN NEVER STACK WITH A STATUTORY DISCOUNT. `discountType` is a
+/// single column, so the schema makes it impossible rather than merely
+/// discouraged: a senior gets their RA 9994 entitlement, which is worth more
+/// than any promo the gym would run and is a legal right rather than an offer.
+model Promotion {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Uppercase, what the member says at the counter. Unique so two staff
+  /// cannot create colliding codes and silently apply the wrong one.
+  code String @unique
+
+  /// Shown on the admin screen and in the discount reason. Not the code.
+  label String
+
+  kind PromotionKind
+
+  /// PERCENTAGE: basis points (2000 = 20%), so a fractional percent needs no
+  /// float and rounding stays in one place. FIXED: centavos off, like every
+  /// other money column in this schema.
+  value Int
+
+  /// Civil dates, inclusive. A promo that has not started and one that has
+  /// ended are both simply not redeemable; neither is deleted, because
+  /// "what was SUMMER20 worth" stays answerable.
+  startsOn DateTime @db.Date
+  endsOn   DateTime @db.Date
+
+  /// NULL means unlimited. Otherwise `redeemedCount` may not exceed it, and
+  /// the check is a conditional UPDATE rather than read-then-write so two
+  /// simultaneous redemptions of the last one cannot both succeed.
+  maxRedemptions Int?
+  redeemedCount  Int  @default(0)
+
+  /// Which plans it applies to, by CODE — the same immutable identifier
+  /// Payment and Membership snapshot. Empty means every TERM plan.
+  ///
+  /// WALK_IN is excluded by the service, not by this column: a discount on a
+  /// ₱90 day pass is worth less than the reconciliation noise it creates in
+  /// the drawer, and the owner's decision was members-only.
+  planCodes String[] @default([])
+
+  /// Archived rather than deleted, like a Plan.
+  isActive Boolean @default(true)
+
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  createdBy User @relation("PromotionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  /// "Which promos are live today" — the only query the counter runs.
+  @@index([isActive, startsOn, endsOn])
+}
+
+enum PromotionKind {
+  PERCENTAGE
+  FIXED
+}

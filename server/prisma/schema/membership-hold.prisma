@@ -1,0 +1,50 @@
+// A freeze. endsOn is REQUIRED at creation — an open-ended hold is how a gym
+// ends up with a member frozen for fourteen months and nobody noticing.
+//
+// The extension is applied when the hold STARTS, not when it is booked, and
+// is clawed back on early release or cancellation. daysRequested and
+// daysApplied together always reconstruct the exact arithmetic (§5.6.2).
+model MembershipHold {
+  id           String @id @default(uuid()) @db.Uuid
+  membershipId String @db.Uuid
+
+  status HoldStatus @default(SCHEDULED)
+
+  // Inclusive window, gym-local business dates. 7..90 days.
+  startsOn DateTime @db.Date
+  endsOn   DateTime @db.Date
+
+  // endsOn - startsOn + 1. Stored rather than derived so an audit does not
+  // depend on anyone reimplementing date subtraction correctly.
+  daysRequested Int
+  // Days actually added to Membership.endsOn. 0 until the hold starts; equals
+  // daysRequested while running; reduced by an early release; returned to 0
+  // by a cancellation. Never exceeds daysRequested (CHECK).
+  daysApplied   Int @default(0)
+
+  // Nullable-unique sentinel (R3): equals membershipId while the hold is
+  // ACTIVE, NULL otherwise. Gives "at most one running freeze per membership"
+  // as a real unique index Prisma owns and will never drop — which is what
+  // guarantees the extension arithmetic never has two writers.
+  activeMembershipId String? @unique @db.Uuid
+
+  reason       String
+  // Waived (no Payment row) when the reason is medical.
+  feeWaived    Boolean @default(false)
+  approvedById String  @db.Uuid
+
+  releasedAt   DateTime? @db.Timestamptz(3)
+  releasedById String?   @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  approvedBy User       @relation("HoldApprovedBy", fields: [approvedById], references: [id], onDelete: Restrict)
+  releasedBy User?      @relation("HoldReleasedBy", fields: [releasedById], references: [id], onDelete: Restrict)
+
+  @@index([membershipId, startsOn(sort: Desc)])
+  // The nightly job's predicates: SCHEDULED to activate, ACTIVE to complete.
+  @@index([status, startsOn])
+  @@index([status, endsOn])
+}

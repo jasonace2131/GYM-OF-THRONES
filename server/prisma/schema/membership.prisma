@@ -1,0 +1,79 @@
+// A member's subscription. Exactly one row per member for the life of the
+// account: renewals mutate this row rather than inserting a second one.
+//
+// Snapshot columns (planCode..graceDays) freeze the CURRENT term's commercial
+// terms. Nothing reads Plan.priceCentavos after purchase, so an admin editing
+// the price list cannot rewrite what anyone agreed to. Per-term history lives
+// on Payment (money, plan, term dates) and MembershipEvent (state changes).
+model Membership {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @unique @db.Uuid
+  planId String @db.Uuid
+
+  status MembershipStatus @default(ACTIVE)
+
+  // ── Snapshot of the plan as sold, for the CURRENT term ──
+  planCode           String
+  planName           String
+  planPriceCentavos  Int
+  termMonths         Int
+  // Days this term still admits after endsOn. Frozen at purchase from
+  // Plan.graceDays, so changing the price list or the env default never
+  // retroactively extends or shortens anyone already in grace.
+  graceDays          Int
+  guestPassesPerTerm Int    @default(0)
+
+  // ── Business dates, gym-local (R2) ──
+  startsOn         DateTime @db.Date
+  // INCLUSIVE last day of access.
+  endsOn           DateTime @db.Date
+  // Day-of-month of the member's ORIGINAL join, 1..31. Never rewritten by
+  // month-end clamping — this column is the only thing preventing anniversary
+  // drift for anyone who joined on the 29th-31st.
+  billingAnchorDay Int
+  // Display only ("Member since Aug 2026"). Never used in arithmetic.
+  joinedOn         DateTime @db.Date
+
+  // Notice given, term honoured to the end. NULL means no notice. The nightly
+  // job flips ACTIVE -> CANCELLED once endsOn passes. Withdrawing notice is
+  // setting this back to NULL.
+  cancelRequestedOn DateTime? @db.Date
+  cancelledOn       DateTime? @db.Date
+
+  // ── Per-term counters, all reset on RENEWED / REACTIVATED ──
+  // Bounded so grace cannot be cycled indefinitely (§5.4.3).
+  graceAdmissionsThisTerm Int @default(0)
+  // One freeze per term (§5.6).
+  freezesUsedThisTerm     Int @default(0)
+  guestPassesRemaining    Int @default(0)
+
+  // Instant the current term was sold. Distinct from createdAt, which is when
+  // the row first appeared and never moves again.
+  purchasedAt DateTime @db.Timestamptz(3)
+
+  // The Notifications panel's expiry alert, archived by staff (owner,
+  // 2026-10-08). Stored as the END DATE the archive applies to, compared with
+  // `endsOn` on every read: a renewal moves `endsOn`, so the next term's alert
+  // comes back on its own without anything having to clear this. Both set or
+  // both null (Membership_expiry_alert_archive_shape).
+  expiryAlertArchivedFor DateTime? @db.Date
+  expiryAlertArchivedAt  DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plan     Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  events   MembershipEvent[]
+  holds    MembershipHold[]
+  payments Payment[]
+  // Chunk 2: MEMBERSHIP entries (this member's own term) and GUEST_PASS
+  // entries (this membership was the host whose guestPassesRemaining paid).
+  checkIns CheckIn[]
+
+  // The nightly sweep: WHERE status = 'ACTIVE' AND endsOn < :today.
+  @@index([status, endsOn])
+  // "Expiring in the next 7 days" — the renewal call list.
+  @@index([endsOn])
+  @@index([planId])
+}

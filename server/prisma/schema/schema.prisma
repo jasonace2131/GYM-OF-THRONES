@@ -1,0 +1,16 @@
+// =============================================================================
+// schema.prisma — Generator & Datasource Configuration
+// =============================================================================
+// This file is the entry point for Prisma. It only contains the generator and
+// datasource blocks. All models live in their own dedicated .prisma files.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}

@@ -1,0 +1,83 @@
+// A refused check-in attempt. First-class, not a log line: it drives the
+// desk's live denial feed and the sales funnel (§6.11.4), and it is what a
+// walk-in sale or a manager override resolves against.
+model CheckInDenial {
+  id String @id @default(uuid()) @db.Uuid
+
+  // The door ladder only ever runs against a known account — an
+  // unauthenticated or anonymous attempt never reaches accessVerdict().
+  userId String @db.Uuid
+
+  reason DenialReason
+  method CheckInMethod
+
+  occurredAt   DateTime @db.Timestamptz(3)
+  businessDate DateTime @db.Date
+
+  // Snapshot at the moment of denial. NULL for reasons the ladder never
+  // reaches a membership read for (ACCOUNT_SUSPENDED, ACCOUNT_DEACTIVATED,
+  // GYM_CLOSED, CHECKIN_DAILY_LIMIT, STATION_TOKEN_EXPIRED).
+  membershipStatusAtTime MembershipStatus?
+
+  // NOT NULL exactly when method = STATION_QR. Same shape and reasoning as
+  // CheckIn.stationId / stationSlot.
+  stationId   String? @db.Uuid
+  stationSlot Int?
+
+  // Seconds between the presented token's slot end and the request arriving.
+  // NOT NULL exactly when reason = STATION_TOKEN_EXPIRED — the relay-detection
+  // signal (§6.11.4): a member 3s late on a bad connection and one 40s late
+  // off a photograph are the same row without it.
+  tokenStalenessSeconds Int?
+
+  originIpHash  String? @db.Char(64)
+  offSiteOrigin Boolean @default(false)
+
+  // Nullable, biconditional with method = STATION_QR — same argument as
+  // CheckIn.recordedById.
+  recordedById String? @db.Uuid
+  // Nullable, but required by CHECK whenever method <> STATION_QR: a staff
+  // action (MEMBER_CODE / MANUAL) is always reconcilable to a till session.
+  shiftId      String? @db.Uuid
+
+  outcome DenialOutcome @default(UNRESOLVED)
+
+  // Set together, exactly when outcome moves off UNRESOLVED. resolvedByCheckInId
+  // is the follow-up admission — a walk-in sale (RESOLVED_WALK_IN) or a
+  // manager override (OVERRIDDEN) — that converted this denial.
+  resolvedByCheckInId String?   @db.Uuid
+  resolvedAt          DateTime? @db.Timestamptz(3)
+
+  // NOT NULL exactly when outcome = OVERRIDDEN. checkin.override, isDangerous.
+  overriddenById String? @db.Uuid
+  overrideReason String?
+
+  // Free text — e.g. the THEY DECLINED / THEY LEFT distinction behind
+  // ABANDONED. Commercially load-bearing: declined means the price is wrong,
+  // left means the interception window is too slow.
+  notes String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user              User     @relation("CheckInDenialMember", fields: [userId], references: [id], onDelete: Restrict)
+  station           Station? @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  recordedBy        User?    @relation("CheckInDenialRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  shift             Shift?   @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  resolvedByCheckIn CheckIn? @relation(fields: [resolvedByCheckInId], references: [id], onDelete: Restrict)
+  overriddenBy      User?    @relation("CheckInDenialOverriddenBy", fields: [overriddenById], references: [id], onDelete: Restrict)
+
+  stationScan StationScan?
+
+  // The desk feed and the member's own denial history.
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([stationId, occurredAt(sort: Desc)])
+  // Nightly report / funnel queries by gym-local day.
+  @@index([businessDate])
+  // The UNRESOLVED band on the desk feed.
+  @@index([outcome])
+  // §6.11.4: median tokenStalenessSeconds over 7 days, reason = STATION_TOKEN_EXPIRED.
+  @@index([reason, occurredAt(sort: Desc)])
+  // §6.11.4: offSiteOrigin share per member over 7 days.
+  @@index([userId, offSiteOrigin])
+}

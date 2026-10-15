@@ -1,0 +1,74 @@
+// Coach <-> member chat (feat/coach-tools).
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// THE DATABASE IS THE RECORD; THE SOCKET IS ONLY THE DOORBELL.
+//
+// Every message is written here, through the API, before anything is pushed.
+// The push is Supabase Realtime Broadcast on the recipient's private channel
+// (`user:<supabaseId>`), and Broadcast does not guarantee delivery — so the
+// client catches up through `GET /chat/threads/:id/messages?after=` on
+// subscribe, on reconnect and on focus. Nothing here is read by the browser
+// directly: all four tables are deny-all RLS (migration 20260929000100).
+//
+// Who may use a thread lives in ONE pure module, src/chat/chat-access.ts:
+// participants only, writable only while the pair has an ACTIVE
+// CoachAssignment, and never for a member under 18 (owner decision).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// One per coach-member pair, for ever. It survives the assignment ending,
+// which makes it read-only history rather than deleting anything.
+model ChatThread {
+  id       String @id @default(uuid()) @db.Uuid
+  coachId  String @db.Uuid
+  memberId String @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  /// Bumped in the same transaction that writes a message. NULL until the
+  /// first one — the inbox sorts those last.
+  lastMessageAt DateTime? @db.Timestamptz(3)
+
+  coach  User @relation("ChatThreadCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  member User @relation("ChatThreadMember", fields: [memberId], references: [id], onDelete: Restrict)
+
+  messages   ChatMessage[]
+  readStates ChatReadState[]
+
+  @@unique([coachId, memberId])
+  @@index([memberId])
+}
+
+model ChatMessage {
+  id       String @id @default(uuid()) @db.Uuid
+  threadId String @db.Uuid
+  senderId String @db.Uuid
+
+  /// Plain text, 1-2000 characters (`ChatMessage_body_length`). Never
+  /// rendered as HTML anywhere.
+  body String
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  /// Reserved: there is no edit route in v1.
+  editedAt  DateTime? @db.Timestamptz(3)
+  /// Soft delete by the sender, inside ten minutes. The body is KEPT for a
+  /// complaint review (`chat.review`); participants see a tombstone.
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  sender User       @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([threadId, createdAt])
+}
+
+// What each participant has read, as one instant: every message the OTHER
+// party sent after `lastReadAt` is unread.
+model ChatReadState {
+  threadId   String   @db.Uuid
+  userId     String   @db.Uuid
+  lastReadAt DateTime @db.Timestamptz(3)
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Restrict)
+  user   User       @relation("ChatReadStateUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([threadId, userId])
+  @@index([userId])
+}

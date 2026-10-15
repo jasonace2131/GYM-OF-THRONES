@@ -1,0 +1,3 @@
+# Local secrets for `wrangler dev`. Holds the Telegram bot token.
+.dev.vars
+.wrangler/

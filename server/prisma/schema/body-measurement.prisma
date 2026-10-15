@@ -1,0 +1,107 @@
+// A member's body measurements over time.
+//
+// RECORDED BY THE MEMBER'S ASSIGNED COACH (owner decision, 2026-09): members
+// read their progress and no longer write it. Rows members recorded themselves
+// before that change keep `recordedById` NULL and stay visible, read-only.
+//
+// INTEGERS, NEVER FLOATS — the same rule money follows with centavos, for the
+// same reason. 72.4 kg is 72400 grams. A Float column would accumulate
+// representation error across a year of entries and make two members with
+// identical inputs render different trend lines.
+//
+// One row per member per business date (`@@unique`): weighing yourself twice
+// in a morning should correct the day's entry, not create a sawtooth in the
+// chart. The write path upserts on that key.
+//
+// Every field except the date is NULLABLE. A member who steps on a scale
+// records a weight and nothing else; forcing height and body-fat on every
+// entry would mean either fabricated numbers or an abandoned feature.
+model BodyMeasurement {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  /// The gym's civil day, compared as a CivilDate string end to end.
+  businessDate DateTime @db.Date
+
+  /// 72.4 kg is 72400. Bounded by CHECK to a plausible human range.
+  weightGrams Int?
+
+  /// 1750 is 175.0 cm. Stored per-measurement rather than on User because
+  /// members are measured at different times and a teenager's height changes.
+  heightMm Int?
+
+  /// Per mille, so 18.5% is 185. Percent-as-integer would lose the decimal
+  /// that makes body-fat tracking worth doing at all.
+  bodyFatPermille Int?
+
+  notes String?
+
+  /// The coach who took this reading. NULL is the ONLY spelling of
+  /// "self-recorded": every row written before coaches recorded progress, and
+  /// anything the old member-write routes wrote during the deploy window.
+  /// Never the member's own id (`BodyMeasurement_recorder_not_member`).
+  recordedById String? @db.Uuid
+
+  /// The coach who last corrected it, when that is somebody. Only ever set on
+  /// a coach-recorded row — self-recorded rows are frozen
+  /// (`BodyMeasurement_updater_shape`).
+  updatedById String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation("BodyMeasurementMember", fields: [userId], references: [id], onDelete: Cascade)
+
+  // RESTRICT, like CheckIn/Payment.recordedById: accounts are soft-deleted,
+  // and a coach named on a member's record cannot be hard-deleted from under
+  // it. The member FK above stays CASCADE.
+  recordedBy User? @relation("BodyMeasurementRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  updatedBy  User? @relation("BodyMeasurementUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@unique([userId, businessDate])
+  @@index([userId, businessDate(sort: Desc)])
+}
+
+// Something a member is working towards.
+//
+// Deliberately FREE-FORM: a name, a unit, and three numbers. "Bench 100kg",
+// "lose 5kg", "come 12 times this month" are all the same shape, and a typed
+// goal system that only understood weight would exclude most of what people
+// actually set.
+//
+// Values are HUNDREDTHS of `unit` — 100.5 kg is 10050 — for the same
+// integer-not-float reason as the measurements above.
+//
+// `currentHundredths` is stored rather than derived. A goal's unit is
+// arbitrary, so there is no table to derive "current" from for most of them,
+// and a system that silently updated some goals and not others would be worse
+// than one that updates none.
+model MemberGoal {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  name String
+  /// A short label: "kg", "reps", "visits", "km".
+  unit String
+
+  startHundredths   Int
+  currentHundredths Int
+  targetHundredths  Int
+
+  /// Set once the coach marks it done. Nullable is "still working on it".
+  achievedAt DateTime? @db.Timestamptz(3)
+
+  /// Same rules as BodyMeasurement: NULL is self-recorded, never the member.
+  recordedById String? @db.Uuid
+  updatedById  String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation("MemberGoalMember", fields: [userId], references: [id], onDelete: Cascade)
+
+  recordedBy User? @relation("MemberGoalRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  updatedBy  User? @relation("MemberGoalUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([userId, achievedAt, createdAt(sort: Desc)])
+}

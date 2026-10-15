@@ -1,0 +1,60 @@
+// An invitation to join the gym as staff.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// THE ROLE LIVES HERE, NEVER IN THE REQUEST THAT ACCEPTS IT.
+//
+// An admin issues an invitation for one email and one role. Whoever takes it
+// up sends only the token; the role they end up with is read off this row, so
+// no client can ask for a different one. The raw token exists only in the
+// link — this table keeps its SHA-256, so a database read cannot be turned
+// back into a working invitation.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// STATE IS SPELLED BY TIMESTAMPS, NOT A STATUS COLUMN. Pending is "neither
+// accepted nor revoked, and not yet expired"; expiry is a comparison with
+// `expiresAt` at read time, so there is no nightly job that could fall behind.
+// The shape rules live in hand-written SQL
+// (20260927000100_staff_invitations_coach_profiles), because Prisma has no
+// way to say them:
+//   - StaffInvitation_role_staff          FRONT_DESK, COACH or ADMIN only
+//   - StaffInvitation_email_normalised    stored lowercased and trimmed
+//   - StaffInvitation_token_hash_shape    64 lowercase hex characters
+//   - StaffInvitation_accepted_shape      acceptedAt and acceptedById together
+//   - StaffInvitation_revoked_shape       revokedAt and revokedById together
+//   - StaffInvitation_single_outcome      never both accepted and revoked
+//   - StaffInvitation_expiry_after_issue  expiresAt later than createdAt
+//   - StaffInvitation_one_open_per_email  PARTIAL UNIQUE: at most one
+//                                         unaccepted, unrevoked row per email
+model StaffInvitation {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Lowercased and trimmed before it is stored, so one address is one row.
+  email String
+
+  /// Never CLIENT (members register themselves) and never DEV (seed only).
+  role Role
+
+  /// sha256(raw token), hex. Replaced on every resend, so an old link dies
+  /// the moment a new one is issued.
+  tokenHash String @unique @db.Char(64)
+
+  invitedById String   @db.Uuid
+  expiresAt   DateTime @db.Timestamptz(3)
+
+  acceptedAt   DateTime? @db.Timestamptz(3)
+  acceptedById String?   @db.Uuid
+
+  revokedAt   DateTime? @db.Timestamptz(3)
+  revokedById String?   @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  invitedBy  User  @relation("StaffInvitationInvitedBy", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedBy User? @relation("StaffInvitationAcceptedBy", fields: [acceptedById], references: [id], onDelete: Restrict)
+  revokedBy  User? @relation("StaffInvitationRevokedBy", fields: [revokedById], references: [id], onDelete: Restrict)
+
+  // The Staff & Access list: newest first.
+  @@index([createdAt(sort: Desc)])
+  // "Has this address been invited before?"
+  @@index([email])
+}

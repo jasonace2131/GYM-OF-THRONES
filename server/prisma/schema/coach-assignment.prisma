@@ -1,0 +1,42 @@
+// Which coach is responsible for which member.
+//
+// This is what makes PermissionScope.OWN mean anything for a COACH:
+// scopeFilter turns { key: 'member.read', scope: 'OWN' } into
+// `{ assignedCoach: { some: { coachId, endedAt: null } } }`. Without it,
+// every coach-facing query is an unscoped read of the whole member list.
+//
+// Ended assignments stay as rows so "who coached Juan last year" is
+// answerable and a check-in recorded under a previous coach still resolves.
+// That is why there is no @@unique([coachId, memberId]): once A's assignment
+// to M is ended, A must be reassignable to M.
+model CoachAssignment {
+  id       String @id @default(uuid()) @db.Uuid
+  coachId  String @db.Uuid
+  memberId String @db.Uuid
+
+  status CoachAssignmentStatus @default(ACTIVE)
+
+  // Nullable-unique sentinel: equals memberId while ACTIVE, NULL once ENDED.
+  // Gives "at most one active coach per member" as a real unique index that
+  // Prisma owns and will never drop. A partial unique index would be drift
+  // Prisma emits a DROP INDEX for on the next unrelated migrate dev.
+  activeMemberId String? @unique @db.Uuid
+
+  startedAt DateTime  @default(now()) @db.Timestamptz(3)
+  endedAt   DateTime? @db.Timestamptz(3)
+
+  assignedById String  @db.Uuid
+  endedById    String? @db.Uuid
+  notes        String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  coach      User  @relation("Coach", fields: [coachId], references: [id], onDelete: Restrict)
+  member     User  @relation("Member", fields: [memberId], references: [id], onDelete: Restrict)
+  assignedBy User  @relation("CoachAssignmentAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+  endedBy    User? @relation("CoachAssignmentEndedBy", fields: [endedById], references: [id], onDelete: Restrict)
+
+  @@index([coachId, status])
+  @@index([memberId, startedAt(sort: Desc)])
+}

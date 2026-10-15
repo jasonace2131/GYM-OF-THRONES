@@ -1,0 +1,187 @@
+// An admitted entry: a MEMBERSHIP visit, a WALK_IN day pass, or a GUEST_PASS
+// entry. There is NO DayPass model (§6.0.1) — a walk-in is this row plus a
+// Payment, and dayPassValidToday in accessVerdict() reads a WALK_IN row on
+// today's gym-local business date. Refusals never reach this table; they are
+// CheckInDenial.
+//
+// Check-out (`endedAt`) is nullable from day one and never mandatory — a
+// visit with no check-out is normal data (§6.6). `openUserId` is the
+// nullable-unique sentinel (R3) that makes "at most one open visit per
+// member" a real unique index Prisma owns and will never drop.
+model CheckIn {
+  id String @id @default(uuid()) @db.Uuid
+
+  // NULL for an off-the-street walk-in guest with no account. Required
+  // (enforced by CheckIn_entry_shape) whenever entryType = MEMBERSHIP.
+  userId String? @db.Uuid
+
+  entryType CheckInEntryType
+  // The door's decision. Only ever an allow — refusals carry a DenialReason
+  // on CheckInDenial instead. NOT NULL: this table only ever stores an
+  // admission.
+  verdict   AccessVerdict
+
+  // NOT NULL exactly when entryType = MEMBERSHIP (the member's own term) or
+  // GUEST_PASS (the host's term, whose guestPassesRemaining was decremented).
+  // NULL for WALK_IN — a walk-in is priced from a WALK_IN Plan directly and
+  // carries no term.
+  membershipId           String?           @db.Uuid
+  // Snapshot at admission. A later status correction must not rewrite what
+  // was true at the door.
+  membershipStatusAtTime MembershipStatus?
+
+  // NOT NULL exactly when entryType = WALK_IN. NULL for GUEST_PASS — a guest
+  // pass decrements Membership.guestPassesRemaining and writes no Payment
+  // (Payment_amount_positive never has to be relaxed for a ₱0 entry).
+  paymentId String? @unique @db.Uuid
+
+  // For an unregistered walk-in guest only — populated exactly when userId
+  // is NULL.
+  guestName  String?
+  guestPhone String?
+  /// The walk-in's email (feat/counter-signup): required by WalkInService for
+  /// every NEW account-less sale, so "Make member" arrives pre-filled. Nullable
+  /// because older visits have none, and that must stay true — see the
+  /// migration's note on why no CHECK requires it. As private as guestPhone:
+  /// no desk projection reads it.
+  guestEmail String?
+
+  /// The member account this GUEST visit was later converted into.
+  ///
+  /// Written once, by POST /members when staff press "Make member" on the
+  /// visit — the same way Lead.convertedUserId is written when an enquiry
+  /// joins. It is the ONLY way to answer "how many walk-ins became members",
+  /// which the walk-in statistics report needs and could not compute before:
+  /// a converted guest's rows are indistinguishable from any other guest's.
+  ///
+  /// NOT the same as `userId`. `userId` stays NULL forever — this visit was
+  /// taken by somebody with no account, and back-filling it would rewrite
+  /// history and collide with `CheckIn_open_marker_agrees`.
+  convertedToUserId String? @db.Uuid
+
+  /// The waiver a walk-in guest accepted at the counter, and when.
+  ///
+  /// On the VISIT rather than in `ConsentRecord` because a guest has no
+  /// `User` row for that FK to point at — and because a guest's consent is
+  /// per-entry, not standing: there is no ongoing relationship for it to
+  /// persist into. A member ringing a walk-in is not asked again; theirs is
+  /// already recorded in the portal.
+  ///
+  /// `CheckIn_guest_waiver_required` (NOT VALID, so pre-existing rows are
+  /// grandfathered rather than back-filled with invented evidence) makes this
+  /// mandatory for every new account-less walk-in.
+  guestWaiverVersion    String?
+  guestWaiverAcceptedAt DateTime? @db.Timestamptz(3)
+  guestEmergencyContact String?
+
+  // Stamped from ONE service-supplied instant, never two separate reads.
+  occurredAt   DateTime @db.Timestamptz(3)
+  // Gym-local civil date (R2), compared as a string end to end — never as a
+  // JS Date, which Prisma returns at UTC midnight.
+  businessDate DateTime @db.Date
+
+  // Nullable-unique sentinel (R3): equals userId while the visit is open
+  // (endedAt IS NULL), NULL once closed. "At most one open visit per member",
+  // enforced independently of StationScan because MEMBER_CODE and MANUAL
+  // entries carry no slot.
+  //
+  // ALWAYS NULL on an account-less walk-in guest, who has no user row by
+  // design. `CheckIn_open_marker_agrees` exempts exactly that case — without
+  // the exemption a guest could never be recorded as still inside, because
+  // the biconditional would force `endedAt` at insert (fixed in
+  // 20260820140000_open_marker_exempts_account_less_guests).
+  openUserId String? @unique @db.Uuid
+
+  endedAt     DateTime?       @db.Timestamptz(3)
+  closeMethod CheckOutMethod?
+  closedById  String?         @db.Uuid
+  // Excludes this row from every duration statistic — true for both
+  // AUTO_CLOSE and STALE_CLOSE.
+  autoClosed  Boolean         @default(false)
+
+  // Where the visit was OPENED. Correlation only; StationScan still owns slot
+  // uniqueness. NOT NULL exactly when method = STATION_QR.
+  stationId   String? @db.Uuid
+  stationSlot Int?
+
+  // Where the visit was CLOSED. A separate column rather than an inference
+  // through the linking StationScan row, which is purged after 24h — that
+  // would make the audit trail evaporate within a day of being written.
+  closeStationId     String?  @db.Uuid
+  closeStationSlot   Int?
+  closeOffSiteOrigin Boolean?
+
+  // Accidental check-outs undone within CHECKIN_MIN_SESSION_MINUTES (§6.6.4).
+  // Recorded rather than hidden, so a dispute can see a visit was reopened.
+  reopenCount Int @default(0)
+
+  // Hashed request origin at OPEN, for the relay signal (§6.11.2). Never a
+  // raw IP.
+  originIpHash  String? @db.Char(64)
+  offSiteOrigin Boolean @default(false)
+
+  // How this row was recorded, and by whom. Nullable, biconditional with
+  // method = STATION_QR: NULL on a self-scan (nobody recorded it — the
+  // accountable party is the member), required on MEMBER_CODE / MANUAL.
+  method       CheckInMethod
+  recordedById String?       @db.Uuid
+
+  // Nullable, best-effort. Populated from the open Shift when one exists.
+  // Required by CHECK exactly when money or a staff action is involved
+  // (entryType = WALK_IN, or method IN (MEMBER_CODE, MANUAL)) — a member
+  // self-scan must never be blocked on staff having opened the drawer.
+  shiftId String? @db.Uuid
+
+  // Whether an identity check WOULD have been possible — never that one
+  // happened. §6.12.
+  photoOnFileAtTime Boolean @default(false)
+
+  // Coach-arrival hook (owner decision 10). Snapshotted at admission from the
+  // member's ACTIVE CoachAssignment so a later reassignment does not rewrite
+  // who was notified.
+  assignedCoachId String?   @db.Uuid
+  coachNotifiedAt DateTime? @db.Timestamptz(3)
+
+  // The desk's own IndexedDB offline queue (staff-attributed writes only —
+  // never the member's).
+  offlineQueued Boolean @default(false)
+
+  // Idempotency for the desk's queued writes (MEMBER_CODE / MANUAL). Exempt
+  // for STATION_QR: StationScan's (userId, stationId, slot) claim IS that
+  // route's idempotency key and is strictly stronger.
+  idempotencyKey  String @unique
+  idempotencyHash String @db.Char(64)
+
+  voidedAt   DateTime? @db.Timestamptz(3)
+  voidedById String?   @db.Uuid
+  voidReason String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user          User?       @relation("CheckInMember", fields: [userId], references: [id], onDelete: Restrict)
+  convertedTo   User?       @relation("CheckInConvertedTo", fields: [convertedToUserId], references: [id], onDelete: SetNull)
+  membership    Membership? @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  payment       Payment?    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  station       Station?    @relation("CheckInStation", fields: [stationId], references: [id], onDelete: Restrict)
+  closeStation  Station?    @relation("CheckInCloseStation", fields: [closeStationId], references: [id], onDelete: Restrict)
+  recordedBy    User?       @relation("CheckInRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  closedBy      User?       @relation("CheckInClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  shift         Shift?      @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  assignedCoach User?       @relation("CheckInAssignedCoach", fields: [assignedCoachId], references: [id], onDelete: Restrict)
+  voidedBy      User?       @relation("CheckInVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  stationScans    StationScan[]
+  resolvedDenials CheckInDenial[]
+
+  // Visit history ("me/check-ins") and the daily-visit-ceiling count.
+  @@index([userId, businessDate])
+  @@index([userId, occurredAt(sort: Desc)])
+  @@index([stationId, occurredAt(sort: Desc)])
+  // Nightly report / funnel queries by gym-local day.
+  @@index([businessDate])
+  // "How many of this month's walk-ins converted" — the report's one query.
+  @@index([convertedToUserId])
+  // Coach's "status=OPEN" read path.
+  @@index([assignedCoachId])
+}

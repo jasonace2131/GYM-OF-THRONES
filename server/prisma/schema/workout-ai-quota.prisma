@@ -1,0 +1,20 @@
+// AI actions a member has spent on one gym day (feat/member-workouts).
+//
+// WORKOUT_AI_DAILY_LIMIT (8) per member per gym-day: Generate, Swap and
+// Adjust cost one each; How-to is free. `day` is the gym's civil date
+// (`gymToday`), so the reset is midnight Manila rather than midnight UTC.
+//
+// The charge is a conditional `updateMany … WHERE used < limit` after an
+// upsert, so two taps racing for the last action cannot both win. A failed
+// generation refunds one (floored at zero by `WorkoutAiQuota_used_nonnegative`
+// and the `used > 0` guard on the write).
+
+model WorkoutAiQuota {
+  memberId String   @db.Uuid
+  day      DateTime @db.Date
+  used     Int      @default(0) @db.SmallInt
+
+  member User @relation("WorkoutAiQuotaMember", fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@id([memberId, day])
+}

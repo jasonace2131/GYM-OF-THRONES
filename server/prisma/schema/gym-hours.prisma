@@ -1,0 +1,56 @@
+/// Opening hours, per weekday, editable by staff.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// THE ENVIRONMENT VARIABLES ARE STILL THE FLOOR, AND THAT IS THE POINT.
+///
+/// `settings/page.tsx` argued against this table, and the argument was good:
+/// making hours editable from a browser moves the failure from "the deploy
+/// stops" — loud, at a keyboard, with a stack trace — to "the front desk
+/// stops", at 06:00, with nobody able to say why.
+///
+/// So this does not REPLACE `GYM_OPEN_TIME` / `GYM_CLOSE_TIME`. It overrides
+/// them. A row here wins; no row, an unreachable database, or a malformed
+/// value and the gate falls back to the environment, which is validated at
+/// boot and cannot be wrong without the deploy failing first.
+///
+/// The result is customisable hours that cannot lock the gym out of itself.
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// NO HOLIDAY OVERRIDES HERE, deliberately. The membership spec §5.10 lists a
+/// `GymClosure` model as "deliberately not built" — a one-off closure is
+/// announced to members and handled at the door, and a second date-shaped
+/// table is a second place for hours to disagree with themselves. If holiday
+/// hours become a real operational need, they belong in their own model with
+/// their own precedence rule, not bolted onto this one.
+model OpeningHours {
+  /// 0 = Sunday … 6 = Saturday, matching JavaScript's `Date.getDay()`.
+  /// The day IS the key: there is exactly one row per weekday, so a duplicate
+  /// is impossible rather than merely unlikely.
+  dayOfWeek Int @id
+
+  /// 'HH:mm', 24-hour. Strings rather than DateTime because these are TIMES
+  /// OF DAY, not instants — the same reason a civil date is not a timestamp.
+  /// A DateTime here would carry a meaningless date and a timezone that could
+  /// drift against GYM_TIMEZONE.
+  opensAt  String
+  closesAt String
+
+  /// A day the gym does not open at all. Separate from the times rather than
+  /// encoded as opensAt == closesAt, which would be ambiguous with a 24-hour
+  /// day and would silently deny everyone if somebody typed the same value twice.
+  isClosed Boolean @default(false)
+
+  updatedById String?  @db.Uuid
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation("OpeningHoursUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  /// The model is `OpeningHours`; the TABLE is `GymHours`.
+  ///
+  /// `checkin/gym-hours.ts` already exports a `GymHours` interface — the
+  /// gym's open/close window — and a Prisma model of the same name would
+  /// collide at every import that wanted both. The table name is what the
+  /// migration already created and is not worth a rename on a live database
+  /// for a cosmetic win.
+  @@map("GymHours")
+}

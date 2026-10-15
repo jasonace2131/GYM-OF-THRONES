@@ -1,0 +1,43 @@
+// One ticked set of a workout session (feat/workout-sessions).
+//
+// ONLY DONE SETS EXIST: ticking is an upsert on the composite key, unticking
+// is a delete. So a replayed tick (the phone's offline queue) changes nothing,
+// and a replayed untick finds nothing — both are idempotent by key, which is
+// why these routes need no Idempotency-Key.
+//
+// `memberId`, `exerciseName` and `exerciseSlug` are denormalised from the
+// session on purpose: "last time" and "best" are per-member, per-exercise
+// lookups across every session, served by the (memberId, exerciseSlug,
+// completedAt DESC) index without touching the snapshot JSON.
+//
+// Weight is GRAMS (never a float in the database); null means bodyweight.
+// The CHECKs on both indexes, the slug, the weight and the reps live in the
+// migration SQL only.
+model WorkoutSetLog {
+  sessionId     String @db.Uuid
+  /// Position in the session's `exercises` snapshot, 0-11 (CHECK in SQL).
+  exerciseIndex Int    @db.SmallInt
+  /// 0-19 (CHECK in SQL).
+  setIndex      Int    @db.SmallInt
+
+  memberId     String @db.Uuid
+  exerciseName String
+  /// `exerciseSlug(name)` from @got/shared, `^[a-z0-9-]{1,80}$` (CHECK in SQL).
+  exerciseSlug String
+
+  /// 1-500000 grams; null = bodyweight (CHECK in SQL).
+  weightGrams Int?
+  /// 1-200 (CHECK in SQL).
+  reps        Int  @db.SmallInt
+
+  /// When it was first ticked. A re-tick with new numbers keeps it.
+  completedAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  member  User           @relation("WorkoutSetLogMember", fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@id([sessionId, exerciseIndex, setIndex])
+  // "Last time" and "best" for one exercise across the member's history.
+  @@index([memberId, exerciseSlug, completedAt(sort: Desc)])
+}

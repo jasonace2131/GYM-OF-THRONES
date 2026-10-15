@@ -1,0 +1,72 @@
+/// Somebody who asked about the gym but has not joined.
+///
+/// ═══════════════════════════════════════════════════════════════════════════
+/// THE THING A CRM IS ACTUALLY FOR, AND THE ONE THING THIS ONE COULD NOT DO.
+///
+/// Every other model here describes a member: their plan, their payments,
+/// their visits. There was nowhere to put a person who walked in, asked the
+/// price, and left to think about it — which is most of the people a gym
+/// talks to. The landing page's "contact" section captured nothing at all:
+/// no form, no inputs, just static text and a link to /register. A visitor
+/// not ready to create an account had no way to leave their details.
+/// ═══════════════════════════════════════════════════════════════════════════
+///
+/// NOT a `User`. A lead has no account, no password, no membership and may
+/// never have one; giving them a `User` row would mean a roster full of
+/// people who cannot sign in and a member count that is a marketing number
+/// rather than an operational one. `convertedUserId` is the join, written
+/// once if and when they actually join.
+model Lead {
+  id String @id @default(uuid()) @db.Uuid
+
+  name    String
+  email   String?
+  phone   String?
+  message String?
+
+  /// Where it came from. One string rather than an enum: a marketing source
+  /// list changes with every campaign, and a migration per channel is a tax
+  /// nobody will pay — they will reuse 'OTHER' instead and the data rots.
+  source String @default("WEBSITE")
+
+  status LeadStatus @default(NEW)
+
+  /// Staff working this lead. Nullable: an unassigned lead is the normal
+  /// state for one that arrived overnight.
+  assignedToId String? @db.Uuid
+
+  /// Follow-up notes, appended by staff. Free text on purpose — a structured
+  /// call log is a bigger feature than the gym needs to stop losing enquiries.
+  notes String?
+
+  /// Set when this person becomes a member, so "how many enquiries converted"
+  /// is answerable without guessing by name.
+  convertedUserId String?   @db.Uuid
+  convertedAt     DateTime? @db.Timestamptz(3)
+
+  /// Whether the notification email actually went out. Stored rather than
+  /// assumed: the lead is saved BEFORE the send is attempted, so a Resend
+  /// outage costs a notification and never the enquiry itself.
+  emailSent Boolean @default(false)
+
+  /// Peppered, never raw — the same control every other address in this
+  /// schema gets. Used only for rate-limit forensics on a public endpoint.
+  originIpHash String? @db.Char(64)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  assignedTo    User? @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  convertedUser User? @relation("LeadConvertedUser", fields: [convertedUserId], references: [id], onDelete: SetNull)
+
+  /// "What is new and unworked" — the only query the screen opens with.
+  @@index([status, createdAt(sort: Desc)])
+  @@index([assignedToId, status])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  LOST
+}

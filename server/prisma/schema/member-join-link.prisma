@@ -1,0 +1,23 @@
+/// A staff-created member's setup link (feat/counter-signup, 2026-10-14).
+/// ONE ROW PER MEMBER.
+///
+/// Emailed when the account is created at the counter, and rotated by "Resend
+/// invite" and by an email correction — each rotation writes a new hash and expiry,
+/// so the previous link dies at once. Only the sha256 of the token is stored.
+///
+/// The CHECKs (hash shape, expiry after issue, used after issue) live only in
+/// migration 20261014010100_counter_signup — Prisma cannot represent them.
+model MemberJoinLink {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @unique @db.Uuid
+  tokenHash  String    @unique @db.Char(64)
+  issuedAt   DateTime  @db.Timestamptz(3)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  issuedById String?   @db.Uuid
+  /// Set once, when the member finishes setting up. A used link is never rotated.
+  usedAt     DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+
+  user     User  @relation("MemberJoinLinkUser", fields: [userId], references: [id], onDelete: Cascade)
+  issuedBy User? @relation("MemberJoinLinkIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
+}

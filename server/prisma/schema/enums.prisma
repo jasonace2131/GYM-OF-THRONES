@@ -1,0 +1,385 @@
+// Mirrored by UserRole / UserStatus in shared/src/types/user.types.ts.
+// Prisma cannot import from the shared package, so the two are kept in sync
+// by hand and src/prisma/enum-parity.spec.ts asserts they agree.
+
+enum Role {
+  // Any non-staff account holder, whether or not they pay for a membership.
+  // Anyone can register for free; membership is separate state, never a role.
+  CLIENT
+  // Shared counter device: check-ins and client lookup only.
+  FRONT_DESK
+  COACH
+  ADMIN
+  // Superuser escape hatch. Assignable only by seed or direct DB access.
+  DEV
+}
+
+// Whether the account may be used at all. Nothing to do with payment —
+// a person with no membership still has an ACTIVE account.
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+// A permission's reach: OWN = only the caller's own rows, ALL = every row.
+// Enforcement (scopeFilter) lands in Phase 3 — RolePermission stores scope
+// starting now so Phase 3 needs no migration to add it.
+enum PermissionScope {
+  OWN
+  ALL
+}
+
+// Server-side only, deliberately NOT mirrored into @got/shared: no client
+// screen switches on it — a client reads `endedAt === null`.
+enum CoachAssignmentStatus {
+  ACTIVE
+  ENDED
+}
+
+// ── Membership ───────────────────────────────────────────────────────────
+
+// A membership's lifecycle. Deliberately four values.
+//
+// No PAST_DUE / GRACE: grace is `today <= endsOn + graceDays`, computed from
+// columns already on the row. A status for it would be a second source of
+// truth that a missed nightly run silently falsifies.
+//
+// No PENDING_CANCELLATION: notice is `cancelRequestedOn`, a nullable date on
+// an otherwise ACTIVE row. That keeps the portal's "cancel any time, no
+// lock-in" promise while honouring the rule that CANCELLED denies at once.
+enum MembershipStatus {
+  ACTIVE
+  // Term elapsed. Still admits while within the row's own graceDays.
+  EXPIRED
+  // Paused by a MembershipHold. Denies entry immediately, no grace.
+  FROZEN
+  // Terminated. Denies entry immediately, no grace. Reactivating reuses this
+  // same row with a fresh, re-anchored term.
+  CANCELLED
+}
+
+// Why a membership row changed. Carried alongside fromStatus/toStatus because
+// the status pair alone is ambiguous — ADJUSTED and RENEWED can both leave the
+// status untouched while moving endsOn. Server-side only, not mirrored.
+enum MembershipEventType {
+  IMPORTED
+  PURCHASED
+  RENEWED
+  REACTIVATED
+  EXPIRED
+  HOLD_APPLIED
+  HOLD_RELEASED
+  CANCELLATION_REQUESTED
+  CANCELLATION_WITHDRAWN
+  CANCELLED
+  ADJUSTED
+  STATUS_CORRECTED
+}
+
+// Server-side only. Not mirrored: no client screen switches on it.
+enum HoldStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// TERM plans create or extend a Membership. WALK_IN plans never do — they
+// price a single day's entry and produce a Payment (and, in chunk 2, a
+// WALK_IN CheckIn), nothing else.
+enum PlanKind {
+  TERM
+  WALK_IN
+}
+
+// ── Money ────────────────────────────────────────────────────────────────
+
+enum PaymentPurpose {
+  MEMBERSHIP
+  WALK_IN
+  FREEZE_FEE
+}
+
+// Staff-recorded only. GCASH means "the member showed a GCash receipt and
+// staff typed the reference from their screen".
+enum PaymentMethod {
+  CASH
+  GCASH
+}
+
+// A Payment row exists because money changed hands, so there is no PENDING and
+// no FAILED. Mistakes are VOIDED, never deleted, never edited.
+enum PaymentStatus {
+  RECORDED
+  VOIDED
+}
+
+// Why the collected amount differs from the list price. SENIOR and PWD are
+// statutory and mandatory (RA 9994 / RA 10754); the rest are commercial.
+enum DiscountType {
+  NONE
+  SENIOR
+  PWD
+  PROMO
+  STAFF
+  GUEST_PASS
+  GOODWILL
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+// ── Access ───────────────────────────────────────────────────────────────
+
+// Stored on an admitted entry (chunk 2's CheckIn). Only ever an allow —
+// refusals carry a DenialReason on their own table.
+enum AccessVerdict {
+  ALLOWED
+  ALLOWED_IN_GRACE
+}
+
+// One DenialReason in the system, mirrored to the client because the member's
+// phone and the desk's denial feed both switch on the code and never on the
+// English. All TEN values ship now: §6.0.2 is the normative surface and
+// widening an enum later is the migration shape that makes Prisma recreate the
+// table, taking every hand-written CHECK constraint with it.
+enum DenialReason {
+  NO_MEMBERSHIP
+  MEMBERSHIP_EXPIRED
+  MEMBERSHIP_FROZEN
+  MEMBERSHIP_CANCELLED
+  ACCOUNT_SUSPENDED
+  ACCOUNT_DEACTIVATED
+  STATION_TOKEN_EXPIRED
+  ALREADY_CHECKED_IN
+  CHECKIN_DAILY_LIMIT
+  GYM_CLOSED
+}
+
+// ── Chunk 2 — station QR attendance (§6.4.1) ───────────────────────────────
+
+// How a check-in/out was recorded. Three values, no more: no SELF_QR (every
+// self check-in is a station scan), no SELF_QUEUED (there is no member-side
+// offline queue at any TTL, §6.10.2) and no SELF_KIOSK in v1. Mirrored into
+// @got/shared — moved from PENDING_PRISMA_MIRRORS to MIRRORED_ENUM_PAIRS in
+// this commit (server/src/prisma/mirrored-enums.ts).
+enum CheckInMethod {
+  STATION_QR
+  MEMBER_CODE
+  MANUAL
+}
+
+// How a visit was closed. Server-side only: no client screen switches on it
+// directly (the desk reads CheckIn.autoClosed / CheckInResult.outcome).
+enum CheckOutMethod {
+  STATION_QR
+  MANUAL
+  // Nightly job, businessDate < today.
+  AUTO_CLOSE
+  // A visit found stale (older than CHECKIN_STALE_VISIT_HOURS, or carrying an
+  // earlier businessDate) at the member's own next scan — closed and a new
+  // visit opened in the same transaction (§6.6.2).
+  STALE_CLOSE
+}
+
+// What a CheckIn row represents. A walk-in and a guest pass are both
+// admission without a Membership term; there is NO DayPass model (§6.0.1) —
+// dayPassValidToday in accessVerdict() reads a WALK_IN CheckIn directly.
+// Server-side only.
+enum CheckInEntryType {
+  MEMBERSHIP
+  WALK_IN
+  GUEST_PASS
+}
+
+// StationScan's own claimed outcome — distinct from the client-facing
+// CheckInResult.outcome union in @got/shared. ALREADY_INSIDE must be storable
+// so a double-tap replays it (§6.5.2); DENIED is stored so a denial replay
+// returns the same body. Server-side only.
+enum StationScanOutcome {
+  CHECKED_IN
+  RECHECKED_IN
+  REOPENED
+  CHECKED_OUT
+  ALREADY_INSIDE
+  DENIED
+}
+
+// A CheckInDenial's disposition after the fact — whether and how the desk
+// acted on it. Drives the sales-funnel query (§6.11.4) and the desk feed's
+// UNRESOLVED band. Server-side only.
+enum DenialOutcome {
+  UNRESOLVED
+  RESOLVED_WALK_IN
+  OVERRIDDEN
+  ABANDONED
+}
+
+// A member's place in a class. Waitlisting is a STATUS rather than a separate
+// table: a waitlisted member and a booked one are the same fact at different
+// capacities, and promotion is a status change rather than a move between
+// tables.
+//
+// NO_SHOW is distinct from CANCELLED on purpose — a member who cancels frees
+// the seat for somebody on the waitlist, and one who simply does not arrive
+// does not. Telling them apart is what makes a no-show policy possible later.
+enum ClassBookingStatus {
+  BOOKED
+  WAITLISTED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+// ── System notifications ─────────────────────────────────────────────────
+
+// What raised a SystemNotification. Deliberately narrow: every value here has
+// a real producer in the codebase, because a kind nothing ever writes is a
+// filter option that always returns nothing.
+enum SystemNotificationKind {
+  // An enquiry arrived through the public contact form.
+  LEAD_RECEIVED
+  // The nightly membership job ran and changed something.
+  NIGHTLY_JOB
+  // The nightly membership job threw. Somebody has to look.
+  NIGHTLY_JOB_FAILED
+  // A member submitted a GCash payment claim from the portal and is waiting on
+  // somebody to check it against the gym's own Transactions tab.
+  GCASH_SUBMISSION
+}
+
+// How loudly the panel says it. Three levels, not five: a scale nobody can
+// distinguish is a scale nobody sorts by.
+enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ── Member notices ───────────────────────────────────────────────────────
+
+// What a MemberNotice tells its one member. The same rule as
+// SystemNotificationKind: every value has a real producer (all of them in
+// server/src/classes), because a kind nothing ever writes is a filter option
+// that always returns nothing. Mirrored, value for value, by
+// MEMBER_NOTICE_KINDS in shared/src/types/member-notice.types.ts.
+enum MemberNoticeKind {
+  // A seat opened up and the waitlist moved this member into it — freed by a
+  // cancellation, a removal by the desk, or a capacity raise.
+  CLASS_PROMOTED
+  // The gym called off a class this member was booked or waitlisted for. The
+  // body carries the reason staff gave.
+  CLASS_CANCELLED
+  // The time, coach or title of a class they hold a place in changed.
+  CLASS_CHANGED
+  // The desk booked them into a class, or onto its waitlist, by hand.
+  BOOKING_ADDED
+  // The desk took them out of a class. The body carries the reason.
+  BOOKING_REMOVED
+}
+
+// ── Audit ────────────────────────────────────────────────────────────────
+
+// The dangerous actions, one value per real write site.
+//
+// Deliberately NOT a generic `<verb>_<noun>` scheme over every endpoint. An
+// audit log that records everything is one nobody reads, and the value of this
+// list is precisely that every entry in it is worth stopping to look at. New
+// values are added when a new dangerous action ships, never speculatively.
+enum AuditAction {
+  // Money taken back. Carries the operator's reason and the void kind.
+  PAYMENT_VOIDED
+
+  // A payment corrected: the original voided and a replacement written in its
+  // place, in one transaction, in the original's own shift and business day.
+  // Carries { before, after } and the replacesPaymentId link.
+  PAYMENT_AMENDED
+
+  // Hidden from the register, and put back. A SOFT DELETE: no report, shift
+  // closure or BIR register reads the column, so neither of these moves a
+  // single figure. They are logged because hiding a row from the people who
+  // reconcile the till is still worth a name and a time.
+  PAYMENT_ARCHIVED
+  PAYMENT_UNARCHIVED
+
+  // Somebody let through a door that had just refused them, and somebody
+  // else's visit struck from the record.
+  CHECKIN_OVERRIDDEN
+  CHECKIN_VOIDED
+
+  // Account state. Suspension and deletion are both reversible, and their
+  // undo is recorded too — an audit trail that shows only the harm reads as
+  // an accusation rather than a history.
+  MEMBER_SUSPENDED
+  MEMBER_REACTIVATED
+  MEMBER_DELETED
+  MEMBER_RESTORED
+
+  // What an account is allowed to do.
+  ROLE_CHANGED
+
+  // ── Staff & Access (20260927000000_audit_actions_staff) ──
+  // An invitation to join as staff: issued, re-sent with a fresh link,
+  // withdrawn, and taken up. Accepting one is the moment a role changes, so
+  // STAFF_INVITE_ACCEPTED carries the { before, after } role pair itself.
+  STAFF_INVITED
+  STAFF_INVITE_RESENT
+  STAFF_INVITE_REVOKED
+  STAFF_INVITE_ACCEPTED
+  // An admin editing what members read about a coach.
+  COACH_PROFILE_UPDATED
+  // ── end Staff & Access ──
+
+  // Business rules everybody else is priced and admitted by.
+  PLAN_UPDATED
+  PLAN_ARCHIVED
+  OPENING_HOURS_CHANGED
+
+  // What every member reads on their dashboard. Posting, editing (pin and unpin
+  // included) and deleting a notice. `details` names the fields that changed;
+  // the title and pin state carry before/after, the body only that it changed.
+  ANNOUNCEMENT_CREATED
+  ANNOUNCEMENT_UPDATED
+  ANNOUNCEMENT_DELETED
+
+  // A coach correcting or removing a member's recorded progress. Creating an
+  // entry is not audited — the row itself names its recorder. `details`
+  // carries field NAMES only, never values: admins hold `audit.read` but no
+  // progress access, and a member's weight is not the audit screen's business.
+  PROGRESS_MEASUREMENT_CORRECTED
+  PROGRESS_MEASUREMENT_DELETED
+  PROGRESS_GOAL_DELETED
+
+  // ── Coach tools (feat/coach-tools) ──
+  // An admin read a coach-member conversation for a complaint (`chat.review`).
+  // Every such read is logged, with the reason the admin gave.
+  CHAT_THREAD_REVIEWED
+  // A sender withdrew their own message inside the ten-minute window. Never
+  // the body — the log says that a message went, not what it said.
+  CHAT_MESSAGE_DELETED
+  // A coach saved a member's workout plan. Counts only in `details`.
+  WORKOUT_PLAN_SAVED
+
+  // ── AI assistant settings (feat/assistant-settings) ──
+  // An admin saving new assistant instructions ({ before, after, wasDefault }),
+  // and putting the built-in instructions back ({ before }).
+  ASSISTANT_INSTRUCTIONS_UPDATED
+  ASSISTANT_INSTRUCTIONS_RESET
+  // Staff corrected the email of a member who has never signed in (counter sign-up).
+  MEMBER_EMAIL_CHANGED
+}
+
+// ── GCash proof submissions ──────────────────────────────────────────────
+
+// A member's claim that they sent money. Three states and no more: a claim is
+// waiting, it became a Payment, or it was refused with a reason the member can
+// read. There is deliberately no CANCELLED — a member who changes their mind
+// still needs staff to confirm the money did not arrive.
+enum GcashSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

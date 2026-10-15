@@ -1,0 +1,53 @@
+# Uptime pinger for the Gym of Thrones API. Setup: ops/pinger/README.md.
+
+name = "got-uptime-pinger"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+
+# Public, because Telegram must reach the /check webhook. Both HTTP routes
+# refuse any caller without TELEGRAM_WEBHOOK_SECRET (see src/index.ts), and
+# /check only answers in the staff group. Needs the account's workers.dev
+# subdomain, which opening the Workers dashboard once creates.
+workers_dev = true
+# No per-version preview hostnames: one public address is one to secure.
+preview_urls = false
+
+[vars]
+# The MEMBER path: the site's own origin, which Vercel proxies to Render.
+# Checking this rather than Render directly is the point — it is what a
+# member's phone actually depends on.
+HEALTH_URL = "https://www.gym-of-thrones.site/api/health"
+# Render directly. Probed only when the member path fails, to say which leg
+# broke. This address is blocked by some Philippine ISPs; Cloudflare's
+# network is not behind them.
+DIRECT_URL = "https://api.gym-of-thrones.site/api/health"
+# Public. Lets /check@SomeOtherBot in a shared group be left alone.
+BOT_USERNAME = "GYM_OF_THRONES_BOT"
+
+[[kv_namespaces]]
+binding = "PINGER_STATE"
+# From `npx wrangler kv namespace create PINGER_STATE` — see the README.
+id = "9b50c8a311564278849b713e81558e73"
+
+# Cloudflare cron runs in UTC only. Manila is UTC+8, no daylight saving.
+#
+# Render's free instance sleeps after 15 idle minutes, and each workspace
+# gets 750 instance-hours a month. Awake around the clock costs ~744 of
+# them, which one extra free service is enough to exhaust — and Render then
+# suspends everything until the month resets.
+#
+# BUT THE API RUNS TWO JOBS IN PROCESS, AT 03:15 AND 03:30 MANILA
+# (membershipNightly, pruneEphemera). A sleeping instance runs neither. The
+# first version of this schedule woke it only hourly overnight, which left
+# the 03:15 job to chance and never ran the 03:30 one. So 03:00-03:50 is
+# pinged every 10 minutes, keeping it awake until ~04:05.
+#
+# The hourly overnight line skips 19 UTC so the two never fire in the same
+# minute — two runs reading the same state could double-post an alert.
+# About 600 hours a month.
+[triggers]
+crons = [
+  "*/10 22-23,0-14 * * *",  # every 10 min, 06:00-22:50 Manila: awake in gym hours
+  "*/10 19 * * *",          # every 10 min, 03:00-03:50 Manila: the nightly jobs
+  "0 15-18,20-21 * * *",    # hourly 23:00-02:00 and 04:00-05:00 Manila: alert only
+]

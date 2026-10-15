@@ -1,0 +1,51 @@
+// Something the gym wants every member to read.
+//
+// The smallest thing that is honestly an announcement: a title, a body, who
+// wrote it, and whether it sits at the top. No categories, no audience
+// targeting, no scheduling — one location, one owner, and a list short enough
+// that a member reads all of it.
+//
+// PINNING RATHER THAN SCHEDULING is deliberate. A publish-at/expire-at pair
+// needs a job to flip it, a timezone decision at each boundary, and a "why is
+// my post not showing" support path. Pinning is a boolean a person controls
+// and can see the effect of immediately. When the gym outgrows it, an
+// additive migration adds `publishedAt`; nothing here forecloses that.
+//
+// `authorId` is Restrict, not Cascade: deleting a staff account must not
+// silently delete the notices they posted. Staff leave; the announcement that
+// the gym closes early on the 25th does not stop being true.
+model Announcement {
+  id String @id @default(uuid()) @db.Uuid
+
+  title   String
+  /// Always plain text. For a rich notice it is DERIVED from `contentJson` by
+  /// the API, so previews, the bell and `Announcement_content_sane` (1–4000
+  /// trimmed characters) never need to read the JSON.
+  content String
+
+  /// The notice as ProseMirror JSON, rebuilt from the server's allowlist
+  /// (`announcements/rich-content.ts`) before it is stored. NULL is a plain
+  /// notice — every row written before rich text shipped. CHECK
+  /// `Announcement_contentJson_is_doc` (migration only) requires a `doc` root.
+  contentJson Json?
+
+  /// Optional image shown above the body. An object in the public
+  /// `announcements` bucket; CHECK `Announcement_coverImageUrl_https` (migration
+  /// only) enforces https and a 2048-character bound.
+  coverImageUrl String?
+
+  // Pinned notices sort above the rest, newest first within each group.
+  isPinned Boolean @default(false)
+
+  authorId String @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  author User @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  // The list query's exact shape: pinned first, then newest. A single index
+  // covering both keys means the member's feed never sorts in memory.
+  @@index([isPinned(sort: Desc), createdAt(sort: Desc)])
+  @@index([authorId])
+}

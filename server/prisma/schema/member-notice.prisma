@@ -1,0 +1,71 @@
+// Something that happened to ONE member, shown in their portal bell: a
+// waitlist place that turned into a seat, a class called off or moved, a
+// booking the desk made or removed for them.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// NOT A SystemNotification WITH A RECIPIENT COLUMN.
+//
+// That table's read state is SHARED by design — one counter, a handful of
+// staff — and every query over it is unscoped: one desk click marks every row
+// read, and the console lists them all. A member's notice is personal. Each
+// row here has exactly one recipient and its OWN `readAt`, and it is reached
+// only through the member's keyless /me/notices routes.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Written AFTER the change it describes has committed, never inside its
+// transaction, and by a producer that never throws into its caller: a notice
+// that failed to send must not undo the booking it was about.
+//
+// The text is a complete sentence composed in gym time when the notice is
+// written, and stored as sent — the member reads what they were told, even
+// after the class changes again.
+model MemberNotice {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  kind MemberNoticeKind
+
+  /// One line, written for the member. 1–120 trimmed characters (CHECK
+  /// `MemberNotice_title_sane`); producers trim to fit.
+  title String
+  /// Optional detail — the reason staff gave, or what changed. 1–1000 trimmed
+  /// characters when present (CHECK `MemberNotice_body_sane`).
+  body  String?
+
+  /// Where the row takes the member — an in-app path such as
+  /// `/portal/book?date=2026-10-14`, never an external URL. CHECK
+  /// `MemberNotice_link_is_internal` is SystemNotification's predicate,
+  /// verbatim: a full URL here would be an open redirect.
+  linkPath String?
+
+  /// What this is about — `ClassBooking` or `ClassSession`, and its id.
+  /// Free-form and deliberately NOT a foreign key: a notice that a class was
+  /// called off must outlive the class row. Both set or both null (CHECK
+  /// `MemberNotice_subject_shape`).
+  subjectType String?
+  subjectId   String? @db.Uuid
+
+  /// The producer's de-duplication key, e.g. `CLASS_CANCELLED:<sessionId>:<userId>`.
+  /// Notices are written with createMany({ skipDuplicates: true }), so a
+  /// retried request or a double-submitted edit notifies once. A nullable
+  /// unique column rather than a partial index for the same reason as
+  /// ClassBooking.activeKey: Prisma drops partial indexes. NULLs never collide.
+  dedupeKey String? @unique
+
+  /// When the member opened their bell over it. NULL is unread. Stamped with
+  /// the app's clock while `createdAt` takes the database's, which is why no
+  /// CHECK compares the two.
+  readAt DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  // CASCADE: a member's notices are their own personal data and go with them,
+  // like their class bookings.
+  user User @relation("MemberNoticeRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  // The bell's exact query: one member's notices, newest first, with the id as
+  // the tie-break so a page boundary never repeats or skips a row.
+  @@index([userId, createdAt(sort: Desc), id(sort: Desc)])
+  // The unread badge's count.
+  @@index([userId, readAt])
+}

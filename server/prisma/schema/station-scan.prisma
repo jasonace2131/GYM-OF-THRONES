@@ -1,0 +1,67 @@
+// Replay protection for the station token, and nothing else.
+//
+// A row is claimed the moment a token is PRESENTED — before the verdict is
+// computed — so a slot is consumed by presentation regardless of outcome. The
+// rendered response is written back in the same transaction, so re-presenting
+// the same code returns the SAME BODY rather than a second denial row. A
+// member denied for expiry who renews at the desk is admitted from the sale
+// confirmation, not by re-scanning.
+//
+// Rows older than 24h are deleted by pruneEphemera; the one-slot look-back is
+// the real gate, so retention only has to comfortably exceed it.
+model StationScan {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @db.Uuid
+  stationId String @db.Uuid
+
+  // Int, not BigInt. Prisma maps BigInt to a JS BigInt, JSON.stringify throws
+  // on it, and every response goes through TransformInterceptor. A 30-second
+  // slot counter overflows int4 in the year 4111. The DTO additionally refuses
+  // any slot above 2^31 − 1 so a range error can never reach a Prisma write.
+  slot Int
+
+  outcome StationScanOutcome? // NULL only inside the claiming tx
+
+  // NOT @unique: a check-out links back to the SAME CheckIn the opening scan
+  // linked to, and a plain unique index would raise 23505 inside the
+  // interactive transaction on the ordinary check-out path. Scoped uniqueness
+  // — at most one OPENING scan per visit — is the partial index
+  // StationScan_opening_checkin_once, which Prisma does not model and which
+  // therefore lives only in hand-written migration SQL.
+  //
+  // Its filter is ('CHECKED_IN', 'RECHECKED_IN') and deliberately EXCLUDES
+  // 'REOPENED': a reopen is not an opening. §6.6.4's undo path is by
+  // definition a scan against a visit that already has an opening scan, and
+  // including REOPENED in the filter made that path 500 at the counter
+  // (fixed in 20260820120000_stationscan_opening_index_excludes_reopen).
+  checkInId String? @db.Uuid
+  denialId  String? @unique @db.Uuid
+
+  // The exact rendered body, written in the claiming transaction. This is what
+  // makes "the replay returns an identical response" literally true instead of
+  // approximately true — ALREADY_INSIDE links to no row at all, and membership
+  // summaries and visit counts legitimately change between two presentations
+  // of one code.
+  responseSnapshot Json?
+
+  // Hashed request origin, for the relay signal in §6.11.2. Never a raw IP: a
+  // member's IP address is personal data under the Data Privacy Act, and
+  // clustering only needs equality.
+  originIpHash  String? @db.Char(64)
+  offSiteOrigin Boolean @default(false)
+
+  consumedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  station Station        @relation(fields: [stationId], references: [id], onDelete: Restrict)
+  checkIn CheckIn?       @relation(fields: [checkInId], references: [id], onDelete: Restrict)
+  denial  CheckInDenial? @relation(fields: [denialId], references: [id], onDelete: Restrict)
+
+  // THE replay constraint. stationId is in the key even though there is one
+  // station: without it, a scan at station A would block a legitimate scan at
+  // station B inside the same 30 seconds. One column now, a data migration
+  // later.
+  @@unique([userId, stationId, slot])
+  @@index([consumedAt]) // nightly purge
+  @@index([stationId, consumedAt]) // the rolling fan-out query (§6.11.3)
+}

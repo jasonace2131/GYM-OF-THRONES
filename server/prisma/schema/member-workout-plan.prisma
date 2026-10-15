@@ -1,0 +1,106 @@
+// A member's OWN saved AI workout plan (feat/member-workouts).
+//
+// Separate from `WorkoutPlan`, which is the coach's plan FOR a member and
+// stays exactly as it is: a coached member can have both, clearly labelled.
+//
+// UP TO FIVE PER MEMBER, ONE ACTIVE. The five-plan cap is a service rule
+// (409 WORKOUT_PLAN_LIMIT); "one active" is a partial unique index in the
+// migration SQL (`MemberWorkoutPlan_one_active ON ("memberId") WHERE
+// "isActive"`), which Prisma cannot represent — so `prisma migrate diff`
+// will always offer to drop it, and the e2e constraints suite is what
+// notices if it ever goes.
+//
+// The intake columns are the answers the member gave the wizard, minus the
+// seven PAR-Q+ answers, which NEVER leave the browser: the server only ever
+// sees `healthFlag` (any "yes") and the areas to go easy on. `use*` are the
+// three "use what the gym knows" switches, kept so Regenerate can prefill the
+// wizard exactly as it was.
+//
+// `body` is `MemberPlanBody` — `{ summary, days: [...], guidance: [...] }` —
+// validated by `parseMemberPlan` (@got/shared) on the model's reply, on the
+// save, and on every hand edit. `MemberWorkoutPlan_body_shape` is the floor
+// under that: an object with a days array.
+
+enum WorkoutGoal {
+  MUSCLE
+  FAT_LOSS
+  STRENGTH
+  ENDURANCE
+  GENERAL
+  SPORT
+}
+
+enum WorkoutExperience {
+  NEW
+  SOME
+  EXPERIENCED
+}
+
+enum WorkoutTimeOfDay {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+enum WorkoutEasyOn {
+  KNEES
+  LOWER_BACK
+  SHOULDERS
+  WRISTS
+  NECK
+  HIPS
+}
+
+/// AI: saved straight from a generation. EDITED: the member changed it by hand
+/// (or kept a Swap/Adjust result), so it is no longer what the model wrote.
+enum WorkoutPlanSource {
+  AI
+  EDITED
+}
+
+model MemberWorkoutPlan {
+  id       String @id @default(uuid()) @db.Uuid
+  memberId String @db.Uuid
+
+  /// 1-60 characters, trimmed (CHECK in SQL).
+  name String
+
+  goal       WorkoutGoal
+  /// The member's own words, at most 300 characters. Sent to the model AS DATA.
+  goalNotes  String?
+  experience WorkoutExperience
+  /// 0 = Sunday … 6 = Saturday, like OpeningHours.dayOfWeek. 1-7 unique entries.
+  weekdays   Int[]             @db.SmallInt
+  /// 30 | 45 | 60 | 75 (CHECK in SQL).
+  sessionMinutes Int           @db.SmallInt
+  timeOfDay  WorkoutTimeOfDay
+  /// Any PAR-Q+ "yes". The answers themselves are never stored.
+  healthFlag Boolean
+  easyOn     WorkoutEasyOn[]
+
+  useMeasurements Boolean
+  useAttendance   Boolean
+  useBookings     Boolean
+
+  body   Json
+  source WorkoutPlanSource
+  /// The Gemini model that wrote it. Null once the member has edited it by hand.
+  model  String?
+
+  isActive Boolean @default(false)
+
+  /// When the member agreed to send the intake to Gemini.
+  consentAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  member User @relation("MemberWorkoutPlanMember", fields: [memberId], references: [id], onDelete: Restrict)
+
+  // ── Workout sessions ──
+  // Workouts started from this plan. SET NULL on their side: deleting the
+  // plan keeps the history, which carries its own snapshot of the day.
+  workoutSessions WorkoutSession[] @relation("WorkoutSessionMemberPlan")
+
+  // The library list: a member's plans, newest first.
+  @@index([memberId, createdAt])
+}

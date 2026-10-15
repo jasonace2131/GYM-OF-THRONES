@@ -1,0 +1,174 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Tailwind v4 for the member portal's shadcn components — and nothing else.
+
+   THREE RULES KEEP IT FROM TOUCHING THE REST OF THE PRODUCT:
+
+   1. NO PREFLIGHT. Only theme.css and utilities.css are imported. Preflight
+      would reset headings, buttons and form controls across the portal and
+      silently restyle every screen built on portal.css.
+
+   2. IT GENERATES ONLY WHAT NEW CODE USES. `source(none)` switches off
+      automatic scanning; the @source lines below name the only folders whose
+      class names become utilities. Legacy markup is never scanned, and
+      `npm run check:tailwind --workspace=client` fails the build if a legacy
+      className ever matches a generated utility.
+
+   3. ONE PALETTE. shadcn's variables are defined under .portal-root and point
+      at the gold/paper tokens in globals.css and portal.css. Change a colour
+      there and shadcn follows; never give a variable here its own hex value.
+
+   Imported by src/app/portal/layout.tsx and src/app/admin/layout.tsx. The
+   admin console was added because the reports range picker needs a real
+   calendar with keyboard navigation and ARIA, which react-day-picker gives for
+   free and a hand-rolled grid does not. Only ONE admin folder is scanned —
+   ../components/admin/range — so every existing admin file stays unscanned and
+   the containment gate keeps guarding it. Do not widen that to ./admin or
+   ../components/admin. See CLAUDE.md "Design system".
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@import 'tw-animate-css';
+
+@source '../components/ui';
+@source '../components/schedule';
+@source '../components/admin/range';
+@source '../components/announcements';
+@source './portal/dashboard';
+@source './portal/schedule';
+@source './portal/book';
+@source './portal/coaching';
+@source './portal/workouts';
+@source '../components/workouts';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* The gym's own vocabulary, for schedule components. */
+  /* `night` is the near-black ink the gold button text uses — the selected
+     date chip and a booked week-grid block are filled with it. */
+  --color-night: var(--primary-foreground);
+  --color-gold: var(--gold);
+  --color-gold-lit: var(--gold-lit);
+  --color-gold-deep: var(--gold-deep);
+  --color-ink-2: var(--p-ink2);
+  --color-ink-3: var(--p-ink3);
+  --color-paper-2: var(--p-paper2);
+  --color-paper-3: var(--p-paper3);
+  --color-sidebar: var(--p-sidebar);
+  --color-ok: var(--p-ok);
+  --color-ok-bg: var(--p-ok-bg);
+  --color-warn: var(--p-warn);
+  --color-warn-bg: var(--p-warn-bg);
+  --color-danger: var(--p-danger);
+  --color-danger-bg: var(--p-danger-bg);
+  --color-info: var(--p-info);
+  --color-info-bg: var(--p-info-bg);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* `font-display`, not `font-heading`: a theme key named like the root
+     variable it reads would define --font-heading in terms of itself. */
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   The one piece of Preflight we cannot do without.
+
+   Preflight is off by design (see rule 1 above), and Preflight is also what
+   normally resets `button, input, select, textarea { color: inherit; font:
+   inherit }`. Without it those elements keep the USER AGENT's defaults — a
+   <button> renders in the system `buttontext` colour and the system UI font,
+   no matter what its container's colour is.
+
+   Every shadcn control that expects to inherit its text colour is therefore
+   wrong: the time-of-day filters rendered near-white on the portal's paper,
+   measured at 1.10:1 where WCAG AA wants 4.5:1 — invisible, not merely faint.
+
+   Scoped to `.portal-root`, and in `@layer base` on purpose: the legacy
+   stylesheets are UNLAYERED, so `.p-btn` and every other existing rule still
+   beats this wherever it applies. It can only reach elements that had no rule
+   of their own, which is exactly the new shadcn components.
+   ────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  .portal-root :is(button, input, optgroup, select, textarea) {
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* The other half of the same problem: a <button> with no background rule
+     paints the UA's `buttonface` grey, which turned every calendar day cell,
+     every inactive tab and every agenda title into a filled grey box — and
+     the UA's `2px outset` ridge, which that grey was hiding. Both go, exactly
+     as Preflight would have removed them.
+     `.p-link` (sidebar Sign Out) and `.p-tab` (mobile tab bar) were relying on
+     the grey by accident: they set no background of their own, so they had
+     been painting UA grey since the portal shipped. */
+  .portal-root :is(button, [type='button'], [type='reset'], [type='submit']) {
+    background-color: transparent;
+    background-image: none;
+    border-style: solid;
+    border-width: 0;
+  }
+
+  /* The third piece, and the one shadcn's own base layer ships as
+     `* { @apply border-border }`. Tailwind v4's `border` utility sets only the
+     WIDTH, so without a colour rule every bordered shadcn surface draws its
+     edge in `currentColor` — the coach filter's dropdown had a near-black 1px
+     frame the moment it could be seen at all (it used to render outside
+     .portal-root and was transparent; see components/ui/portal-container.tsx).
+     `:where()` keeps it at zero specificity, and the layer keeps it below
+     every legacy rule, so it only reaches elements nobody gave a colour. */
+  :where(.portal-root *),
+  :where(.portal-root *)::before,
+  :where(.portal-root *)::after {
+    border-color: var(--border);
+  }
+}
+
+.portal-root {
+  --background: var(--p-paper2);
+  --foreground: var(--p-ink);
+  --card: var(--p-paper);
+  --card-foreground: var(--p-ink);
+  --popover: var(--p-paper);
+  --popover-foreground: var(--p-ink);
+  --primary: var(--gold);
+  /* The ink .p-btn-gold already sets on gold (portal.css). */
+  --primary-foreground: #14100a;
+  --secondary: var(--p-paper3);
+  --secondary-foreground: var(--p-ink);
+  --muted: var(--p-paper2);
+  --muted-foreground: var(--p-ink3);
+  --accent: var(--gold-film);
+  --accent-foreground: var(--p-ink);
+  --destructive: var(--p-danger);
+  --border: var(--p-border);
+  --input: var(--p-border-2);
+  --ring: var(--gold);
+  --radius: var(--p-radius);
+}

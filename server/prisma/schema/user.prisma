@@ -1,0 +1,222 @@
+model User {
+  id         String     @id @default(uuid()) @db.Uuid
+  // Links to the Supabase Auth user. Supabase owns credentials; we own
+  // everything else about the person.
+  supabaseId String     @unique @db.Uuid
+  email      String     @unique
+  firstName  String
+  lastName   String
+  phone      String?
+  avatarUrl  String?
+  role       Role       @default(CLIENT)
+  status     UserStatus @default(ACTIVE)
+
+  // Human-typed lookup handle for the MEMBER_CODE check-in path. Six
+  // characters of Crockford base32, allocated lazily inside the first
+  // membership or day-pass transaction — never at provisioning, which must
+  // stay a single upsert on the per-request hot path. See
+  // src/users/member-code.util.ts.
+  memberCode String? @unique
+
+  // Statutory ID for the mandatory senior/PWD discount (§5.7.2). Held on the
+  // person, not re-typed at every sale. Personal data — never in a list DTO.
+  seniorPwdIdNo String?
+
+  // Body metrics, metric units, optional — registration does not force them
+  // and an account is valid without them.
+  //
+  // Height is effectively static for adults, so a single column is right.
+  // Weight is a point-in-time reading: this column holds the CURRENT value
+  // for display. Progress tracking over time belongs in its own history
+  // table when that feature lands; adding it will not change these columns.
+  heightCm Float?
+  weightKg Float?
+
+  // Incremented whenever role or permissions change, so permission caches key
+  // on it and every server instance self-invalidates. Unused in phase 1;
+  // present now so phase 2 needs no migration to add caching.
+  permissionVersion Int @default(0)
+
+  lastSeenAt DateTime? @db.Timestamptz(3)
+
+  // The member's announcements watermark: every notice created at or before
+  // this instant counts as seen. Moved ONLY by opening the bell
+  // (POST /me/announcements/seen), and only forwards. NULL means "never
+  // opened it", which the API reads as createdAt floored by a 30-day horizon
+  // (announcement-watermark.ts) — so provisioning never writes it.
+  //
+  // Deliberately NOT lastSeenAt: that one moves on every request, and a
+  // watermark that moves on every request marks everything read the moment
+  // the member loads any page. Deliberately not in AUTH_USER_FIELDS either:
+  // one route reads it, so every other request does not pay for it.
+  announcementsSeenAt DateTime? @db.Timestamptz(3)
+
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt  DateTime? @db.Timestamptz(3)
+
+  // ── Emergency contact ──────────────────────────────────────────────────
+  // WAS one free-text column. Split, because the single field was read in a
+  // context where parsing costs time nobody has: a member is on the floor and
+  // somebody needs the number NOW, not after reading 200 characters to find
+  // which part of "wife Maria 0917..." is the phone.
+  //
+  // `emergencyContact` is kept as the legacy column and back-filled into
+  // `emergencyContactName` by the migration, then left unused — dropping it
+  // in the same migration that adds its replacements would make the rollback
+  // lossy.
+  emergencyContact         String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+
+  /// Staff-entered, free text. Injuries, conditions, "no overhead pressing".
+  ///
+  /// SENSITIVE personal information under RA 10173 §3(l) — health data gets a
+  /// higher bar than a phone number. Deliberately NOT in `DeskMember`: that
+  /// projection streams to a screen in a public lobby all day, and a member's
+  /// medical note is not something a stranger reads over the counter.
+  medicalNotes String?
+
+  /// Collected at registration since the first version and DISCARDED at every
+  /// layer until now — required on the input, absent from the signUp payload,
+  /// no column. The system could not answer "is this member a minor?" for
+  /// anybody, including for the waiver that a minor cannot legally sign.
+  dateOfBirth DateTime? @db.Date
+
+  // ── Suspension (member.suspend) — mirrors Payment.voidedAt/voidedById/
+  // voidReason exactly (payment.prisma). All three null together, all three
+  // set together; enforced in hand-written migration SQL (CHECKs live only
+  // there in this repo), not here.
+  suspendedAt   DateTime? @db.Timestamptz(3)
+  suspendedById String?   @db.Uuid
+  suspendReason String?
+
+  // Self-relation: who suspended this account. The inverse
+  // (`suspendedUsers`) is never read today — it exists only because Prisma
+  // requires both sides of a named relation to be declared.
+  suspendedBy    User?  @relation("UserSuspendedBy", fields: [suspendedById], references: [id], onDelete: Restrict)
+  suspendedUsers User[] @relation("UserSuspendedBy")
+
+  // CoachAssignment back-relations. `assignedCoach` is load-bearing and must
+  // not be renamed: §4.1's OWN predicate reads
+  // `{ assignedCoach: { some: { coachId, endedAt: null } } }`.
+  assignedCoach            CoachAssignment[] @relation("Member")
+  convertedFromCheckIns    CheckIn[]         @relation("CheckInConvertedTo")
+  coachedMembers           CoachAssignment[] @relation("Coach")
+  coachAssignmentsAssigned CoachAssignment[] @relation("CoachAssignmentAssignedBy")
+  coachAssignmentsEnded    CoachAssignment[] @relation("CoachAssignmentEndedBy")
+
+  membership       Membership?
+  payments         Payment[]         @relation("PaymentMember")
+  recordedPayments Payment[]         @relation("PaymentRecordedBy")
+  voidedPayments   Payment[]         @relation("PaymentVoidedBy")
+  archivedPayments Payment[]         @relation("PaymentArchivedBy")
+  paymentsGcashVerified Payment[]    @relation("PaymentGcashVerifiedBy")
+  membershipEvents MembershipEvent[] @relation("MembershipEventActor")
+  approvedHolds    MembershipHold[]  @relation("HoldApprovedBy")
+  releasedHolds    MembershipHold[]  @relation("HoldReleasedBy")
+  openedShifts     Shift[]           @relation("ShiftOpenedBy")
+  closedShifts     Shift[]           @relation("ShiftClosedBy")
+
+  // ── Chunk 2 — station QR attendance ──
+  checkIns                  CheckIn[]           @relation("CheckInMember")
+  checkInsRecorded          CheckIn[]           @relation("CheckInRecordedBy")
+  checkInsClosed            CheckIn[]           @relation("CheckInClosedBy")
+  checkInsAssignedCoach     CheckIn[]           @relation("CheckInAssignedCoach")
+  checkInsVoided            CheckIn[]           @relation("CheckInVoidedBy")
+  checkInDenials            CheckInDenial[]     @relation("CheckInDenialMember")
+  checkInDenialsRecorded    CheckInDenial[]     @relation("CheckInDenialRecordedBy")
+  checkInDenialsOverridden  CheckInDenial[]     @relation("CheckInDenialOverriddenBy")
+  stationScans              StationScan[]
+  stationCredentialsCreated StationCredential[] @relation("StationCredentialCreatedBy")
+
+  announcements        Announcement[]    @relation("AnnouncementAuthor")
+  aiConversations      AiConversation[]  @relation("AiConversationMember")
+  bodyMeasurements     BodyMeasurement[] @relation("BodyMeasurementMember")
+  goals                MemberGoal[]      @relation("MemberGoalMember")
+  // Progress a coach recorded or corrected for somebody else. RESTRICT on the
+  // other side: a coach named on a member's record cannot be hard-deleted.
+  measurementsRecorded BodyMeasurement[] @relation("BodyMeasurementRecordedBy")
+  measurementsUpdated  BodyMeasurement[] @relation("BodyMeasurementUpdatedBy")
+  goalsRecorded        MemberGoal[]      @relation("MemberGoalRecordedBy")
+  goalsUpdated         MemberGoal[]      @relation("MemberGoalUpdatedBy")
+  consents             ConsentRecord[]   @relation("UserConsent")
+  promotionsCreated    Promotion[]       @relation("PromotionCreatedBy")
+  leadsAssigned        Lead[]            @relation("LeadAssignedTo")
+  leadConvertedFrom    Lead[]            @relation("LeadConvertedUser")
+  openingHoursUpdated  OpeningHours[]    @relation("OpeningHoursUpdatedBy")
+  assistantSettingsUpdated AssistantSettings[] @relation("AssistantSettingsUpdatedBy")
+  memberJoinLink        MemberJoinLink?  @relation("MemberJoinLinkUser")
+  memberJoinLinksIssued MemberJoinLink[] @relation("MemberJoinLinkIssuedBy")
+  classSessionsCoached ClassSession[]    @relation("ClassSessionCoach")
+  classSessionsCreated ClassSession[]    @relation("ClassSessionCreatedBy")
+  classBookings        ClassBooking[]    @relation("ClassBookingMember")
+
+  // Class bookings this account is named on as the one who did something: a
+  // place the desk added by hand, a removal by the desk, and a register entry
+  // marked. A member's own booking and cancelling name nobody. RESTRICT on the other
+  // side, like every "who did it" column: accounts are soft-deleted, and the
+  // name on a member's booking must not vanish from under it.
+  classBookingsAdded     ClassBooking[] @relation("ClassBookingAddedBy")
+  classBookingsCancelled ClassBooking[] @relation("ClassBookingCancelledBy")
+  classBookingsMarked    ClassBooking[] @relation("ClassBookingMarkedBy")
+
+  // The member's own notices — the personal half of their portal bell.
+  // CASCADE on the other side: personal data that goes with the member, like
+  // their class bookings.
+  memberNotices MemberNotice[] @relation("MemberNoticeRecipient")
+
+  // System notifications this staff account has seen or dealt with. Both are
+  // SetNull rather than Restrict: a notification must outlive the account of
+  // whoever read it, or deleting a leaver would be blocked by an old notice.
+  notificationsRead     SystemNotification[] @relation("NotificationReadBy")
+  notificationsResolved SystemNotification[] @relation("NotificationResolvedBy")
+
+  // Restrict, unlike the two above: an account named by an audit entry cannot
+  // be deleted out from under it. That is what makes the log append-only in
+  // fact rather than only in intent.
+  auditEntries AuditLog[] @relation("AuditLogActor")
+
+  // A member's own GCash claims cascade with them; the staff reviews they
+  // signed do not, for the same reason an audit actor cannot be deleted.
+  gcashSubmissions         GcashSubmission[] @relation("GcashSubmissionMember")
+  gcashSubmissionsReviewed GcashSubmission[] @relation("GcashSubmissionReviewedBy")
+
+  // ── Coach tools (feat/coach-tools): chat and workout plans ──
+  // All RESTRICT on the other side: a conversation or a plan names these
+  // accounts, and accounts are soft-deleted rather than removed.
+  chatThreadsAsCoach  ChatThread[]    @relation("ChatThreadCoach")
+  chatThreadsAsMember ChatThread[]    @relation("ChatThreadMember")
+  chatMessagesSent    ChatMessage[]   @relation("ChatMessageSender")
+  chatReadStates      ChatReadState[] @relation("ChatReadStateUser")
+  workoutPlan         WorkoutPlan?    @relation("WorkoutPlanMember")
+  workoutPlansCoached WorkoutPlan[]   @relation("WorkoutPlanCoach")
+  workoutPlansUpdated WorkoutPlan[]   @relation("WorkoutPlanUpdatedBy")
+  // ── Staff & Access ──
+  // Invitations this account issued, took up, or withdrew. All RESTRICT on
+  // the other side: an invitation names people, like an audit entry does.
+  staffInvitationsSent     StaffInvitation[] @relation("StaffInvitationInvitedBy")
+  staffInvitationsAccepted StaffInvitation[] @relation("StaffInvitationAcceptedBy")
+  staffInvitationsRevoked  StaffInvitation[] @relation("StaffInvitationRevokedBy")
+  // The coach's own public profile (CASCADE), and the ones this account last
+  // edited (RESTRICT).
+  coachProfile             CoachProfile?     @relation("CoachProfileUser")
+  coachProfilesUpdated     CoachProfile[]    @relation("CoachProfileUpdatedBy")
+  // ── end Staff & Access ──
+
+  // ── Member workout planner ──
+  // The member's own AI plans, their one in-flight draft, and their daily AI
+  // action ledger. All RESTRICT on the other side: accounts are soft-deleted.
+  memberWorkoutPlans MemberWorkoutPlan[] @relation("MemberWorkoutPlanMember")
+  memberWorkoutDraft MemberWorkoutDraft? @relation("MemberWorkoutDraftMember")
+  workoutAiQuotas    WorkoutAiQuota[]    @relation("WorkoutAiQuotaMember")
+
+  // ── Workout sessions ──
+  // The member's workouts and every set they ticked. RESTRICT on the other
+  // side: a workout history names the account, and accounts are soft-deleted.
+  workoutSessions WorkoutSession[] @relation("WorkoutSessionMember")
+  workoutSetLogs  WorkoutSetLog[]  @relation("WorkoutSetLogMember")
+
+  @@index([role, status])
+}

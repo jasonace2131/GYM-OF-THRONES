@@ -1,0 +1,70 @@
+// One workout a member did — or is doing — from one day of a plan
+// (feat/workout-sessions). Spec:
+// docs/superpowers/specs/2026-09-29-workout-sessions-design.md §2.
+//
+// THE DAY IS SNAPSHOTTED. `exercises` is the `SessionExercise[]` the session
+// started with (@got/shared `sessionExercisesFromMemberDay` /
+// `sessionExercisesFromCoachDay`), and `planName` / `dayTitle` / the coach's
+// name are copies too: editing or deleting the plan later never rewrites a
+// workout. That is also why both plan links are SET NULL — the history
+// outlives the plan it came from.
+//
+// ONE OPEN SESSION PER MEMBER is a partial unique index in the migration SQL
+// (`WorkoutSession_one_open ON ("memberId") WHERE "finishedAt" IS NULL`),
+// which Prisma cannot represent — so `prisma migrate diff` will always offer
+// to drop it, and test/workout-sessions-constraints.e2e-spec.ts is what
+// notices if it ever goes. Every CHECK lives only there as well.
+
+/// Which kind of plan the day came from.
+enum WorkoutSessionSource {
+  MEMBER_PLAN
+  COACH_PLAN
+}
+
+/// "How did it feel?" on the Done screen. Only a finished session has one.
+enum WorkoutFeeling {
+  EASY
+  RIGHT
+  HARD
+}
+
+model WorkoutSession {
+  id       String               @id @default(uuid()) @db.Uuid
+  memberId String               @db.Uuid
+  source   WorkoutSessionSource
+
+  /// The member's own plan it came from; only with MEMBER_PLAN. Null once deleted.
+  memberPlanId String? @db.Uuid
+  /// The coach's plan it came from; only with COACH_PLAN. Null once deleted.
+  coachPlanId  String? @db.Uuid
+
+  /// Snapshot of the plan's name, 1-60 characters (CHECK in SQL).
+  planName       String
+  /// Snapshot of the coach's name when the source is the coach's plan.
+  coachFirstName String?
+  coachLastName  String?
+  /// Snapshot of the day's title, 1-40 characters (CHECK in SQL).
+  dayTitle       String
+  /// 0 = Sunday … 6 = Saturday; null for a coach day whose label names none.
+  weekday        Int?    @db.SmallInt
+  /// `SessionExercise[]`, 1-12 of them (CHECK in SQL).
+  exercises      Json
+
+  /// The gym day it started on.
+  businessDate DateTime        @db.Date
+  startedAt    DateTime        @default(now()) @db.Timestamptz(3)
+  /// Null while open. An idle session finishes at its last ticked set.
+  finishedAt   DateTime?       @db.Timestamptz(3)
+  feeling      WorkoutFeeling?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  member     User               @relation("WorkoutSessionMember", fields: [memberId], references: [id], onDelete: Restrict)
+  memberPlan MemberWorkoutPlan? @relation("WorkoutSessionMemberPlan", fields: [memberPlanId], references: [id], onDelete: SetNull)
+  coachPlan  WorkoutPlan?       @relation("WorkoutSessionCoachPlan", fields: [coachPlanId], references: [id], onDelete: SetNull)
+  sets       WorkoutSetLog[]
+
+  // History, newest first.
+  @@index([memberId, startedAt(sort: Desc)])
+}

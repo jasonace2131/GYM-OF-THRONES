@@ -1,0 +1,61 @@
+// A member's conversation with the assistant.
+//
+// Stored because `ai.chat.history.read` exists in the permission catalogue and
+// is granted to CLIENT at scope OWN — the spec reserved it so a member can
+// reopen what they asked yesterday, and an admin at scope ALL can review a
+// conversation when a member says the assistant told them something wrong.
+//
+// `onDelete: Cascade` from User, unlike almost everything else in this schema.
+// A conversation is not a business record: no report reconciles against it, no
+// money moves through it, and a deleted member's chat history is a liability
+// to keep rather than an audit trail to preserve. Payments and check-ins are
+// Restrict for exactly the opposite reason.
+model AiConversation {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  // Generated from the first user message, so the history list is readable
+  // without loading every message.
+  title String
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user     User        @relation("AiConversationMember", fields: [userId], references: [id], onDelete: Cascade)
+  messages AiMessage[]
+
+  // The history screen's exact query: this member's conversations, most
+  // recently touched first.
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+// One turn. Only what a member is shown is stored.
+//
+// DELIBERATELY NOT STORED: the tool-call arguments and tool results exchanged
+// mid-turn. Those contain the member's membership dates, payment amounts and
+// attendance rows — data that already lives in its own tables, correctly
+// scoped and correctly audited. Copying it into a chat log would create a
+// second, unscoped copy of a member's financial history whose only access
+// control is `ai.chat.history.read`, and which no `Payment` void would ever
+// correct. The assistant re-reads live data on every turn instead.
+model AiMessage {
+  id             String @id @default(uuid()) @db.Uuid
+  conversationId String @db.Uuid
+
+  // 'USER' or 'ASSISTANT'. A plain string with a CHECK rather than an enum:
+  // this is the only place the values appear, and an enum here would be a
+  // migration every time the assistant grows a role.
+  role String
+
+  content String
+
+  /// How many tool calls the assistant made to answer. Zero means it answered
+  /// from the system prompt alone, which is worth being able to spot.
+  toolCallCount Int @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}

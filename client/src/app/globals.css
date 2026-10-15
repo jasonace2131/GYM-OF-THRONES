@@ -1,0 +1,1795 @@
+/* ══════════════════════════════════════════════════════════
+   Gym of Thrones — obsidian + gold design system
+   Dark ground so the gold has something to glow against.
+   ══════════════════════════════════════════════════════════ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: #0b0b0d;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* In the base layer so a utility class on a link inside a shadcn component
+   (e.g. a Button rendered as a Link) can set its own colour. On pages without
+   Tailwind there are no other layers, so nothing about these rules changes. */
+@layer base {
+  a {
+    color: var(--gold-lit);
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: #fff;
+  }
+}
+
+::selection {
+  background: rgba(201, 146, 42, 0.85);
+  color: #0b0b0d;
+}
+
+/* ── Tokens ── */
+:root {
+  /* Grounds — near-black with a faint warm cast so it reads as
+     "throne room at night", not "generic dark mode grey". */
+  --ground: #0b0b0d;
+  --ground-2: #101014;
+  --raised: #17171c;
+  --raised-2: #1e1e25;
+
+  --line: rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.13);
+
+  --gold: #c9922a;
+  --gold-lit: #f2cd77;
+  --gold-deep: #7d5615;
+  --gold-glow: rgba(201, 146, 42, 0.35);
+  --gold-film: rgba(201, 146, 42, 0.12);
+
+  --text: #f6f4f0;
+  --text-2: #a9a39a;
+  --text-3: #6e6961;
+
+  /* Supplied by next/font in layout.tsx — self-hosted, preloaded. */
+  --font-heading: var(--font-outfit), 'Outfit', sans-serif;
+  --font-body: var(--font-inter), 'Inter', system-ui, sans-serif;
+
+  /* Wider than the old 1160 so large screens stop feeling empty. */
+  --wrap: 1280px;
+  --wrap-wide: 1600px;
+  --gutter: clamp(20px, 4vw, 44px);
+}
+
+/* ── Layout primitives ── */
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+
+.wrap-wide {
+  width: 100%;
+  max-width: var(--wrap-wide);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+
+/* Section rhythm varies per section — set --pad inline to override. */
+.sec {
+  position: relative;
+  padding-block: var(--pad, clamp(64px, 8vw, 104px));
+}
+
+/* Asymmetric split: sticky heading rail + content. The single
+   biggest fix for "everything is centered". */
+.split {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) 2.6fr;
+  gap: clamp(28px, 4vw, 64px);
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: 96px;
+}
+
+/* ── Type ── */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 26px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold));
+}
+
+.h-sec {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(32px, 4.6vw, 58px);
+  line-height: 0.96;
+  letter-spacing: 0.005em;
+  margin: 14px 0 0;
+  color: var(--text);
+}
+
+.h-sec em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.lede {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--text-2);
+  margin: 16px 0 0;
+  max-width: 46ch;
+}
+
+/* Oversized ghost numeral behind card content. */
+.ghost-no {
+  position: absolute;
+  right: 10px;
+  bottom: -18px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 108px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.045);
+  pointer-events: none;
+  user-select: none;
+  transition: color 0.3s ease;
+}
+
+/* ── Ambient light ── */
+/* Blurred gold orbs behind sections. Cheap depth; stops the dark
+   ground reading as a flat black rectangle. */
+.spot {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Faint dot grid — texture so large empty areas still feel "lit". */
+.grid-tex::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 20%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 20%, transparent 78%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hairline {
+  height: 1px;
+  border: 0;
+  margin: 0;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--line-2) 18%,
+    var(--line-2) 82%,
+    transparent
+  );
+}
+
+/* ══════════════════════════════════════════════════════════
+   Keyframes
+   ══════════════════════════════════════════════════════════ */
+
+@keyframes hLine {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes hUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kenBurns {
+  from {
+    transform: scale(1.07);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Slow breathing glow on the primary CTA — the "machine is on" tell. */
+@keyframes breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(201, 146, 42, 0),
+      0 6px 22px rgba(201, 146, 42, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px rgba(201, 146, 42, 0),
+      0 6px 30px rgba(201, 146, 42, 0.5);
+  }
+}
+
+/* Light sweeping across a surface. */
+@keyframes sweep {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(420%) skewX(-18deg);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes scrollHint {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(15px);
+    opacity: 0;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Scroll reveal — staggered via --d
+   ══════════════════════════════════════════════════════════ */
+
+/* Reveal targets are VISIBLE by default and only hide themselves once
+   scripting is confirmed live (`.js` is set in <head> before paint).
+   Without this guard the server-rendered HTML paints with every section
+   at opacity 0, so the page looked blank until React hydrated — which
+   reads as "slow loading" even when the HTML arrived in milliseconds. */
+.js .rv {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.4s cubic-bezier(0.22, 0.7, 0.2, 1) var(--d, 0ms),
+    transform 0.4s cubic-bezier(0.22, 0.7, 0.2, 1) var(--d, 0ms);
+}
+
+.rv.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Pointer glow — a warm light follows the cursor across cards
+   ══════════════════════════════════════════════════════════ */
+
+.glow {
+  position: relative;
+  isolation: isolate;
+}
+
+.glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    340px circle at var(--mx, 50%) var(--my, 0%),
+    rgba(201, 146, 42, 0.17),
+    transparent 62%
+  );
+  opacity: 0;
+  transition: opacity 0.32s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.glow:hover::before {
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Navigation
+   ══════════════════════════════════════════════════════════ */
+
+header.site-nav {
+  transition:
+    background 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+}
+
+header.site-nav.top {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+header.site-nav.scrolled {
+  background: rgba(11, 11, 13, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom-color: var(--line);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+}
+
+.nlink {
+  position: relative;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  transition: color 0.2s;
+  padding-block: 4px;
+}
+
+.nlink::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: linear-gradient(to right, var(--gold), var(--gold-lit));
+  transition: width 0.26s cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+
+.nlink:hover {
+  color: var(--text);
+}
+
+.nlink:hover::after {
+  width: 100%;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Marquee ticker
+   ══════════════════════════════════════════════════════════ */
+
+.marquee {
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 7%, #000 93%, transparent);
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 34s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding-inline: 22px;
+  font-family: var(--font-heading);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(11, 11, 13, 0.72);
+}
+
+.marquee-item span[data-dot] {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(11, 11, 13, 0.45);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Cards
+   ══════════════════════════════════════════════════════════ */
+
+.gcard {
+  position: relative;
+  background: linear-gradient(160deg, var(--raised) 0%, var(--ground-2) 100%);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  transition:
+    transform 0.32s cubic-bezier(0.22, 0.7, 0.2, 1),
+    border-color 0.3s,
+    box-shadow 0.32s;
+}
+
+.gcard:hover {
+  transform: translateY(-6px);
+  border-color: rgba(201, 146, 42, 0.42);
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(201, 146, 42, 0.09);
+}
+
+.gcard:hover .gcard-img {
+  transform: scale(1.07);
+}
+
+.gcard:hover .ghost-no {
+  color: rgba(201, 146, 42, 0.16);
+}
+
+.gcard-img {
+  transition: transform 0.6s cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+
+/* ── Plan cards ── */
+.pcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 28px 24px 26px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(165deg, var(--raised) 0%, var(--ground-2) 100%);
+  transition:
+    transform 0.3s cubic-bezier(0.22, 0.7, 0.2, 1),
+    border-color 0.28s,
+    box-shadow 0.3s;
+}
+
+.pcard:hover {
+  transform: translateY(-6px);
+  border-color: rgba(201, 146, 42, 0.45);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+}
+
+/* The featured plan is physically larger, lit from within, and
+   swept by a highlight — the one thing on the page that moves
+   on its own. */
+.pcard.featured {
+  border-color: rgba(201, 146, 42, 0.55);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(201, 146, 42, 0.16), transparent 62%),
+    linear-gradient(165deg, #1d1a14 0%, #121114 100%);
+  box-shadow:
+    0 0 0 1px rgba(201, 146, 42, 0.16),
+    0 26px 60px rgba(0, 0, 0, 0.6),
+    0 0 70px -22px var(--gold-glow);
+  overflow: hidden;
+}
+
+.pcard.featured::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 70px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.11), transparent);
+  animation: sweep 5s ease-in-out infinite 1.4s;
+  pointer-events: none;
+}
+
+.pcard.featured:hover {
+  box-shadow:
+    0 0 0 1px rgba(201, 146, 42, 0.3),
+    0 30px 70px rgba(0, 0, 0, 0.66),
+    0 0 90px -18px var(--gold-glow);
+}
+
+.perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.perk svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--gold);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Announcements — lead story + list
+
+   Weighted roughly 60/40. The lead is the only announcement that can
+   convert, so it gets the scale, the photograph and the CTA; the rest
+   stay a scannable list. Equal weight for everything meant nothing led.
+   ══════════════════════════════════════════════════════════ */
+
+.news-layout {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.news-lead {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 350px;
+  padding: clamp(24px, 3vw, 38px);
+  border: 1px solid rgba(201, 146, 42, 0.32);
+  border-radius: 12px;
+  overflow: hidden;
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
+}
+
+.news-lead:hover {
+  border-color: rgba(201, 146, 42, 0.55);
+  box-shadow:
+    0 22px 50px rgba(0, 0, 0, 0.55),
+    0 0 60px -20px var(--gold-glow);
+}
+
+/* Two stacked scrims: a vertical one to seat the text, and a warm
+   diagonal so the photo reads as lit rather than merely darkened. */
+.news-lead-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to top,
+      rgba(11, 11, 13, 0.96) 22%,
+      rgba(11, 11, 13, 0.62) 62%,
+      rgba(11, 11, 13, 0.42) 100%
+    ),
+    linear-gradient(115deg, rgba(60, 42, 12, 0.55) 0%, transparent 65%);
+}
+
+.news-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--raised) 0%, var(--ground-2) 100%);
+}
+
+.news-list-head {
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.news-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  padding: 15px 18px;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--line);
+  transition:
+    background 0.22s,
+    border-left-color 0.22s,
+    padding-left 0.22s;
+}
+
+.news-row:last-child {
+  border-bottom: 0;
+}
+
+.news-row:hover {
+  background: rgba(255, 255, 255, 0.028);
+  border-left-color: var(--gold);
+  padding-left: 22px;
+}
+
+.news-row:hover .news-arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* Fixed size and top offset so the dots form one vertical rule down
+   the list regardless of how long each headline runs. */
+.news-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 7px;
+  border-radius: 50%;
+}
+
+.news-arrow {
+  flex: none;
+  align-self: center;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    opacity 0.22s,
+    transform 0.22s;
+  color: var(--gold);
+}
+
+/* ── Services grid ──
+   Fixed 2×2, never auto-fit. With four cards in an 872px column,
+   auto-fit resolved to three columns and left a single orphan card
+   stretched across row two. */
+.svc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 980px) {
+  .news-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .news-lead {
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 600px) {
+  .svc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Stat tiles ── */
+.stat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 22px 26px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stat + .stat {
+  border-left: 1px solid var(--line);
+}
+
+.stat-n {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(30px, 3.4vw, 44px);
+  line-height: 1;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-n i {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.stat-l {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Buttons
+   ══════════════════════════════════════════════════════════ */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  overflow: hidden;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    transform 0.14s,
+    box-shadow 0.25s;
+}
+
+.btn:active {
+  transform: scale(0.975);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--gold-lit);
+  outline-offset: 3px;
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold-lit) 0%, var(--gold) 45%, #a8761d 100%);
+  color: #14100a;
+  border: none;
+  box-shadow: 0 6px 22px rgba(201, 146, 42, 0.28);
+}
+
+/* Highlight sweeps across on hover — the slot-machine tell. */
+.btn-gold::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 46px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 0.6s cubic-bezier(0.22, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+.btn-gold:hover::after {
+  transform: translateX(420%) skewX(-18deg);
+}
+
+.btn-gold:hover {
+  box-shadow: 0 8px 30px rgba(201, 146, 42, 0.48);
+  color: #14100a;
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line-2);
+  color: var(--text);
+}
+
+.btn-ghost:hover {
+  border-color: rgba(201, 146, 42, 0.6);
+  background: rgba(201, 146, 42, 0.09);
+  color: #fff;
+}
+
+.btn-outline-gold {
+  background: transparent;
+  border: 1px solid rgba(201, 146, 42, 0.5);
+  color: var(--gold-lit);
+}
+
+.btn-outline-gold:hover {
+  background: rgba(201, 146, 42, 0.12);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.breathe {
+  animation: breathe 3.4s ease-in-out infinite;
+}
+
+/* ── Pills / badges ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: 1px solid rgba(201, 146, 42, 0.4);
+  background: rgba(201, 146, 42, 0.1);
+  color: var(--gold-lit);
+}
+
+.pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold-lit);
+  box-shadow: 0 0 9px var(--gold-lit);
+  animation: blink 2.2s ease-in-out infinite;
+}
+
+.tag {
+  flex: none;
+  min-width: 76px;
+  text-align: center;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Forms
+   ══════════════════════════════════════════════════════════ */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field label {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.input {
+  width: 100%;
+  padding: 11px 14px;
+  font-size: 14.5px;
+  font-family: var(--font-body);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  outline: none;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+}
+
+.input::placeholder {
+  color: var(--text-3);
+}
+
+.input:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.input:focus {
+  border-color: var(--gold);
+  background: rgba(201, 146, 42, 0.05);
+  box-shadow: 0 0 0 3px rgba(201, 146, 42, 0.15);
+}
+
+/* ── Password reveal ───────────────────────────────────────────────────────
+   The eye toggle on every password field. Sits inside the field rather than
+   beside it, which is where people look for it.
+
+   The button states its own background, border and colour on purpose. These
+   auth screens never load tailwind.css, so nothing resets the user agent's
+   `buttonface` grey and 2px outset ridge for them, and a transparent-looking
+   control would render as a filled grey box.
+
+   44x44 is the touch target, on a field that is ~42px tall. The 1px it
+   overhangs top and bottom is invisible (the background only appears on
+   hover) and buys a target that meets the 44px minimum rather than missing
+   it by four.
+   ────────────────────────────────────────────────────────────────────────── */
+.input-reveal {
+  position: relative;
+  display: block;
+}
+
+/* Room for the button, so a long password never slides underneath it. */
+.input-reveal > .input {
+  padding-right: 48px;
+}
+
+.input-reveal-btn {
+  position: absolute;
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  background-image: none;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.input-reveal-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* :focus-visible, not :focus - a mouse click should not leave a ring behind,
+   but tabbing to it must be obvious or the control is unreachable in
+   practice for anyone not using a pointer. */
+.input-reveal-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+  color: var(--text);
+}
+
+/* Revealed is a state worth seeing at a glance, not only through the icon. */
+.input-reveal-btn[aria-pressed='true'] {
+  color: var(--gold-lit);
+}
+
+.input-reveal-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+/* Dark-scheme date picker indicator */
+.input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.5);
+  cursor: pointer;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.checkbox-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--gold);
+  cursor: pointer;
+  flex: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Plan grid — the featured column is physically wider and taller
+   ══════════════════════════════════════════════════════════ */
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+
+@media (min-width: 1120px) {
+  .plan-grid {
+    grid-template-columns: 1fr 1.28fr 1fr 1fr;
+    gap: 18px;
+    align-items: center;
+  }
+
+  /* Protrudes above and below its neighbours */
+  .plan-grid .pcard.featured {
+    margin-block: -20px;
+    padding-block: 36px 34px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Full-bleed gallery mosaic
+   ══════════════════════════════════════════════════════════ */
+
+.bleed {
+  width: 100%;
+}
+
+.mosaic {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: clamp(126px, 14.5vw, 208px);
+  gap: 10px;
+}
+
+.mosaic figure {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  background: var(--raised);
+}
+
+.m-tall {
+  grid-row: span 2;
+}
+
+.m-wide {
+  grid-column: span 2;
+}
+
+.mosaic figure:hover .gcard-img {
+  transform: scale(1.07);
+}
+
+.mosaic figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 26px 18px 15px;
+  background: linear-gradient(to top, rgba(11, 11, 13, 0.92), transparent);
+  font-family: var(--font-heading);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 0.32s,
+    transform 0.32s;
+}
+
+.mosaic figure:hover figcaption {
+  opacity: 1;
+  transform: none;
+}
+
+.mosaic-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(11, 11, 13, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(201, 146, 42, 0.45);
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold-lit);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Footer links
+   ══════════════════════════════════════════════════════════ */
+
+.flink {
+  font-size: 13px;
+  color: var(--text-3);
+  transition: color 0.2s;
+}
+
+.flink:hover {
+  color: var(--gold-lit);
+}
+
+/* ══════════════════════════════════════════════════════════
+   Auth split-screen
+   ══════════════════════════════════════════════════════════ */
+
+.auth-split {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  min-height: 100vh;
+  background: var(--ground);
+}
+
+.auth-brand {
+  position: relative;
+  overflow: hidden;
+  background: #0a0a0c;
+}
+
+/* ── The brand panel's photograph ─────────────────────────────────────────
+   These three lived as inline style objects on AuthBrandPanel. They are here
+   so the gradient sits with the rest of the design system and can be read
+   against the tokens it borrows from.
+
+   WHY THE SCRIM RUNS BOTTOM-TO-TOP AND NOT ON A DIAGONAL.
+
+   It used to be `linear-gradient(150deg, rgba(9,9,11,.9), rgba(28,22,10,.82)
+   55%, rgba(9,9,11,.94))` over a photo held at `opacity: .5`. Multiply those
+   and the photograph came through at roughly five to nine percent — a
+   662x662 gym photo rendered as a muddy dark rectangle.
+
+   Worse, a diagonal's coverage depends on the box's aspect ratio, so the
+   same rule produced two different screens: sign-in's panel is ~700px tall
+   and read acceptably, register's is ~806px and measured 67% near-black
+   against sign-in's 26%. Two pages of one flow disagreeing is the tell.
+
+   The text — kicker, headline, blurb — is stacked along the BOTTOM edge on
+   every one of these screens. So the scrim is heavy along that edge, opens
+   up across the middle where nothing sits, and closes slightly at the top
+   to hold the back button. Driven by the vertical axis alone, it behaves
+   identically at any panel height.
+   ───────────────────────────────────────────────────────────────────────── */
+.auth-brand-photo {
+  object-fit: cover;
+  opacity: 0.82;
+  animation: kenBurns 20s ease-out both;
+}
+
+.auth-brand-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    /* A breath of gold, so the photo belongs to the same product as the
+       button beside it. Stops well before the headline. */
+    linear-gradient(150deg, rgba(201, 146, 42, 0.1) 0%, rgba(201, 146, 42, 0) 55%),
+    /* The legibility scrim. Percentages are measured from the BOTTOM. */
+    linear-gradient(
+      to top,
+      rgba(9, 9, 11, 0.95) 0%,
+      rgba(9, 9, 11, 0.92) 30%,
+      rgba(9, 9, 11, 0.72) 50%,
+      rgba(9, 9, 11, 0.3) 68%,
+      rgba(9, 9, 11, 0.2) 86%,
+      rgba(9, 9, 11, 0.5) 100%
+    );
+}
+
+.auth-brand-seam {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  background: linear-gradient(to right, var(--gold), transparent);
+}
+
+.auth-form-pane {
+  display: grid;
+  place-items: center;
+  padding: clamp(28px, 4vw, 56px);
+  overflow-y: auto;
+  background: linear-gradient(200deg, var(--ground-2) 0%, var(--ground) 60%);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 940px) {
+  .auth-split {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    min-height: 340px;
+  }
+}
+
+@media (max-width: 520px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Sticky mobile join bar
+   ══════════════════════════════════════════════════════════ */
+
+.mobile-cta {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Responsive
+   ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 1080px) {
+  .split {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .rail {
+    position: static;
+  }
+}
+
+@media (max-width: 900px) {
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Two-up stat tiles instead of a single squeezed row */
+  .stat {
+    flex-basis: 50%;
+    padding: 18px 20px;
+  }
+
+  .stat + .stat {
+    border-left: 0;
+  }
+
+  .stat:nth-child(even) {
+    border-left: 1px solid var(--line);
+  }
+
+  .stat:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .mosaic {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .m-wide {
+    grid-column: span 2;
+  }
+
+  .news-row {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Leave room for the sticky join bar */
+  .has-mobile-cta {
+    padding-bottom: 84px;
+  }
+
+  .mobile-cta {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 11px 12px 11px 18px;
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    background: rgba(20, 20, 24, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.66);
+    transform: translateY(150%);
+    opacity: 0;
+    transition:
+      transform 0.4s cubic-bezier(0.22, 0.7, 0.2, 1),
+      opacity 0.3s;
+  }
+
+  .mobile-cta[data-visible='true'] {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (max-width: 560px) {
+  .mosaic {
+    grid-auto-rows: 132px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Reduced motion — kill every ambient animation.
+   Reveals resolve to visible rather than staying hidden.
+   ══════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Must match `.js .rv` specificity or the hidden state would win. */
+  .js .rv {
+    opacity: 1;
+    transform: none;
+  }
+
+  .marquee-track,
+  .pcard.featured::after,
+  .breathe {
+    animation: none !important;
+  }
+
+  .pcard.featured::after {
+    display: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   LANDING PAGE — MOBILE NAVIGATION
+
+   The nav used to hide its section links behind `.hide-mobile` with nothing
+   to replace them, so on a phone the landing page had NO navigation: a visitor
+   could reach the hero and nothing else. Worse, LOGIN was hidden too — a
+   returning member on a handset could not sign in from the front page at all,
+   only join.
+
+   Most of this gym's visitors arrive on a phone, so that was the majority
+   experience, not an edge case.
+   ══════════════════════════════════════════════════════════ */
+
+.nav-burger {
+  display: none;
+  position: relative;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.nav-burger span {
+  position: absolute;
+  left: 11px;
+  width: 20px;
+  height: 1.5px;
+  background: var(--text);
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+}
+
+.nav-burger span:first-child {
+  top: 17px;
+}
+.nav-burger span:last-child {
+  top: 23px;
+}
+
+/* Becomes an X, so the control that opened it is the control that closes it. */
+.nav-burger span:first-child[data-open='true'] {
+  transform: translateY(3px) rotate(45deg);
+}
+.nav-burger span:last-child[data-open='true'] {
+  transform: translateY(-3px) rotate(-45deg);
+}
+
+.nav-menu {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .nav-burger {
+    display: block;
+  }
+
+  /* LOGIN comes back. It is the single most important thing on this bar for
+     an existing member, and it was the one thing hidden. */
+  .nav-login {
+    display: inline-flex !important;
+    padding: 9px 14px !important;
+  }
+
+  .nav-menu {
+    display: grid;
+    position: fixed;
+    top: 74px;
+    right: 0;
+    left: 0;
+    z-index: 39;
+    gap: 2px;
+    padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0));
+    background: var(--ground);
+    border-bottom: 1px solid var(--line-2);
+    /* Collapsed rather than removed, so opening it animates instead of
+       snapping — and `visibility` is what keeps a closed menu out of the tab
+       order even before `inert` is honoured. */
+    max-height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      max-height 0.26s ease,
+      opacity 0.2s ease,
+      visibility 0s linear 0.26s;
+  }
+
+  .nav-menu[data-open='true'] {
+    max-height: 70vh;
+    overflow-y: auto;
+    visibility: visible;
+    opacity: 1;
+    transition:
+      max-height 0.26s ease,
+      opacity 0.2s ease,
+      visibility 0s;
+  }
+
+  .nav-menu a {
+    /* 48px, comfortably past the 44px a thumb can hit reliably. */
+    display: flex;
+    align-items: center;
+    min-height: 48px;
+    padding: 0 6px;
+    font-family: var(--font-heading);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .nav-menu a:last-child {
+    border-bottom: 0;
+  }
+
+  .nav-menu-login {
+    color: var(--gold-lit) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-burger span,
+  .nav-menu {
+    transition: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE — the landing page and the auth screens.
+
+   These load `globals.css` ALONE: the `(auth)` layout deliberately imports
+   neither portal.css nor admin.css. So the 16px input rule added to portal.css
+   never reached the login and register forms — the two screens most likely to
+   be somebody's first use of this product on a phone, and the ones I had
+   previously claimed were fixed. They were not.
+   ══════════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+  /* iOS Safari zooms the whole page whenever a focused field is under 16px.
+     The layout jumps, and the member has to pinch back out to find the button
+     they were reaching for — on a login form, that is the first thing the
+     product ever does to them. */
+  .input,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* 44px is what a thumb hits reliably one-handed. */
+  .btn {
+    min-height: 44px;
+  }
+
+  /* The sticky join bar sits above the safe area on a notched handset rather
+     than under the home indicator. */
+  .mobile-cta {
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
+  }
+}
+
+/* Very small Android handsets, still a real share of devices here. */
+@media (max-width: 380px) {
+  .btn {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ── Contact form ──────────────────────────────────────── */
+/*
+  The enquiry form on the landing page. Reuses `.field`, `.input`, `.field-row`
+  and `.btn` from above — this block adds only what those do not cover.
+*/
+.cform {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.cform-textarea {
+  resize: vertical;
+  min-height: 96px;
+  font-family: inherit;
+  line-height: 1.55;
+}
+
+.cform-hint {
+  margin: -6px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.cform-opt {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-3);
+}
+
+.cform-error {
+  padding: 11px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 90, 70, 0.4);
+  background: rgba(255, 90, 70, 0.1);
+  color: #ff9d92;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cform-legal {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.cform-legal a {
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*
+  The honeypot.
+
+  `display: none` is what most guides suggest and what better bots check for
+  before deciding a field is bait. Moving it off-screen instead keeps it in
+  the layout tree — it looks like a real field to anything reading the DOM —
+  while `aria-hidden` and `tabIndex={-1}` on the element keep it away from
+  screen readers and keyboard users, who must never be able to fill it in and
+  have their genuine enquiry silently discarded.
+*/
+.cform-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/*
+  The submit button.
+
+  `.btn` carries NO padding — every caller in this codebase supplies its own
+  inline, which is why a button that only asked for `.btn .btn-gold .btn-block`
+  rendered as a thin gold strip. Sized here rather than inline so the contact
+  form's primary action cannot silently lose its height again, and matched to
+  the sign-in button (14px / 14.5px / 0.12em) so the two read as one product.
+*/
+.cform .btn-gold {
+  padding: 14px;
+  font-size: 14.5px;
+  letter-spacing: 0.12em;
+  margin-top: 4px;
+}
+
+.cform .btn-gold:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Sent state — replaces the form rather than sitting above it, so there is no
+   second submit to make and nothing to re-read. */
+.cform-done {
+  text-align: center;
+  padding: 18px 0 6px;
+}
+
+.cform-tick {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--gold);
+  color: var(--gold-lit);
+  background: rgba(201, 146, 42, 0.1);
+}
+
+.cform-done h3 {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 22px;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+.cform-done p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.cform-done a {
+  color: var(--gold-lit);
+}
+
+/* The "ready to join" close, kept below the form for people who do not need
+   to ask anything first. */
+.cform-alt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.cform-alt .btn-gold {
+  padding: 12px 30px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+}
+
+.cform-alt-signin {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.cform-alt-signin:hover {
+  color: var(--text-2);
+}
+
+/* ── Visit us: map and directions ──────────────────────── */
+/*
+  The map sits under the contact tiles and shares their border radius, so the
+  left column reads as one block rather than a list with a picture stuck
+  underneath it.
+*/
+.visit-map {
+  position: relative;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  /* 16:10 rather than 16:9 — a map needs vertical context to show the
+     surrounding streets, and a letterbox crops away the landmarks somebody
+     would actually navigate by. */
+  aspect-ratio: 16 / 10;
+  background: var(--ground-2);
+}
+
+.visit-map iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  /* Google's embed is a light map on a dark page. Toned down rather than
+     inverted: a hue-rotated map is unreadable, and this only has to stop it
+     glowing against the section around it. */
+  filter: grayscale(0.35) contrast(0.92) brightness(0.88);
+  transition: filter 0.3s ease;
+}
+
+.visit-map:hover iframe {
+  filter: none;
+}
+
+.visit-directions {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+
+.visit-directions-cta {
+  margin-top: 14px;
+  /* `.btn` carries no padding of its own — see the contact form's submit. */
+  padding: 12px 22px;
+  font-size: 12.5px;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 620px) {
+  .visit-map {
+    /* Taller on a phone: the viewport is narrow, so a wide aspect ratio
+       leaves a strip too short to orient by. */
+    aspect-ratio: 4 / 3;
+  }
+
+  .visit-directions-cta {
+    width: 100%;
+  }
+}

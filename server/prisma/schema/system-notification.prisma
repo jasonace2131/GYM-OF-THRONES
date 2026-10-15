@@ -1,0 +1,71 @@
+// Something the system needs a human in the console to look at.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// WHAT THIS IS NOT: THE EXPIRATION ALERTS, AND THE AUDIT LOG.
+//
+// Figure 22 of the proposal shows two columns. Only ONE of them is this table.
+//
+// The left column — Expiration Alerts — is DERIVED, never stored. It is the
+// same `expiringWithinDays` query the Subscriptions screen already runs, and
+// storing it would create a second copy of a fact that changes every midnight
+// on its own: a member who renews would leave a stale "expiring" row behind,
+// and the panel would have to be swept nightly to stay honest. A query cannot
+// go stale.
+//
+// The audit log is the other neighbour and answers a different question. Audit
+// = who did what, for accountability, written on every dangerous action.
+// Notifications = what needs somebody's attention now. A payment void belongs
+// in the audit log; a lead nobody has rung belongs here. Writing the same fact
+// to both would be two places to keep in step, and the second one would rot.
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// READ STATE IS SHARED, NOT PER-USER, and that is deliberate. This gym has one
+// counter and a handful of staff; "somebody has seen this" is the fact worth
+// recording. Per-user read state would need a join table and would mean the
+// same enquiry sitting unread for four accounts after one person already rang
+// the caller back — noise pretending to be diligence. Revisit only if the gym
+// grows enough that two people work notifications independently.
+model SystemNotification {
+  id String @id @default(uuid()) @db.Uuid
+
+  kind     SystemNotificationKind
+  severity NotificationSeverity   @default(INFO)
+
+  /// One line, written for a person at a counter. Never a stack trace.
+  title String
+  /// Optional detail. Long enough to say what happened, short enough to read.
+  body  String?
+
+  /// Where "View" sends somebody — an in-app path like `/admin/leads`, never
+  /// an external URL. Rendered as a link; a full URL here would be an open
+  /// redirect the moment anything trusted this column.
+  linkPath String?
+
+  /// What this is about. Free-form so a producer can name its own row without
+  /// this table growing a foreign key per source — and deliberately NOT an FK:
+  /// a notification about a deleted row must survive the row.
+  subjectType String?
+  subjectId   String? @db.Uuid
+
+  /// Somebody in the console has seen it.
+  readAt   DateTime? @db.Timestamptz(3)
+  readById String?   @db.Uuid
+
+  /// Somebody has dealt with it. Separate from `readAt` on purpose: reading a
+  /// "new enquiry" notice and ringing the person back are different events,
+  /// and the panel's Unread filter must not hide work that is merely seen.
+  resolvedAt   DateTime? @db.Timestamptz(3)
+  resolvedById String?   @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  readBy     User? @relation("NotificationReadBy", fields: [readById], references: [id], onDelete: SetNull)
+  resolvedBy User? @relation("NotificationResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  // The panel's exact query: unresolved first, newest first.
+  @@index([resolvedAt, createdAt(sort: Desc)])
+  // The unread badge's count.
+  @@index([readAt])
+  // "Have we already raised this?" — de-duplication by producer.
+  @@index([subjectType, subjectId])
+}

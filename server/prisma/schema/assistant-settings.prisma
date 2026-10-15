@@ -1,0 +1,19 @@
+/// The member assistant's editable instructions (feat/assistant-settings,
+/// 2026-10-14). ONE ROW OR NONE.
+///
+/// No row means the built-in default in server/src/assistant/assistant-prompt.ts;
+/// "Reset to default" deletes the row. The locked safety rules are never stored
+/// here — code appends them to whatever this holds, after it, so no edit can
+/// remove them.
+///
+/// The CHECKs (single row; 1–6000 characters, never blank) live only in
+/// migration 20261014000100_assistant_settings — Prisma cannot represent them.
+model AssistantSettings {
+  /// Always 1. A second row would leave "which instructions are live" to row order.
+  id           Int      @id @default(1)
+  instructions String
+  updatedById  String?  @db.Uuid
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  updatedBy User? @relation("AssistantSettingsUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+}

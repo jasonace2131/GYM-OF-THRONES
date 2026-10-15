@@ -1,0 +1,19 @@
+// The shared "How to do it" cache (feat/member-workouts).
+//
+// HOLDS NOTHING PERSONAL. The prompt is the exercise name and nothing else,
+// so one guide serves every member who has that exercise in a plan — which is
+// why How-to is free rather than an AI action. `slug` is `exerciseSlug(name)`
+// from @got/shared (`^[a-z0-9-]{1,80}$`, CHECK in SQL); `name` is the spelling
+// the first asker used.
+//
+// `body` is `{ steps: string[3..5], mistake, easier, harder }`, validated
+// before it is stored and again on every read.
+
+model ExerciseGuide {
+  slug  String  @id
+  name  String
+  body  Json
+  model String?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}

@@ -1,0 +1,47 @@
+// One cash-drawer session. Every Payment carries a shiftId, so "is the money
+// in the box equal to what the system says" has an answer.
+//
+// The staff member who opens a shift is who every subsequent write is
+// attributed to. Chunk 2's desk console PIN pad selects the operator, and
+// selecting the operator is what opens the shift.
+model Shift {
+  id     String      @id @default(uuid()) @db.Uuid
+  status ShiftStatus @default(OPEN)
+
+  openedById           String   @db.Uuid
+  openedAt             DateTime @db.Timestamptz(3)
+  openingFloatCentavos Int
+
+  closedById       String?   @db.Uuid
+  closedAt         DateTime? @db.Timestamptz(3)
+  // The physical count, submitted BEFORE the expected figure is revealed. A
+  // visible expected total gets back-fitted every single time.
+  countedCentavos  Int?
+  // openingFloat + SUM(net) of RECORDED CASH payments in this shift.
+  expectedCentavos Int?
+  // counted - expected. Signed. Beyond ±₱200 a note is required.
+  varianceCentavos Int?
+  note             String?
+
+  businessDate DateTime @db.Date
+
+  // Nullable-unique sentinel (R3): the literal string 'OPEN' while open, NULL
+  // once closed. One counter, therefore at most one open drawer, enforced by
+  // the database rather than by the UI.
+  openMarker String? @unique
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  openedBy User      @relation("ShiftOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy User?     @relation("ShiftClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  // Chunk 2: WALK_IN / MEMBER_CODE / MANUAL entries best-effort-attributed to
+  // this drawer session.
+  checkIns       CheckIn[]
+  checkInDenials CheckInDenial[]
+
+  @@index([businessDate])
+  @@index([status, openedAt])
+}

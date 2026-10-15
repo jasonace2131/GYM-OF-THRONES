@@ -1,0 +1,47 @@
+// Append-only transition log. Every status change and every movement of
+// endsOn writes exactly one row, and rows are never updated or deleted —
+// enforced by a BEFORE UPDATE OR DELETE trigger (§5.8.4), not by convention.
+model MembershipEvent {
+  id           String @id @default(uuid()) @db.Uuid
+  membershipId String @db.Uuid
+
+  type       MembershipEventType
+  // NULL only on the very first event, when there was no prior status.
+  fromStatus MembershipStatus?
+  toStatus   MembershipStatus
+
+  // Both NULL when the event did not move the term; populated together, so
+  // the log explains every date change without replaying the whole history.
+  previousEndsOn DateTime? @db.Date
+  newEndsOn      DateTime? @db.Date
+
+  // Mandatory for ADJUSTED, STATUS_CORRECTED and CANCELLED (§5.8.4).
+  reason    String?
+  // NULL means the system did it — the nightly job. A human actor is always
+  // recorded. This is the accountability column.
+  actorId   String? @db.Uuid
+  // The money that caused this transition, when there was money.
+  paymentId String? @db.Uuid
+  // Set by a bulk operation (a holiday or typhoon closure credit, §5.5.5).
+  // Unique per membership, so re-running the same closure is a no-op instead
+  // of a second extension.
+  batchRef  String?
+
+  // When the change takes effect in the business timeline. Usually equal to
+  // createdAt; a nightly catch-up run after downtime sets it to the day the
+  // transition SHOULD have happened.
+  effectiveAt DateTime @db.Timestamptz(3)
+  // When the row was written. No updatedAt — the row is immutable.
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  membership Membership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  actor      User?      @relation("MembershipEventActor", fields: [actorId], references: [id], onDelete: Restrict)
+  payment    Payment?   @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  // Bulk-operation idempotency.
+  @@unique([membershipId, batchRef])
+  // The membership timeline, newest first.
+  @@index([membershipId, effectiveAt(sort: Desc)])
+  // "How many memberships expired last month" without a table scan.
+  @@index([type, effectiveAt])
+}

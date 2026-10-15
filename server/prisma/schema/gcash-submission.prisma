@@ -1,0 +1,74 @@
+// A member saying "I sent you the money" — and nothing more than that.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// THIS IS NOT A PAYMENT, AND IT MUST NEVER BECOME ONE BY ITSELF.
+//
+// Owner decision #9 stands unchanged: every peso lands in a counted till
+// against an open shift, entered by a person who saw it. A portal that could
+// create a `Payment` would create money the drawer never saw, and the first
+// blind close that came up short would have no explanation.
+//
+// So the member creates a CLAIM. Staff open the gym's own GCash Transactions
+// tab, find the reference, and approve — and it is that approval, by a named
+// operator against their open shift, that writes the `Payment`. The claim then
+// points at the payment it became. The invariant is untouched; what changed is
+// that the member no longer has to stand at the counter to start the process.
+//
+// The rejected path matters as much: a claim staff cannot find in their own
+// account is REJECTED with a reason the member reads. It is never silently
+// dropped, because a member who paid and hears nothing will pay again.
+// ═══════════════════════════════════════════════════════════════════════════
+model GcashSubmission {
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+
+  status GcashSubmissionStatus @default(PENDING)
+
+  /// What they say they are paying for. A plan CODE, snapshotted as text like
+  /// `Payment.planCode` — a renamed or repriced plan must not rewrite what the
+  /// member thought they were buying.
+  planCode String
+
+  /// What they say they sent, in centavos. Checked against the plan's price at
+  /// review time by a human, deliberately: a short payment is a conversation
+  /// at the counter, not a validation error that loses the claim.
+  amountCentavos Int
+
+  /// Exactly as the member typed it, for audit.
+  reference String
+  /// Uppercased and stripped of separators — the ONLY form ever compared, and
+  /// the one the duplicate check reads. Same rule as `Payment.referenceNormalized`,
+  /// because a reference recycled between the two tables is the same fraud.
+  referenceNormalized String
+
+  /// The object path in the private proof bucket. REQUIRED here, unlike on a
+  /// counter sale: staff can look at the member's phone across the desk, and
+  /// for a remote claim this image is the only thing there is to look at.
+  proofPath String
+
+  submittedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  /// Who dealt with it, when, and — on a refusal — why. All three arrive
+  /// together or not at all (GcashSubmission_review_shape).
+  reviewedAt   DateTime? @db.Timestamptz(3)
+  reviewedById String?   @db.Uuid
+  rejectReason String?
+
+  /// The Payment this claim became. Set exactly when status = APPROVED.
+  paymentId String? @unique @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  user       User     @relation("GcashSubmissionMember", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User?    @relation("GcashSubmissionReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  // The review queue's exact query: oldest pending first, because a member who
+  // submitted on Monday should not wait behind one who submitted this morning.
+  @@index([status, submittedAt])
+  // "What have I submitted, and what happened to it?"
+  @@index([userId, submittedAt(sort: Desc)])
+  // The duplicate check, and the one that makes a recycled reference findable.
+  @@index([referenceNormalized])
+}

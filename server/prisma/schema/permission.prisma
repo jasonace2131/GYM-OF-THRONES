@@ -1,0 +1,16 @@
+// The permission catalogue. Rows are seeded from
+// server/src/rbac/permission-registry.ts by prisma/seed.ts and never
+// created any other way — see §9 of the RBAC design doc.
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  resource    String
+  action      String
+  description String
+  isDangerous Boolean  @default(false)
+  requires    String[] @default([])
+
+  rolePermissions RolePermission[]
+
+  @@index([resource])
+}

@@ -1,0 +1,2196 @@
+/* ══════════════════════════════════════════════════════════
+   Member portal — light application surface.
+
+   Every token here is namespaced under .portal-root so globals.css is
+   untouched and the dark landing page cannot regress. Gold tokens are
+   inherited from globals.css unchanged — that is what makes the two
+   halves read as one product.
+   ══════════════════════════════════════════════════════════ */
+
+.portal-root {
+  --p-paper: #ffffff;
+  --p-paper2: #f5f4f2;
+  --p-paper3: #ebe9e5;
+  --p-ink: #1a1a1a;
+  --p-ink2: #4a4a4a;
+  --p-ink3: #82807c;
+  --p-sidebar: #111114;
+  --p-sidebar-2: #1a1a1f;
+  --p-border: rgba(26, 26, 26, 0.1);
+  --p-border-2: rgba(26, 26, 26, 0.18);
+
+  /* A standalone card/modal floating over the page ground reads as raised
+     white (same as --p-paper); a row nested INSIDE a card needs a ground one
+     step off that card's own white, which is what --p-paper2 already is. */
+  --p-surface: var(--p-paper);
+  --p-surface2: var(--p-paper2);
+  /* The pressed/hover shade for gold text and links — --gold itself is too
+     light to read well as body text on white. Reuses the darkest gold the
+     palette already defines (globals.css), rather than inventing a fourth. */
+  --gold-dark: var(--gold-deep);
+
+  --p-ok: #1a6637;
+  --p-ok-bg: #e6f4ec;
+  --p-warn: #8a6018;
+  --p-warn-bg: #fdf4e3;
+  --p-danger: #8c1a14;
+  --p-danger-bg: #fdecea;
+  --p-info: #1a3a8c;
+  --p-info-bg: #e8f0fb;
+
+  --p-radius: 12px;
+  --p-shadow: 0 1px 2px rgba(26, 26, 26, 0.04), 0 8px 24px rgba(26, 26, 26, 0.05);
+  --p-shadow-lift: 0 2px 4px rgba(26, 26, 26, 0.05), 0 14px 34px rgba(26, 26, 26, 0.1);
+
+  --p-sidebar-w: 244px;
+
+  min-height: 100vh;
+  background: var(--p-paper2);
+  color: var(--p-ink);
+  font-family: var(--font-body);
+  /* The root layout declares `colorScheme: 'dark'` for the landing page, so
+     every native control and scrollbar in here rendered DARK on a light
+     surface — a black-filled consent checkbox, near-black scrollbars in the
+     bell's dropdown. This surface is light; say so. */
+  color-scheme: light;
+}
+
+/* globals.css paints body dark; without this it shows through on overscroll. */
+body:has(.portal-root) {
+  background: var(--p-paper2);
+}
+
+/* The viewport's own scrollbar follows the ROOT element's scheme, not
+   .portal-root's — without this the page scrollbar stays dark. */
+html:has(.portal-root) {
+  color-scheme: light;
+}
+
+.portal-root ::selection {
+  background: rgba(201, 146, 42, 0.28);
+  color: var(--p-ink);
+}
+
+/* ── Layout ────────────────────────────────────────────── */
+
+.p-shell {
+  display: grid;
+  grid-template-columns: var(--p-sidebar-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.p-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The page column starts at the sidebar's edge and grows with the window
+   (owner, 2026-10-06). It used to be capped at 1180px and centred, which on a
+   wide monitor left a narrow strip of cards floating between two empty
+   margins. Layouts inside use container queries, so they add columns as this
+   widens; long-form text keeps its own 62–75ch measure. The cap only stops a
+   4K window stretching a card row past what one eye-line can scan. */
+.p-content {
+  flex: 1;
+  width: 100%;
+  max-width: 1680px;
+  margin: 0;
+  padding: clamp(20px, 3vw, 34px) clamp(16px, 3vw, 40px) 64px;
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+
+.p-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--p-sidebar);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-y: auto;
+}
+
+.p-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 20px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.p-brand-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14.5px;
+  letter-spacing: 0.06em;
+  color: #f4f2ee;
+  line-height: 1.2;
+}
+
+.p-brand-sub {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 238, 0.42);
+  margin-top: 2px;
+}
+
+.p-nav {
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* `.p-nav-spacer { flex: 1 }` could never grow without these: a flex
+     container only distributes free space it actually has, and `min-height:
+     auto` refuses to shrink below content so a long nav overflowed the
+     sidebar instead of scrolling inside it. This is why the spacer carried
+     an inline `minHeight: 18` prop up until now. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.p-nav-group {
+  margin: 16px 0 6px;
+  padding-inline: 8px;
+  font-family: var(--font-heading);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(244, 242, 238, 0.32);
+}
+
+.p-nav-group:first-child {
+  margin-top: 0;
+}
+
+.p-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(244, 242, 238, 0.62);
+  transition:
+    background 0.16s,
+    color 0.16s;
+  white-space: nowrap;
+}
+
+.p-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f4f2ee;
+}
+
+.p-link[data-active='true'] {
+  background: linear-gradient(135deg, var(--gold-lit), var(--gold));
+  color: #14100a;
+  font-weight: 600;
+}
+
+.p-link svg {
+  flex: none;
+  opacity: 0.85;
+}
+
+.p-link[data-active='true'] svg {
+  opacity: 1;
+}
+
+.p-nav-spacer {
+  flex: 1;
+}
+
+/* ── Top bar ───────────────────────────────────────────── */
+
+.p-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 clamp(16px, 3vw, 34px);
+  height: 64px;
+  background: rgba(245, 244, 242, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--p-border);
+}
+
+.p-page-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--p-ink);
+}
+
+.p-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-lit), var(--gold));
+  color: #14100a;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  flex: none;
+}
+
+/*
+  The surface switch — staff only, both shells, same slot.
+
+  Takes the exact 34px/9px-radius geometry of the notification button it
+  replaces, so the topbar gains no net height and no net width on the member
+  side. Deliberately NOT gold: gold in this chrome means "you", and is already
+  spent on .p-avatar 40px away. This is a door, not an identity.
+*/
+.p-surface-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 9px;
+  border: 1px solid var(--p-border);
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  flex: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.p-surface-switch:hover {
+  border-color: var(--gold);
+  color: var(--p-ink);
+}
+
+.p-surface-switch:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/*
+  On a phone the label is the first thing to go, not the control. A 34px
+  square with an arrow still reads as "go somewhere" next to an avatar, and
+  the aria-label carries the full meaning for anyone who cannot see it.
+*/
+@media (max-width: 560px) {
+  .p-surface-switch {
+    padding: 0;
+    width: 34px;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .p-surface-switch > span {
+    display: none;
+  }
+}
+
+/* ── Cards ─────────────────────────────────────────────── */
+
+.p-card {
+  background: var(--p-paper);
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius);
+  box-shadow: var(--p-shadow);
+}
+
+.p-card-pad {
+  padding: clamp(16px, 2vw, 22px);
+}
+
+.p-card-hover {
+  transition:
+    transform 0.22s cubic-bezier(0.22, 0.7, 0.2, 1),
+    box-shadow 0.22s,
+    border-color 0.22s;
+}
+
+.p-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--p-shadow-lift);
+  border-color: var(--p-border-2);
+}
+
+.p-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+/* A heading that is only ever focused by script (a deep link landing on it)
+   is not a control, and a ring round a static label reads as a stray bug. */
+.p-card-title[tabindex='-1']:focus {
+  outline: none;
+}
+
+.p-card-title {
+  /* Also rendered as an <h2> (CardHead as="h2"), whose UA margin would push
+     the header row apart. */
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+}
+
+/* ── Typography ────────────────────────────────────────── */
+
+.p-h1 {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(24px, 3.4vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--p-ink);
+}
+
+.p-h2 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--p-ink);
+}
+
+.p-muted {
+  color: var(--p-ink3);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* ── Stat tiles ────────────────────────────────────────── */
+
+.p-stat-val {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(24px, 2.8vw, 32px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--p-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.p-stat-label {
+  font-size: 10.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+  margin-top: 7px;
+}
+
+/* ── Badges ────────────────────────────────────────────── */
+
+.p-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.p-badge-ok {
+  background: var(--p-ok-bg);
+  color: var(--p-ok);
+}
+.p-badge-warn {
+  background: var(--p-warn-bg);
+  color: var(--p-warn);
+}
+.p-badge-danger {
+  background: var(--p-danger-bg);
+  color: var(--p-danger);
+}
+.p-badge-info {
+  background: var(--p-info-bg);
+  color: var(--p-info);
+}
+.p-badge-neutral {
+  background: var(--p-paper3);
+  color: var(--p-ink2);
+}
+
+/* ── Buttons ───────────────────────────────────────────── */
+
+.p-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s,
+    transform 0.12s,
+    box-shadow 0.2s;
+}
+
+.p-btn:active {
+  transform: scale(0.98);
+}
+
+.p-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* A disabled button looked exactly like a live one — full gold, pointer
+   cursor, press animation — so "Save" on an empty form read as broken rather
+   than as "fill something in first". */
+.p-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.p-btn:disabled:active {
+  transform: none;
+}
+
+.p-btn-gold:disabled::after {
+  display: none;
+}
+
+.p-btn-gold {
+  background: linear-gradient(135deg, var(--gold-lit) 0%, var(--gold) 48%, #a8761d 100%);
+  color: #14100a;
+  box-shadow: 0 2px 10px rgba(201, 146, 42, 0.28);
+}
+
+/* Same shine as the landing page, at lower amplitude — a portal is
+   opened daily, and effects that delight once a month grate here. */
+.p-btn-gold::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 0.55s cubic-bezier(0.22, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+.p-btn-gold:hover::after {
+  transform: translateX(420%) skewX(-18deg);
+}
+
+.p-btn-gold:hover {
+  box-shadow: 0 4px 16px rgba(201, 146, 42, 0.42);
+}
+
+.p-btn-ghost {
+  background: var(--p-paper);
+  border-color: var(--p-border-2);
+  color: var(--p-ink);
+}
+
+.p-btn-ghost:hover {
+  border-color: var(--gold);
+  color: var(--gold-dark);
+  background: #fffdf8;
+}
+
+.p-btn-dark {
+  background: var(--p-ink);
+  color: #fff;
+}
+
+.p-btn-dark:hover {
+  background: #000;
+}
+
+.p-btn-sm {
+  padding: 8px 14px;
+  font-size: 11.5px;
+}
+
+.p-btn-block {
+  width: 100%;
+}
+
+/* ── Tables ────────────────────────────────────────────── */
+
+.p-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.p-table th {
+  text-align: left;
+  padding: 11px 18px;
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--p-ink3);
+  border-bottom: 1px solid var(--p-border);
+  white-space: nowrap;
+}
+
+/* THE BUG: this padding used to live only on `.p-table[data-stack] td`, so
+   any table that never opts into mobile stacking — every one of the six
+   admin CRM tables — rendered its cells with no padding, no divider and the
+   browser's default ink at desktop widths. `[data-stack]` was never meant to
+   own desktop layout; it only controls the phone-width block-row behaviour
+   below. Real padding now lives on the base rule, where every `.p-table`
+   gets it regardless of whether it also stacks on a phone. */
+.p-table td {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--p-border);
+  color: var(--p-ink2);
+}
+
+.p-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.p-table tbody tr {
+  transition: background 0.14s;
+}
+
+.p-table tbody tr:hover {
+  background: #faf9f7;
+}
+
+/* Row-as-button — OPT-IN, same shape as `[data-stack]` above. Only a table
+   whose rows actually open something (the member drawer, today) carries
+   `data-clickable` on the `<table>` itself; every other admin table keeps a
+   plain, non-interactive hover. The focus ring is what makes an open-a-drawer
+   row reachable without a mouse — `tabIndex={0}` + this ring together, not
+   either alone. */
+.p-table[data-clickable] tbody tr {
+  cursor: pointer;
+}
+
+.p-table[data-clickable] tbody tr:hover {
+  background: var(--p-paper2, #faf9f7);
+}
+
+.p-table[data-clickable] tbody tr:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+/* Numeric columns: right-aligned so the ones place lines up down the column,
+   tabular so a changing value never jitters. Scoped to `.p-table` rather than
+   folded into the bare `.p-num` rule below — that class is also used outside
+   any table (KPI tiles, inline stat chips) where right-aligning single short
+   text has no effect but is worth keeping deliberate about. */
+.p-table th.p-num,
+.p-table td.p-num {
+  text-align: right;
+}
+
+.p-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Reveal ────────────────────────────────────────────── */
+
+@keyframes pRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.p-rise {
+  animation: pRise 0.34s cubic-bezier(0.22, 0.7, 0.2, 1) both;
+}
+
+@keyframes pShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-root *,
+  .portal-root *::before,
+  .portal-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Mobile — the wireframe had none.
+
+   The portal is used at the gym, on a phone, one-handed: checking in,
+   glancing at today's class, showing status. A desktop-only portal is
+   one that mostly goes unused.
+   ══════════════════════════════════════════════════════════ */
+
+.p-tabbar {
+  display: none;
+}
+
+.p-menu-btn {
+  display: none;
+}
+
+/* Week grid on desktop, day list on mobile — the same data, because a
+   seven-column time grid on a phone is unreadable at any font size. */
+.p-day {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .p-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .p-sidebar {
+    display: none;
+  }
+
+  .p-content {
+    padding-bottom: 96px; /* clears the tab bar */
+  }
+
+  /* ── More sheet ──────────────────────────────────────
+     Everything the four tabs cannot hold: the rest of the nav, the surface
+     switch, and Sign out — which has never been reachable on a phone on
+     either surface. z-index sits above .p-tabbar (40) because the sheet is
+     opened FROM the bar and must cover it. */
+  .p-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(12, 10, 7, 0.55);
+    animation: pFade 0.18s ease both;
+  }
+
+  .p-sheet {
+    width: 100%;
+    max-height: 78vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--p-sidebar);
+    border-radius: 16px 16px 0 0;
+    padding: 8px 12px calc(14px + env(safe-area-inset-bottom, 0));
+    animation: pSheetUp 0.22s cubic-bezier(0.22, 0.7, 0.2, 1) both;
+  }
+
+  .p-sheet-grip {
+    width: 38px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.22);
+    margin: 6px auto 10px;
+    flex: none;
+  }
+
+  .p-sheet-nav {
+    overflow-y: auto;
+    /* Momentum scrolling inside the sheet, not on the page behind it. */
+    overscroll-behavior: contain;
+  }
+
+  .p-sheet-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 10px;
+    margin-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex: none;
+  }
+
+  /* The switch is a topbar pill everywhere else; in the sheet it is a row,
+     so it matches the links it sits beside rather than floating in a corner. */
+  .p-sheet-foot .p-surface-switch {
+    width: 100%;
+    justify-content: flex-start;
+    height: 40px;
+    padding: 0 12px;
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: var(--gold-lit);
+  }
+
+  .p-sheet-foot .p-surface-switch > span {
+    display: inline;
+  }
+
+  .p-tabbar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    background: var(--p-sidebar);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .p-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 11px 4px 10px;
+    font-family: var(--font-heading);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(244, 242, 238, 0.5);
+    transition: color 0.16s;
+  }
+
+  .p-tab[data-active='true'] {
+    color: var(--gold-lit);
+  }
+
+  .p-tab[data-active='true'] svg {
+    stroke: var(--gold-lit);
+  }
+
+  .p-week {
+    display: none;
+  }
+
+  .p-day {
+    display: block;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Check-in — the scanner and the verdict.
+
+   The verdict is rendered from ONE field, `display.tone`. Four values, and
+   the mapping below is the whole of the phone's verdict UI. Nothing here
+   ever branches on a denial reason: a client that switched on DenialReason
+   for colour renders a blank card the first time the enum gains a value.
+   ══════════════════════════════════════════════════════════ */
+
+.ci-scanner {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 420px;
+  margin-inline: auto;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #101014;
+  display: grid;
+  place-items: center;
+}
+
+.ci-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Hidden until armed so a half-initialised stream never shows as a black
+     rectangle the member reads as a broken camera. */
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+
+.ci-video[data-armed='true'] {
+  opacity: 1;
+}
+
+.ci-overlay {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  text-align: center;
+  padding: 26px;
+  color: #f4f2ee;
+}
+
+.ci-overlay-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 19px;
+  margin: 0;
+}
+
+.ci-overlay-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #a9a6a0;
+  max-width: 30ch;
+}
+
+.ci-reticle {
+  position: relative;
+  z-index: 1;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 100vmax rgba(10, 10, 12, 0.42),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+
+.ci-decoder {
+  position: absolute;
+  z-index: 2;
+  bottom: 10px;
+  right: 12px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ── The verdict ───────────────────────────────────────── */
+
+.ci-verdict {
+  border-radius: 18px;
+  padding: clamp(22px, 5vw, 34px);
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+
+.ci-headline {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(26px, 7vw, 38px);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.ci-subhead {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* BODY SIZE, NEVER LARGER. This is a structural guarantee about what the
+   queue behind the member can read from a metre away, not a copy note —
+   rendering `detail` at display size is a review rejection. */
+.ci-detail {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  opacity: 0.86;
+}
+
+/* Full-bleed calm green. Tone drives colour AND glyph AND word AND field
+   geometry, so colour is never the only channel. */
+.ci-verdict[data-tone='WELCOME'] {
+  background: linear-gradient(160deg, #1a6637, #14522c);
+  color: #f2fbf5;
+}
+
+/* Same geometry and the SAME TICK as WELCOME — the door opened, and
+   pretending otherwise would be a lie. Amber field, and the detail line
+   carries the collection prompt the member walks to the counter with. */
+.ci-verdict[data-tone='GRACE'] {
+  background: linear-gradient(160deg, #8a6018, #6d4a12);
+  color: #fdf6e7;
+}
+
+/* Slate, never green and never red — leaving is neutral. */
+.ci-verdict[data-tone='GOODBYE'] {
+  background: linear-gradient(160deg, #2e3136, #23262a);
+  color: #eceae6;
+}
+
+/* NEVER full-bleed, NEVER red. A phone showing a red field is legible
+   across a lobby; a phone showing a card is not. A member has just been
+   refused by a machine in public, and they remember a humiliating screen
+   far longer than they remember the gym. */
+.ci-verdict[data-tone='SEE_DESK'] {
+  background: var(--p-paper);
+  color: var(--p-ink);
+  border: 1px solid var(--p-border-2);
+  box-shadow: var(--p-shadow);
+}
+
+.ci-glyph {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.ci-preflight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--p-paper);
+  border: 1px solid var(--p-border);
+  font-size: 14px;
+  color: var(--p-ink2);
+}
+
+.ci-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* The primary verdict action is 56px; every other target is at least 48. */
+.ci-actions .p-btn {
+  min-height: 52px;
+}
+
+/* The identity card a member turns around at the desk. It carries WHO THEY
+   ARE and never why they were refused — the desk feed already has the
+   reason, which is the entire point of the split. */
+.ci-card {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 22px;
+  border-radius: 16px;
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid var(--p-border-2);
+}
+
+.ci-card-code {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(34px, 11vw, 48px);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visually hidden, still announced. The check-in verdict's live region uses
+   this: only the HEADLINE is announced, and `polite` rather than `assertive`
+   even for a denial — an assertive region on a screen reader in a public
+   lobby reads the refusal aloud to the queue. */
+.portal-root .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE — the portal is a phone surface first.
+
+   A member opens this standing in a gym doorway with one hand free. It is
+   not a desktop app that also fits a phone; the laptop is the rare case.
+   Everything below is a real defect found by auditing against a handset,
+   not a general tidy-up.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Form primitives, moved here from admin.css ──────────────
+   These were defined only in admin.css, which is imported by the ADMIN
+   layout alone — so `/portal/progress` and `/portal/assistant` rendered raw
+   unstyled browser inputs. Admin still gets them: its layout imports
+   portal.css first and admin.css second. */
+
+.a-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.a-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.a-input,
+.a-select,
+.a-textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 9px;
+  border: 1px solid var(--p-border-2);
+  background: var(--p-paper);
+  color: var(--p-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+}
+
+.a-select {
+  width: auto;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.a-input:focus-visible,
+.a-select:focus-visible,
+.a-textarea:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-person-sub {
+  font-size: 12px;
+  color: var(--p-ink3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.a-secret {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 13px;
+  word-break: break-all;
+  padding: 12px;
+  border-radius: 9px;
+  background: var(--p-paper2);
+  border: 1px dashed var(--p-border-2);
+  user-select: all;
+}
+
+/* A table too wide for the screen scrolls INSIDE its own box. Without this
+   the whole page scrolls sideways and the tab bar drifts off-centre — the
+   single most common way a phone layout breaks. */
+.p-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 900px) {
+  /* ── iOS ZOOMS THE PAGE when a focused input is under 16px ──
+     Not a preference: Safari zooms in, the layout jumps, and the member has
+     to pinch back out to find the button they were reaching for. It happens
+     on the LOGIN form, which is everybody's first impression of the product.
+     16px is the threshold, so 16px it is — desktop keeps the tighter size. */
+  .input,
+  .a-input,
+  .a-select,
+  .a-textarea,
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* ── Tap targets ──
+     `.p-btn` computes to about 38px tall, under the 44px anyone can hit
+     reliably with a thumb while holding a phone one-handed. */
+  .p-btn {
+    min-height: 44px;
+  }
+
+  .p-btn-sm {
+    min-height: 38px;
+  }
+
+  .p-tab {
+    min-height: 52px;
+    justify-content: center;
+  }
+
+  /* Tables get their padding back so a row is readable at 360px, and the
+     header letter-spacing stops forcing an unnecessary horizontal scroll. */
+  .p-table th,
+  .p-table td {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .p-table th {
+    letter-spacing: 0.08em;
+  }
+
+  /* Nothing in the portal may push the page sideways. A single overflowing
+     child is enough to make every screen scroll horizontally. */
+  .p-content {
+    overflow-x: hidden;
+  }
+
+  .p-card-pad {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+/* ── Very small phones (360px and below) ──
+   Still a real share of Android handsets in the Philippines, and the screen
+   this product is most likely to be used on at the door. */
+@media (max-width: 380px) {
+  .p-table {
+    font-size: 12.5px;
+  }
+
+  .p-table th,
+  .p-table td {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .p-btn {
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: 12px;
+  }
+}
+
+/* ── Tables become stacked rows on a phone ──────────────────
+   A 5-, 6- or 9-column table inside a 360px screen is readable only by
+   dragging it sideways, one column at a time, with the header scrolled out of
+   view — so by the third column you no longer know what you are looking at.
+   Horizontal scroll is the fallback that stops the PAGE breaking; it was never
+   a way to read a table.
+
+   Each row becomes its own block and each cell carries its own label, so the
+   member reads "Amount ₱800" instead of hunting for which column they are in.
+   `<thead>` is moved off-screen rather than hidden, so it stays in the
+   accessibility tree and a screen reader still announces the headers.
+
+   640px rather than 900: a tablet in landscape has room for the real table,
+   and the stacked form is strictly worse when the columns do fit.
+
+   OPT-IN via `data-stack`, and that is the load-bearing part. Every table in
+   this product uses `.p-table`, including the six in the admin CRM — and a
+   table that stacks WITHOUT labels is worse than one that scrolls, because
+   every cell becomes a bare value with nothing saying what it is. Requiring
+   the attribute means a table only stacks once somebody has actually labelled
+   its cells. */
+@media (max-width: 640px) {
+  .p-table[data-stack],
+  .p-table[data-stack] tbody,
+  .p-table[data-stack] tr,
+  .p-table[data-stack] td {
+    display: block;
+    width: 100%;
+  }
+
+  .p-table[data-stack] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .p-table[data-stack] tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--p-border);
+  }
+
+  .p-table[data-stack] tr:last-child {
+    border-bottom: 0;
+  }
+
+  /* Missing the `[data-stack]` qualifier every sibling rule in this block
+     carries turns every `.p-table` — including the six admin CRM tables,
+     none of which opt into stacking — into a broken half-flexed table at
+     this width: `display: flex` on a `<td>` takes it out of the table's
+     cell grid entirely. The admin tables' actual mobile story is
+     `.a-scroll`'s horizontal scroll (admin.css), not this. */
+  .p-table[data-stack] td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 5px 0;
+    border: 0;
+    text-align: right;
+  }
+
+  /* The label comes from the cell itself, so a column added to the markup
+     without one is visibly missing its name rather than silently mislabelled
+     by an index that no longer lines up. */
+  .p-table[data-stack] td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-family: var(--font-heading);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--p-ink3);
+    text-align: left;
+  }
+
+  /* A cell with no label is a spacer or an action — let it fill the row. */
+  .p-table[data-stack] td:not([data-label])::before {
+    content: none;
+  }
+
+  .p-table[data-stack] td:not([data-label]) {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+
+@keyframes pFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pSheetUp {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ── Consent gate ──────────────────────────────────────── */
+/*
+  The blocking screen a member sees before the portal opens. Deliberately not
+  a modal: there is nothing behind it to return to, and a dismissible overlay
+  would produce members who have trained for months having accepted nothing.
+*/
+.p-consent {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: clamp(18px, 4vw, 40px);
+  background: var(--p-paper2);
+}
+
+.p-consent-card {
+  width: 100%;
+  max-width: 460px;
+  background: var(--p-paper);
+  border: 1px solid var(--p-border);
+  border-radius: var(--p-radius);
+  box-shadow: var(--p-shadow-lift);
+  padding: clamp(24px, 4vw, 34px);
+}
+
+.p-consent-card h1 {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(22px, 3.4vw, 28px);
+  line-height: 1.15;
+  color: var(--p-ink);
+  margin: 12px 0 0;
+}
+
+.p-consent-lede {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--p-ink2);
+  margin: 12px 0 0;
+}
+
+.p-consent-docs {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.p-consent-docs a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--p-border);
+  border-radius: 9px;
+  background: var(--p-paper2);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--p-ink);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.p-consent-docs a:hover {
+  border-color: var(--gold);
+  background: var(--p-paper);
+}
+
+.p-consent-docs a:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* The version is shown, not implied. A member accepting "the waiver" without
+   being able to see which wording is exactly the gap this replaces. */
+.p-consent-version {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--p-ink3);
+  flex: none;
+}
+
+.p-consent-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--p-ink2);
+  cursor: pointer;
+}
+
+.p-consent-agree input {
+  /* 18px + the label's own hit area clears the 44px touch target once the
+     line box is counted; the whole label is clickable. */
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex: none;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.p-consent-error {
+  margin: 16px 0 0;
+  padding: 11px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--p-danger);
+  background: var(--p-danger-bg);
+  color: var(--p-danger);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.p-consent-card .p-btn-block {
+  margin-top: 20px;
+}
+
+.p-consent-decline {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--p-ink3);
+  cursor: pointer;
+}
+
+.p-consent-decline:hover {
+  color: var(--p-ink2);
+  text-decoration: underline;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Coach tools (feat/coach-tools): unread badges, the coaching
+   tabs, the chat, the inbox and the workout-plan editor.
+
+   Plain portal classes, because components/chat is not a
+   Tailwind @source and the containment gate keeps it so.
+   Every colour is an existing token.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Unread badge on a nav item, a tab and an inbox row ── */
+.p-nav-badge {
+  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--p-danger);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.p-link[data-active='true'] .p-nav-badge {
+  background: #14100a;
+  color: var(--gold-lit);
+}
+
+.p-tab {
+  position: relative;
+}
+
+.p-tab .p-nav-badge {
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 6px);
+  margin: 0;
+}
+
+/* ── Segmented tabs: Progress · Workout plan · Chat ── */
+.p-segtabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: var(--p-paper3);
+}
+
+.p-segtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--p-ink2);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.p-segtab[aria-selected='true'] {
+  background: var(--p-paper);
+  color: var(--p-ink);
+  box-shadow: var(--p-shadow);
+}
+
+.p-segtab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.p-segtab .p-nav-badge {
+  margin-left: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   Chat — one conversation, and the coach's inbox.
+
+   Laid out the way people already read messages (owner, 2026-10-06:
+   "make it look like Messenger"): my bubbles on the right in the gym's
+   gold, theirs on the left with their avatar, runs from one person
+   grouped so only the last bubble carries the time, a divider per day,
+   and a composer that grows as you type. The conversation fills the
+   height it is given and the newest message sits at the bottom.
+
+   A stale two-column `.p-chat` rule from the old mock coach page used to
+   split this panel's header, log and composer into separate columns —
+   which is what made messages float in the middle of the page.
+   ══════════════════════════════════════════════════════════ */
+
+.p-chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 360px;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--p-border);
+  border-radius: 16px;
+  background: var(--p-paper);
+}
+
+/* Inside the inbox's own frame: no second border or radius. */
+.p-chat[data-embedded='true'] {
+  border: 0;
+  border-radius: 0;
+}
+
+.p-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px clamp(14px, 2vw, 20px);
+  border-bottom: 1px solid var(--p-border);
+  background: var(--p-paper);
+}
+
+.p-chat-who {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.p-chat-name {
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.p-chat-sub {
+  overflow: hidden;
+  color: var(--p-ink3);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.p-chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.p-chat-back {
+  display: none;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--p-ink);
+  cursor: pointer;
+}
+
+.p-chat-back:hover {
+  background: var(--p-paper2);
+}
+
+.p-chat-back:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.p-chat-log {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 18px clamp(14px, 2.4vw, 32px) 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fbfaf8;
+}
+
+/* Short conversations sit at the bottom, by the composer, like any messenger. */
+.p-chat-log > :first-child {
+  margin-top: auto;
+}
+
+.p-chat-older {
+  align-self: center;
+  margin-bottom: 8px;
+}
+
+.p-chat-empty {
+  margin: auto;
+  padding: 24px;
+  color: var(--p-ink3);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.p-chat-day {
+  align-self: center;
+  margin: 14px 0 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--p-paper3);
+  color: var(--p-ink2);
+  font-family: var(--font-heading);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.p-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.p-msg[data-first='true'] {
+  margin-top: 10px;
+}
+
+.p-msg[data-mine='true'] {
+  justify-content: flex-end;
+}
+
+.p-msg-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--p-paper3);
+  color: var(--p-ink2);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Keeps a run's bubbles lined up above the one that carries the avatar. */
+.p-msg-avatar[data-hidden='true'] {
+  visibility: hidden;
+}
+
+.p-msg-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: min(72%, 620px);
+}
+
+.p-msg[data-mine='true'] .p-msg-body {
+  align-items: flex-end;
+}
+
+.p-msg-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.p-msg[data-mine='true'] .p-msg-line {
+  flex-direction: row-reverse;
+}
+
+/* Plain text, always: pre-wrap keeps the sender's line breaks, and
+   anywhere-wrapping stops a pasted link from widening the page. */
+.p-bubble {
+  min-width: 0;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: #eeece8;
+  color: var(--p-ink);
+  font-size: 14.5px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.p-msg[data-mine='true'] .p-bubble {
+  background: linear-gradient(135deg, #e5b85c 0%, var(--gold) 100%);
+  color: #14100a;
+}
+
+/* Grouped corners: the side facing the sender tightens inside a run. */
+.p-msg:not([data-mine='true']):not([data-last='true']) .p-bubble {
+  border-bottom-left-radius: 6px;
+}
+.p-msg:not([data-mine='true']):not([data-first='true']) .p-bubble {
+  border-top-left-radius: 6px;
+}
+.p-msg[data-mine='true']:not([data-last='true']) .p-bubble {
+  border-bottom-right-radius: 6px;
+}
+.p-msg[data-mine='true']:not([data-first='true']) .p-bubble {
+  border-top-right-radius: 6px;
+}
+
+.p-bubble[data-state='pending'] {
+  opacity: 0.6;
+}
+
+.p-msg .p-bubble[data-deleted='true'] {
+  border-color: var(--p-border-2);
+  border-style: dashed;
+  background: transparent;
+  color: var(--p-ink3);
+  font-style: italic;
+}
+
+.p-msg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 6px 0;
+  color: var(--p-ink3);
+  font-size: 11px;
+}
+
+.p-msg-meta button,
+.p-msg-remove {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--p-ink2);
+  font: inherit;
+  font-size: 11.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* "Remove" appears beside my own bubble on hover or keyboard focus, and
+   always on a touch screen, where there is no hover. */
+.p-msg-remove {
+  opacity: 0;
+  flex: none;
+  min-height: 32px;
+  padding: 0 4px;
+  transition: opacity 0.15s;
+}
+
+.p-msg:hover .p-msg-remove,
+.p-msg-remove:focus-visible {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .p-msg-remove {
+    opacity: 1;
+  }
+}
+
+.p-chat-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px clamp(12px, 2vw, 20px);
+  border-top: 1px solid var(--p-border);
+  background: var(--p-paper);
+}
+
+.p-chat-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  max-height: 160px;
+  padding: 11px 16px;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background: var(--p-paper2);
+  color: var(--p-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  resize: none;
+  overflow-y: auto;
+}
+
+.p-chat-input:focus-visible {
+  border-color: rgba(201, 146, 42, 0.55);
+  outline: 2px solid rgba(201, 146, 42, 0.25);
+  outline-offset: 0;
+  background: var(--p-paper);
+}
+
+.p-chat-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-lit) 0%, var(--gold) 55%, #a8761d 100%);
+  color: #14100a;
+  cursor: pointer;
+  transition:
+    transform 0.12s,
+    opacity 0.15s;
+}
+
+.p-chat-send:active {
+  transform: scale(0.94);
+}
+
+.p-chat-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.p-chat-send:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.p-chat-hint {
+  margin: 4px 6px 0;
+  font-size: 12px;
+}
+
+.p-chat-notice {
+  padding: 11px 16px;
+  border-top: 1px solid var(--p-border);
+  background: var(--p-paper3);
+  color: var(--p-ink2);
+  font-size: 13px;
+}
+
+/* ── The inbox ──
+   One framed surface, like a desktop messenger: the conversation list on
+   the left, the open conversation filling the rest, both as tall as the
+   window allows so the composer is always on screen. */
+/* The page around the inbox keeps an even margin top and bottom, so the
+   framed inbox fits the window exactly and the page itself never scrolls. */
+.p-content:has(> .p-inbox) {
+  padding-bottom: clamp(20px, 3vw, 34px);
+}
+
+.p-inbox {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  height: calc(100dvh - 64px - 2 * clamp(20px, 3vw, 34px));
+  min-height: 480px;
+  overflow: hidden;
+  border: 1px solid var(--p-border);
+  border-radius: 16px;
+  background: var(--p-paper);
+  box-shadow: var(--p-shadow);
+}
+
+.p-inbox-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--p-border);
+}
+
+.p-inbox-head {
+  display: grid;
+  gap: 12px;
+  padding: 18px 16px 12px;
+  border-bottom: 1px solid var(--p-border);
+}
+
+.p-inbox-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.p-inbox-search {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--p-paper2);
+  color: var(--p-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.p-inbox-search:focus-visible {
+  border-color: rgba(201, 146, 42, 0.55);
+  outline: 2px solid rgba(201, 146, 42, 0.25);
+  outline-offset: 0;
+  background: var(--p-paper);
+}
+
+.p-inbox-thread {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.p-inbox-thread > .p-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+.p-inbox-blank {
+  display: grid;
+  flex: 1;
+  place-content: center;
+  gap: 6px;
+  padding: 24px;
+  background: #fbfaf8;
+  color: var(--p-ink3);
+  font-size: 14px;
+  text-align: center;
+}
+
+.p-inbox-blank strong {
+  color: var(--p-ink);
+  font-family: var(--font-heading);
+  font-size: 17px;
+}
+
+.p-thread-list {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.p-thread {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.p-thread:hover {
+  background: var(--p-paper2);
+}
+
+.p-thread[aria-current='true'] {
+  background: #fbf3e2;
+}
+
+.p-thread:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.p-thread-name {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.p-thread-preview {
+  overflow: hidden;
+  color: var(--p-ink3);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.p-thread[data-unread='true'] .p-thread-name,
+.p-thread[data-unread='true'] .p-thread-preview {
+  color: var(--p-ink);
+  font-weight: 700;
+}
+
+.p-thread-time {
+  flex: none;
+  margin-left: auto;
+  color: var(--p-ink3);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.p-avatar-sm {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--p-paper3);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.p-avatar-md {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--p-paper3);
+  color: var(--p-ink2);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ── My Coach (member): who coaches me on the left, the chat beside it ── */
+.p-mycoach {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.p-mycoach-side,
+.p-mycoach-chat {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.p-mycoach-chat .p-chat {
+  height: min(72vh, 680px);
+}
+
+/* On a phone the conversation is why the page was opened, and its header
+   already names the coach — so it leads, and the coach's card follows. */
+@media (max-width: 1179px) {
+  .p-mycoach-chat {
+    order: -1;
+  }
+}
+
+@media (min-width: 1180px) {
+  .p-content:has(> .p-mycoach) {
+    padding-bottom: clamp(20px, 3vw, 34px);
+  }
+
+  .p-mycoach {
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  }
+
+  .p-mycoach-side {
+    position: sticky;
+    top: 88px;
+  }
+
+  .p-mycoach-chat .p-chat {
+    height: calc(100dvh - 64px - 2 * clamp(20px, 3vw, 34px));
+    min-height: 480px;
+  }
+}
+
+/* ── The workout plan: editor and read-only view ── */
+.p-plan-day {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--p-border);
+  border-radius: 10px;
+  background: var(--p-paper);
+}
+
+.p-plan-ex {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 76px minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.p-plan-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.p-plan-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .p-content:has(> .p-inbox) {
+    padding-bottom: 96px; /* the tab bar still needs clearing */
+  }
+
+  .p-inbox {
+    grid-template-columns: minmax(0, 1fr);
+    /* Clears the topbar, the page's top padding and the tab bar. */
+    height: calc(100dvh - 64px - clamp(20px, 3vw, 34px) - 96px);
+    min-height: 420px;
+  }
+
+  .p-inbox-list {
+    border-right: 0;
+  }
+
+  /* One pane at a time on a phone: the list, or the conversation. */
+  .p-inbox[data-open='true'] .p-inbox-list,
+  .p-inbox[data-open='false'] .p-inbox-thread {
+    display: none;
+  }
+
+  .p-chat-back {
+    display: grid;
+  }
+
+  .p-msg-body {
+    max-width: 82%;
+  }
+}
+
+@media (max-width: 700px) {
+  .p-plan-ex {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .p-plan-ex > :first-child,
+  .p-plan-ex > :nth-child(4) {
+    grid-column: 1 / -1;
+  }
+}

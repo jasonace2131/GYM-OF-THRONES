@@ -1,0 +1,27 @@
+// What members read about a coach: what they specialise in, and a short bio.
+//
+// A coach is still just a `User` with role COACH — this is the one thing a
+// user row has no column for, kept beside it rather than widening `User` with
+// fields only one role ever fills. One row per coach at most (`userId` is the
+// key), created the first time an admin saves the profile.
+//
+// The limits live in hand-written SQL
+// (20260927000100_staff_invitations_coach_profiles), because Prisma has no way
+// to say them:
+//   - CoachProfile_specializations_shape  at most 5, each 1-40 characters,
+//                                         trimmed, no NULL entries
+//   - CoachProfile_bio_shape              NULL, or 1-500 characters
+model CoachProfile {
+  userId String @id @db.Uuid
+
+  specializations String[] @default([])
+  bio             String?
+
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  updatedById String   @db.Uuid
+
+  // CASCADE: the profile is part of the coach's account and goes with it.
+  user      User @relation("CoachProfileUser", fields: [userId], references: [id], onDelete: Cascade)
+  // RESTRICT: whoever last edited it is named, like every other actor column.
+  updatedBy User @relation("CoachProfileUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+}

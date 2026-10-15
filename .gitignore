@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+#
+# Deny everything .env-shaped, then allow back only the template. Listing
+# specific variants leaves gaps — a .env.backup or .env.save holding a real
+# database password is not matched by them and would be committable.
+.env
+.env.*
+!.env.example
+!.env.test.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Prisma
+prisma/migrations/dev.db
+*.db-journal
+
+# Testing
+coverage/
+
+# Superpowers scratch workspace (ledgers, briefs, review packages)
+.superpowers/
+
+# Misc
+*.tsbuildinfo
+
+# graphify knowledge-graph output — generated, 7.5MB, rebuildable with /graphify
+graphify-out/
+
+# Python bytecode (the ui-ux-pro-max skill scripts regenerate these on every run)
+__pycache__/
+*.pyc

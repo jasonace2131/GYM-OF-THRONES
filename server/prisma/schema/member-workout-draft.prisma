@@ -1,0 +1,45 @@
+// A member's in-flight or finished-but-unsaved AI generation (feat/member-workouts).
+//
+// THE DRAFT IS THE JOB. At most one per member (`memberId` is the key). The
+// generation job streams the model's lines into `plan` as they arrive, the
+// portal polls this row, a restart cannot lose it, and a RUNNING row older
+// than WORKOUT_DRAFT_STALE_MS is marked FAILED (and refunded) by the next
+// read. Saving copies it into MemberWorkoutPlan and deletes it; cancelling
+// deletes it outright — a running job's later writes are keyed on `jobId`
+// and match nothing.
+//
+// `plan` is PARTIAL while RUNNING: `{ summary, days: [...], guidance }` with
+// nulls where nothing has landed yet. Only a READY draft's plan is whole and
+// has passed `parseMemberPlan`. `intake` is the WorkoutIntakeSummary — the
+// answers minus the consent literal, and never the PAR-Q+ answers.
+
+enum WorkoutDraftStatus {
+  RUNNING
+  READY
+  FAILED
+}
+
+model MemberWorkoutDraft {
+  memberId String @id @db.Uuid
+  /// New per generation. Every write from the job carries it, so a draft the
+  /// member discarded (or replaced) is never written to by the old job.
+  jobId    String @db.Uuid
+
+  status WorkoutDraftStatus
+  intake Json
+  plan   Json
+
+  /// Member-facing copy when FAILED, else null.
+  error String?
+  /// The Gemini model that wrote the READY plan.
+  model String?
+
+  consentAt  DateTime  @db.Timestamptz(3)
+  startedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  /// When the first day landed — REQ034's "Day 1 in under five seconds" evidence.
+  firstDayAt DateTime? @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+
+  member User @relation("MemberWorkoutDraftMember", fields: [memberId], references: [id], onDelete: Restrict)
+}

@@ -1,0 +1,141 @@
+// A class the gym is running at a particular time.
+//
+// ONE-OFF SESSIONS, NOT A RECURRING TIMETABLE. Staff create each session with
+// its own date, coach and cap. A recurrence rule would mean a generator, a
+// materialisation strategy, and a decision about what happens to bookings when
+// somebody edits the pattern — none of which this gym needs to answer yet, and
+// all of which an additive `recurrenceId` column can introduce later without
+// changing anything here.
+model ClassSession {
+  id String @id @default(uuid()) @db.Uuid
+
+  title       String
+  description String?
+
+  coachId String @db.Uuid
+
+  // The instant it starts, and the gym's civil day it belongs to. Both, on
+  // purpose: `startsAt` orders and displays, `businessDate` is what every
+  // "what is on today" query filters on. A 06:00 Manila class is 22:00 UTC the
+  // previous day, so an instant range would file the busiest session of the
+  // morning under yesterday.
+  startsAt     DateTime @db.Timestamptz(3)
+  endsAt       DateTime @db.Timestamptz(3)
+  businessDate DateTime @db.Date
+
+  capacity Int
+
+  /// Denormalised count of ACTIVE (non-cancelled, non-waitlisted) bookings.
+  ///
+  /// Capacity is arbitrated by the per-class ROW LOCK, not by this column.
+  /// Every path that changes a seat — a member booking or cancelling, the desk
+  /// adding or removing somebody, a capacity edit, a promotion off the
+  /// waitlist — first takes `SELECT … FOR UPDATE` on this row
+  /// (`lockClassSession`, server/src/classes/class-queries.ts). Two members
+  /// tapping "book" on the last seat queue on that lock, and the second reads
+  /// a full class. Under the lock `bookedCount` moves only by `increment` and
+  /// `decrement`, and the CHECK `ClassSession_booked_within_capacity` is the
+  /// backstop under all of it.
+  bookedCount Int @default(0)
+
+  cancelledAt  DateTime? @db.Timestamptz(3)
+  cancelReason String?
+  createdById  String    @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  coach     User @relation("ClassSessionCoach", fields: [coachId], references: [id], onDelete: Restrict)
+  createdBy User @relation("ClassSessionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  bookings ClassBooking[]
+
+  // The timetable's exact query: one gym-day, in start order.
+  @@index([businessDate, startsAt])
+  @@index([coachId, startsAt(sort: Desc)])
+}
+
+// A member's place in a class.
+//
+// WAITLISTING IS A STATUS, NOT A SEPARATE TABLE. A waitlisted member and a
+// booked one are the same fact at different capacities, and promotion is a
+// status change rather than a move between tables — which means a member's
+// history reads as one row rather than two half-rows that have to be stitched.
+model ClassBooking {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @db.Uuid
+  userId    String @db.Uuid
+
+  status ClassBookingStatus @default(BOOKED)
+
+  /// Nullable-unique sentinel: `"<sessionId>:<userId>"` on every row that is
+  /// not CANCELLED (BOOKED, WAITLISTED, ATTENDED, NO_SHOW); NULL once cancelled.
+  ///
+  /// Gives "at most one non-cancelled booking per member per session" as a
+  /// real unique index Prisma owns and will never drop. A partial unique index
+  /// is drift Prisma emits a DROP INDEX for on the next unrelated `migrate dev`
+  /// — the same reason CoachAssignment carries `activeMemberId`.
+  ///
+  /// Kept through the register on purpose: clearing it on ATTENDED let a member
+  /// book the same class twice (2026-09-09). Nullable so a member who cancels
+  /// can book again.
+  activeKey String? @unique
+
+  bookedAt    DateTime  @default(now()) @db.Timestamptz(3)
+  promotedAt  DateTime? @db.Timestamptz(3)
+  cancelledAt DateTime? @db.Timestamptz(3)
+
+  /// Set when staff mark the register. Never inferred from a check-in: turning
+  /// up at the gym and turning up to the class are different facts.
+  attendedAt DateTime? @db.Timestamptz(3)
+
+  // ── Who did it (20261011000100_class_booking_actors) ──────────────────────
+  // All five are nullable, added with no default and no backfill: NULL means
+  // "not recorded" — every row written before they existed, and anything
+  // main's old code writes during a deploy window. Their CHECKs live in that
+  // migration's SQL only.
+
+  /// The desk user who booked this place for the member, by hand
+  /// (`booking.manage`). NULL when the member booked it themselves; never the
+  /// member (CHECK `ClassBooking_booker_not_member`).
+  bookedById String? @db.Uuid
+
+  /// The desk user who took the member out (which also sets `removalReason`).
+  /// NULL when the member cancelled themselves, and on every cancellation made
+  /// before the column existed, so NULL reads as the member's own. Only a
+  /// CANCELLED row has one (CHECK `ClassBooking_canceller_shape`), and it is
+  /// never the member (`ClassBooking_canceller_not_member`).
+  cancelledById String? @db.Uuid
+
+  /// The reason the desk gave for taking the member out, shown to them. Only
+  /// on a removal that names who removed them, 3–300 trimmed characters
+  /// (CHECK `ClassBooking_removal_reason_shape`).
+  removalReason String?
+
+  /// Who last marked this register entry, and when — on BOTH outcomes, which
+  /// `attendedAt` cannot be: a NO_SHOW has none (CHECK
+  /// `ClassBooking_attended_shape`). Only a marked row carries them (CHECKs
+  /// `ClassBooking_marked_shape`, `ClassBooking_marker_shape`). A correction
+  /// overwrites both — the last marker wins; a history of corrections would
+  /// belong in the audit log, not in more columns.
+  markedById String?   @db.Uuid
+  markedAt   DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  session ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation("ClassBookingMember", fields: [userId], references: [id], onDelete: Cascade)
+
+  // RESTRICT, like every "who did it" column (BodyMeasurement.recordedById,
+  // Payment.recordedById): accounts are soft-deleted, and the name on a
+  // member's booking cannot be hard-deleted out from under it. The member FK
+  // above stays CASCADE.
+  bookedBy    User? @relation("ClassBookingAddedBy", fields: [bookedById], references: [id], onDelete: Restrict)
+  cancelledBy User? @relation("ClassBookingCancelledBy", fields: [cancelledById], references: [id], onDelete: Restrict)
+  markedBy    User? @relation("ClassBookingMarkedBy", fields: [markedById], references: [id], onDelete: Restrict)
+
+  // Promotion order: the earliest waitlisted booking wins the freed seat.
+  @@index([sessionId, status, bookedAt])
+  @@index([userId, bookedAt(sort: Desc)])
+}

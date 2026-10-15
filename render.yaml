@@ -1,0 +1,154 @@
+# Render blueprint for the API — the free-tier stand-in while the permanent
+# host is decided.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# WHY RENDER, AND WHAT IT COSTS YOU.
+#
+# Render's free web service runs Node natively, so this repository needs no
+# Dockerfile — which is the single reason it is faster to stand up than Cloud
+# Run. The price is that a free instance SPINS DOWN after about 15 minutes with
+# no traffic, and takes the better part of a minute to wake.
+#
+# Two things in this application care about that, and neither is cosmetic:
+#
+#   1. The nightly membership job runs IN PROCESS at 03:15 Manila. A sleeping
+#      instance does not run it. Memberships then look a day stale until the
+#      next run — the door still decides correctly from dates, so nobody is
+#      wrongly admitted or refused, but the console lags.
+#   2. The front desk's live feed is Server-Sent Events. A spin-down drops
+#      every open connection.
+#
+# ops/pinger (a Cloudflare Worker) keeps it awake where it matters: every
+# 10 minutes from 06:00 to 23:00 Manila, and every 10 minutes from 03:00 to
+# 04:00 so both in-process jobs (03:15 and 03:30) find it running. Otherwise
+# it is checked hourly overnight and allowed to sleep — about 600 of the
+# workspace's 750 free instance-hours a month, where always-on would spend
+# ~744 and leave nothing for any other free service.
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  - type: web
+    name: got-api
+    runtime: node
+    plan: free
+    region: singapore # Nearest to Manila. Latency here is the door's latency.
+
+    # ─────────────────────────────────────────────────────────────────────
+    # ONLY CHANGES THE API IS BUILT FROM REDEPLOY IT.
+    #
+    # Without this, every push to main restarted the API — a client tweak, a
+    # doc, the uptime pinger in ops/ — and each restart reran `migrate
+    # deploy` and the seed for nothing.
+    #
+    # `paths` lists everything the buildCommand below reads. Leaving one out
+    # is the dangerous direction: Render would SKIP a deploy the API needed.
+    # So the root package.json, package-lock.json (npm ci) and .nvmrc (Node
+    # version) are in, not just server/ and shared/. server/prisma/ — the
+    # migrations — is covered by server/**.
+    #
+    # Tests are ignored: tsconfig.build.json excludes test/ and every
+    # *spec.ts, so they are never in the build. An ignored path wins over an
+    # included one, but a commit that also touches src still deploys.
+    #
+    # render.yaml itself needs no entry: Render always processes Blueprint
+    # changes, whatever the filter says.
+    # ─────────────────────────────────────────────────────────────────────
+    buildFilter:
+      paths:
+        - 'server/**'
+        - 'shared/**'
+        - 'package.json'
+        - 'package-lock.json'
+        - '.nvmrc'
+      ignoredPaths:
+        - 'server/test/**'
+        - 'server/**/*.spec.ts'
+
+    # ─────────────────────────────────────────────────────────────────────
+    # MIGRATIONS RUN IN THE BUILD — ONCE PER DEPLOY, NOT ONCE PER BOOT.
+    #
+    # They used to live in the start command, on the reasoning that Render's
+    # free plan has no preDeployCommand and the cost was "a few seconds on
+    # every cold start". On a FREE instance that reasoning does not hold: the
+    # service spins down after ~15 minutes idle, so the start command runs on
+    # every wake, and `prisma db seed` spawns ts-node and compiles TypeScript
+    # before the app ever binds its port. On a 512 MB box that is long enough
+    # to blow the health-check window, and the service never comes back up —
+    # it wakes, reports "almost live", and serves 503 forever (2026-09-21).
+    #
+    # The build runs once, with more headroom and no health check racing it.
+    #
+    # The seed is NOT optional and must not be made non-fatal. It loads the
+    # permission catalogue and the role grants; without it every non-DEV role
+    # holds zero permissions and the console 403s an ADMIN with no crash to
+    # point at the cause.
+    #
+    # THE TRADE-OFF, STATED PLAINLY: a build-time migration lands BEFORE the
+    # new code is live, so a migration that the OLD code cannot tolerate will
+    # break the running service for the length of the deploy. That is the
+    # normal "expand, then contract" discipline — additive migrations only,
+    # and anything destructive ships in a later release once no running code
+    # depends on the old shape. `20260913000000_class_booking_key_survives_register`
+    # was exactly such a migration and is why this ordering now matters.
+    # ─────────────────────────────────────────────────────────────────────
+    buildCommand: npm ci && npm run build --workspace=shared && npm run prisma:generate --workspace=server && npm run build --workspace=server && cd server && npx prisma migrate deploy && npx prisma db seed
+
+    # Boot only. Nothing between the container starting and the port binding.
+    # NODE_ENV is set on the command line, never as a service variable — see
+    # the envVars note below.
+    startCommand: NODE_ENV=production node server/dist/main
+
+    healthCheckPath: /api/health
+
+    envVars:
+      # ── Secrets. Set these in the Render dashboard, never in this file. ──
+      # `sync: false` means "prompt me, do not store a value in git".
+      #
+      # DATABASE_URL must be the Supabase TRANSACTION POOLER (port 6543) and
+      # must end with ?pgbouncer=true&connection_limit=5 — without it,
+      # interactive transactions intermittently fail with "prepared statement
+      # s0 already exists" and surface as random 500s on unrelated endpoints.
+      - key: DATABASE_URL
+        sync: false
+      # The SESSION connection (port 5432). Migrations cannot run through the
+      # pooler, so this one is what the startCommand above uses.
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: STATION_TOKEN_SECRET
+        sync: false
+      - key: STATION_CREDENTIAL_PEPPER
+        sync: false
+      - key: IP_HASH_PEPPER
+        sync: false
+      # Optional. Leave unset unless you want staff to be able to CREATE
+      # members from the console, or to store GCash receipt images — both
+      # warn-and-disable without it rather than failing the boot.
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      # Your Vercel URL, comma-separated if more than one. Without it the
+      # browser blocks every request and the console looks broken while the
+      # server logs nothing.
+      - key: CORS_ORIGIN
+        sync: false
+
+      # ── Operational. Set explicitly so the deployed values are visible
+      #    rather than implied by the zod schema's defaults. ──
+      #
+      # NODE_ENV IS DELIBERATELY ABSENT. As a service variable it is present at
+      # BUILD time too, where npm reads it as --omit=dev and skips
+      # @nestjs/cli, typescript, prisma and ts-node. The build then dies on
+      # "nest: not found". It belongs in startCommand and nowhere else.
+      - key: GYM_TIMEZONE
+        value: Asia/Manila
+      - key: GYM_OPEN_TIME
+        value: '05:00'
+      - key: GYM_CLOSE_TIME
+        value: '22:00'
+      # One instance only. The nightly job is not distributed-safe, so if this
+      # is ever scaled past one, every instance but one must set this false.
+      - key: SCHEDULER_ENABLED
+        value: 'true'
+      - key: GYM_VAT_REGISTERED
+        value: 'false'

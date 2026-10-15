@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    // "incremental" is deliberately off. nest-cli.json sets deleteOutDir:true,
+    // which wipes dist/ before compiling — but an incremental build then reads
+    // tsconfig.build.tsbuildinfo, concludes nothing changed, and emits nothing
+    // into the now-empty directory. The result is a build that reports "Found
+    // 0 errors" and then fails at runtime with "Cannot find module dist/main".
+    // A full emit costs a couple of seconds and removes the trap entirely.
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true
+  }
+}
