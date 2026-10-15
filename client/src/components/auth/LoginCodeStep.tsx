@@ -101,18 +101,7 @@ export function LoginCodeStep({
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={verifyBlocked}
-        className="btn btn-gold btn-block"
-        style={{
-          padding: 14,
-          fontSize: 14.5,
-          letterSpacing: '0.12em',
-          opacity: verifyBlocked ? 0.6 : 1,
-          cursor: verifyBlocked ? 'not-allowed' : 'pointer',
-        }}
-      >
+      <button type="submit" disabled={verifyBlocked} className="btn btn-gold btn-block btn-auth">
         {verifying ? 'VERIFYING…' : 'VERIFY'}
       </button>
 

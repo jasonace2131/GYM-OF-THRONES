@@ -13,8 +13,17 @@ export interface InviteCopy {
   body: string;
 }
 
-export function inviteHeadline(role: string): string {
-  return `You've been invited to join Gym of Thrones as ${roleLabel(role)}`;
+/** The h1 on every live face; the role goes in the lead sentence instead. */
+export const INVITE_HEADLINE = "You're invited";
+
+/** The signed-out lead's first sentence. */
+export function inviteRoleSentence(role: string): string {
+  return `Gym of Thrones invited you to join as ${roleLabel(role)}.`;
+}
+
+/** The signed-in and wrong-account leads, where the invitation is already introduced. */
+export function inviteRoleNote(role: string): string {
+  return `It is to join Gym of Thrones as ${roleLabel(role)}.`;
 }
 
 /** Why the link itself cannot be used — from the lookup's error code. */
@@ -88,13 +97,30 @@ export function acceptErrorCopy(code: string | null, maskedEmail: string): Invit
 
 export type LookupState = 'loading' | 'ok' | 'dead';
 export type SessionState = 'checking' | 'signed-out' | 'signed-in';
-export type InviteStage = 'loading' | 'dead' | 'signed-out' | 'signed-in';
+/**
+ * Whether the signed-in account is the invited one, from
+ * `GET /staff-invitations/match`. `unknown` is that call failing for any
+ * other reason: the page then offers Accept as it always did, and the server
+ * still refuses the wrong account there.
+ */
+export type MatchState = 'checking' | 'match' | 'mismatch' | 'unknown';
+export type InviteStage = 'loading' | 'dead' | 'signed-out' | 'wrong-account' | 'signed-in';
 
-/** Which of the page's four faces to show. A dead link wins over any session. */
-export function inviteStage(input: { lookup: LookupState; session: SessionState }): InviteStage {
+/**
+ * Which of the page's faces to show. A dead link wins over any session, and a
+ * signed-in session waits for the match answer, so an admin opening the link
+ * in their own browser never sees an Accept button flash up first.
+ */
+export function inviteStage(input: {
+  lookup: LookupState;
+  session: SessionState;
+  match: MatchState;
+}): InviteStage {
   if (input.lookup === 'dead') return 'dead';
   if (input.lookup === 'loading' || input.session === 'checking') return 'loading';
-  return input.session;
+  if (input.session === 'signed-out') return 'signed-out';
+  if (input.match === 'checking') return 'loading';
+  return input.match === 'mismatch' ? 'wrong-account' : 'signed-in';
 }
 
 /** "Sign in instead", returning here afterwards. */

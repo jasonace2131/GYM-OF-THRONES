@@ -848,6 +848,26 @@ header.site-nav.scrolled {
   width: 100%;
 }
 
+/* The sign-in, register, join, invite and password pages share one button
+   size. `.btn` carries none because each landing section sizes its own, so a
+   bare `btn btn-gold` on an auth page rendered at the browser's 13px. */
+.btn-auth {
+  padding: 14px;
+  font-size: 14.5px;
+  letter-spacing: 0.12em;
+}
+
+.btn-auth.btn-ghost {
+  padding: 13px;
+  font-size: 13.5px;
+  letter-spacing: 0.1em;
+}
+
+.btn-auth:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .breathe {
   animation: breathe 3.4s ease-in-out infinite;
 }

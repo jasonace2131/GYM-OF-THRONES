@@ -14,11 +14,14 @@ import { homeFor, type HeldPermission } from '@/lib/safeNext';
 import {
   acceptErrorCopy,
   deadInviteCopy,
-  inviteHeadline,
+  INVITE_HEADLINE,
+  inviteRoleNote,
+  inviteRoleSentence,
   inviteStage,
   signInHref,
   type InviteCopy,
   type LookupState,
+  type MatchState,
   type SessionState,
 } from '@/lib/staff/invitePage';
 
@@ -58,12 +61,29 @@ const errorBox = {
   lineHeight: 1.5,
 } as const;
 
+/** LoginPage's heading, so every auth screen opens the same way. */
+const heading = {
+  fontFamily: 'var(--font-heading)',
+  fontWeight: 800,
+  fontSize: 'clamp(32px, 4vw, 44px)',
+  letterSpacing: '-0.01em',
+  margin: '14px 0 8px',
+  color: 'var(--text)',
+  textTransform: 'uppercase',
+} as const;
+
+/** The paragraph under the heading; the last one before the actions keeps the 30px. */
 const lead = {
   fontSize: 14.5,
   lineHeight: 1.6,
   color: 'var(--text-2)',
-  margin: '0 0 24px',
+  margin: '0 0 30px',
 } as const;
+
+/** A lead paragraph that another one follows. */
+const leadFirst = { ...lead, margin: '0 0 12px' } as const;
+
+const column = { display: 'flex', flexDirection: 'column', gap: 18 } as const;
 
 /**
  * `/invite/[token]` — a staff invitation, opened from its email or a link an
@@ -75,10 +95,11 @@ const lead = {
  * role off the invitation and checks the signed-in address against it.
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Four faces: loading; a dead link (expired, withdrawn, used, not valid — each
+ * Five faces: loading; a dead link (expired, withdrawn, used, not valid — each
  * with its own sentence); signed out ("Set up my account", or sign in if the
- * address already has one); signed in ("Accept", plus a password if the
- * account was set up just now).
+ * address already has one); signed in as somebody else, typically the admin
+ * who sent it ("Sign out and continue", no Accept); signed in as the invited
+ * address ("Accept", plus a password if the account was set up just now).
  */
 export default function InvitePage({ token }: { token: string }) {
   const router = useRouter();
@@ -94,6 +115,9 @@ export default function InvitePage({ token }: { token: string }) {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<InviteCopy | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
+  /** The match answer, and which signed-in address it was asked for. */
+  const [matchResult, setMatchResult] = useState<{ email: string; state: MatchState } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +159,27 @@ export default function InvitePage({ token }: { token: string }) {
       sub.subscription.unsubscribe();
     };
   }, [token]);
+
+  // Is the signed-in account the invited one? Asked again whenever the session
+  // changes hands. Any failure falls back to offering Accept, which the server
+  // still refuses for the wrong account; a LOGIN_CODE_REQUIRED never lands
+  // here, because apiFetch sends the browser to the code step first.
+  useEffect(() => {
+    if (lookup !== 'ok' || signedInAs === null) return;
+    const email = signedInAs;
+    let cancelled = false;
+    inviteApi.match(token).then(
+      (answer) => {
+        if (!cancelled) setMatchResult({ email, state: answer.matches ? 'match' : 'mismatch' });
+      },
+      () => {
+        if (!cancelled) setMatchResult({ email, state: 'unknown' });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [lookup, signedInAs, token]);
 
   const setUp = useCallback(async (): Promise<void> => {
     setBusy(true);
@@ -203,12 +248,29 @@ export default function InvitePage({ token }: { token: string }) {
     }
   }, [needsPassword, password, confirm, token, router, invitation]);
 
+  /** Back to the signed-out face: onAuthStateChange flips the session to signed-out. */
   const signOut = async (): Promise<void> => {
-    await supabase.auth.signOut();
-    setProblem(null);
+    setSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+    } finally {
+      setSigningOut(false);
+      setProblem(null);
+    }
   };
 
-  const stage = inviteStage({ lookup, session });
+  const match: MatchState =
+    matchResult !== null && matchResult.email === signedInAs ? matchResult.state : 'checking';
+  const stage = inviteStage({ lookup, session, match });
+
+  // Rendered inside each face, directly above its primary button.
+  const problemAlert =
+    problem === null ? null : (
+      <div role="alert" style={errorBox}>
+        <strong style={{ display: 'block', marginBottom: 4 }}>{problem.title}</strong>
+        {problem.body}
+      </div>
+    );
   const dead = deadInviteCopy(deadCode);
 
   return (
@@ -224,25 +286,15 @@ export default function InvitePage({ token }: { token: string }) {
       />
 
       <div className="auth-form-pane">
-        <div style={{ width: '100%', maxWidth: 420, animation: 'fadeInUp .55s ease both' }}>
+        <div style={{ width: '100%', maxWidth: 400, animation: 'fadeInUp .55s ease both' }}>
           <span className="eyebrow">Staff invitation</span>
 
-          <h1
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 800,
-              fontSize: 'clamp(26px, 3.4vw, 36px)',
-              letterSpacing: '-0.01em',
-              lineHeight: 1.15,
-              margin: '14px 0 12px',
-              color: 'var(--text)',
-            }}
-          >
+          <h1 style={heading}>
             {stage === 'dead'
               ? dead.title
               : invitation === null
                 ? 'Opening your invitation…'
-                : inviteHeadline(invitation.role)}
+                : INVITE_HEADLINE}
           </h1>
 
           {stage === 'loading' ? (
@@ -254,35 +306,40 @@ export default function InvitePage({ token }: { token: string }) {
           {stage === 'dead' ? (
             <>
               <p style={lead}>{dead.body}</p>
-              <Link href="/login" className="btn btn-gold btn-block">
+              <Link href="/login" className="btn btn-gold btn-block btn-auth">
                 GO TO SIGN IN
               </Link>
             </>
           ) : null}
 
           {stage === 'signed-out' && invitation !== null ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <p style={{ ...lead, margin: 0 }}>
-                This invitation is for <strong>{invitation.maskedEmail}</strong>. It works for 7
-                days from when it was sent.
+            <>
+              <p style={signInInstead ? leadFirst : lead}>
+                {inviteRoleSentence(invitation.role)} This invitation is for{' '}
+                <strong>{invitation.maskedEmail}</strong>. It works for 7 days from when it was
+                sent.
               </p>
 
               {signInInstead ? (
                 <>
-                  <p style={{ ...lead, margin: 0 }}>
+                  <p style={lead}>
                     You already have an account with this address. Sign in and you will come
                     straight back here to accept. Never set a password? Use &ldquo;Forgot
                     password&rdquo; on the sign-in page.
                   </p>
-                  <Link href={signInHref(token)} className="btn btn-gold btn-block">
-                    SIGN IN TO ACCEPT
-                  </Link>
+                  <div style={column}>
+                    {problemAlert}
+                    <Link href={signInHref(token)} className="btn btn-gold btn-block btn-auth">
+                      SIGN IN TO ACCEPT
+                    </Link>
+                  </div>
                 </>
               ) : (
-                <>
+                <div style={column}>
+                  {problemAlert}
                   <button
                     type="button"
-                    className="btn btn-gold btn-block"
+                    className="btn btn-gold btn-block btn-auth"
                     disabled={busy}
                     onClick={() => void setUp()}
                   >
@@ -291,76 +348,100 @@ export default function InvitePage({ token }: { token: string }) {
                   <Link href={signInHref(token)} style={{ fontSize: 13, textAlign: 'center' }}>
                     Already have an account? Sign in
                   </Link>
-                </>
+                </div>
               )}
-            </div>
+            </>
+          ) : null}
+
+          {stage === 'wrong-account' && invitation !== null ? (
+            <>
+              <p style={leadFirst}>
+                You&apos;re signed in as <strong>{signedInAs}</strong>. This invitation is for{' '}
+                <strong>{invitation.maskedEmail}</strong>. {inviteRoleNote(invitation.role)}
+              </p>
+              <p style={lead}>Sign out here, then set up or sign in with that address.</p>
+              <div style={column}>
+                {problemAlert}
+                <button
+                  type="button"
+                  className="btn btn-gold btn-block btn-auth"
+                  disabled={signingOut}
+                  onClick={() => void signOut()}
+                >
+                  {signingOut ? 'SIGNING OUT…' : 'SIGN OUT AND CONTINUE'}
+                </button>
+              </div>
+            </>
           ) : null}
 
           {stage === 'signed-in' && invitation !== null ? (
-            <form
-              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void accept();
-              }}
-            >
-              <p style={{ ...lead, margin: 0 }}>
+            <>
+              <p style={needsPassword ? leadFirst : lead}>
                 Signed in as <strong>{signedInAs}</strong>. The invitation is for{' '}
-                <strong>{invitation.maskedEmail}</strong>.
+                <strong>{invitation.maskedEmail}</strong>. {inviteRoleNote(invitation.role)}
               </p>
-
               {needsPassword ? (
-                <>
-                  <p style={{ ...lead, margin: 0 }}>
-                    Choose a password, so you can sign in again next time.
-                  </p>
-                  <div className="field">
-                    <label htmlFor="invite-password">Password</label>
-                    <PasswordInput
-                      id="invite-password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="invite-confirm">Confirm password</label>
-                    <PasswordInput
-                      id="invite-confirm"
-                      placeholder="••••••••"
-                      value={confirm}
-                      onChange={(event) => setConfirm(event.target.value)}
-                      autoComplete="new-password"
-                      minLength={8}
-                      required
-                    />
-                  </div>
-                </>
+                <p style={lead}>Choose a password, so you can sign in again next time.</p>
               ) : null}
 
-              <button type="submit" className="btn btn-gold btn-block" disabled={busy}>
-                {busy ? 'ACCEPTING…' : 'ACCEPT INVITATION'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-block"
-                disabled={busy}
-                onClick={() => void signOut()}
+              <form
+                style={column}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void accept();
+                }}
               >
-                NOT YOU? SIGN OUT
-              </button>
-            </form>
-          ) : null}
+                {needsPassword ? (
+                  <>
+                    <div className="field">
+                      <label htmlFor="invite-password">Password</label>
+                      <PasswordInput
+                        id="invite-password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        autoComplete="new-password"
+                        minLength={8}
+                        required
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="invite-confirm">Confirm password</label>
+                      <PasswordInput
+                        id="invite-confirm"
+                        placeholder="••••••••"
+                        value={confirm}
+                        onChange={(event) => setConfirm(event.target.value)}
+                        autoComplete="new-password"
+                        minLength={8}
+                        required
+                      />
+                    </div>
+                  </>
+                ) : null}
 
-          {problem === null ? null : (
-            <div role="alert" style={{ ...errorBox, marginTop: 16 }}>
-              <strong style={{ display: 'block', marginBottom: 4 }}>{problem.title}</strong>
-              {problem.body}
-            </div>
-          )}
+                {problemAlert}
+
+                <button
+                  type="submit"
+                  className="btn btn-gold btn-block btn-auth"
+                  // LoginPage's 4px above a submit that follows fields.
+                  style={needsPassword ? { marginTop: 4 } : undefined}
+                  disabled={busy || signingOut}
+                >
+                  {busy ? 'ACCEPTING…' : 'ACCEPT INVITATION'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-block btn-auth"
+                  disabled={busy || signingOut}
+                  onClick={() => void signOut()}
+                >
+                  {signingOut ? 'SIGNING OUT…' : 'NOT YOU? SIGN OUT'}
+                </button>
+              </form>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

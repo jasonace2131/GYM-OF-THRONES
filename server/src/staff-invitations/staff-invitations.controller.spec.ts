@@ -32,9 +32,23 @@ describe('StaffInvitationsController', () => {
     },
   );
 
-  it('accept needs a session but no permission key — the invitation is the authority', () => {
-    expect(meta(IS_PUBLIC_KEY, 'accept')).toBeUndefined();
-    expect(meta(REQUIRE_PERMISSION_KEY, 'accept')).toBeUndefined();
+  it.each(['accept', 'match'] as const)(
+    '%s needs a session but no permission key — the invitation is the authority',
+    (name) => {
+      expect(meta(IS_PUBLIC_KEY, name)).toBeUndefined();
+      expect(meta(REQUIRE_PERMISSION_KEY, name)).toBeUndefined();
+    },
+  );
+
+  it('match asks the service about the CALLER, with the token from the query', async () => {
+    const invitations = { match: jest.fn().mockResolvedValue({ matches: false }) };
+    const controller = new StaffInvitationsController(
+      invitations as unknown as StaffInvitationsService,
+    );
+    const caller = { id: 'u1', email: 'maria@example.com' } as AuthUser;
+
+    await expect(controller.match({ token: 'tok' }, caller)).resolves.toEqual({ matches: false });
+    expect(invitations.match).toHaveBeenCalledWith(caller, 'tok');
   });
 
   it('forwards the caller and the Origin header, never a role from the request', async () => {

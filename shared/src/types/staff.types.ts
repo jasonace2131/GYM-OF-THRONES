@@ -61,6 +61,16 @@ export interface StaffInvitationLookup {
 }
 
 /**
+ * `GET /staff-invitations/match?token=` — signed in. Whether the caller's
+ * account email is the invited one, so the invite page can show a
+ * wrong-account screen instead of an Accept button the server would refuse.
+ * A yes/no only: the address itself is never returned.
+ */
+export interface StaffInvitationMatch {
+  matches: boolean;
+}
+
+/**
  * `POST /staff-invitations/claim-link` — public.
  *
  * `REDIRECT`: a brand-new account was set up for the invited address; the

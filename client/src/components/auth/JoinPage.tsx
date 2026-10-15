@@ -33,12 +33,29 @@ const errorBox = {
   lineHeight: 1.5,
 } as const;
 
+/** LoginPage's heading, so every auth screen opens the same way. */
+const heading = {
+  fontFamily: 'var(--font-heading)',
+  fontWeight: 800,
+  fontSize: 'clamp(32px, 4vw, 44px)',
+  letterSpacing: '-0.01em',
+  margin: '14px 0 8px',
+  color: 'var(--text)',
+  textTransform: 'uppercase',
+} as const;
+
+/** The paragraph under the heading; the last one before the actions keeps the 30px. */
 const lead = {
   fontSize: 14.5,
   lineHeight: 1.6,
   color: 'var(--text-2)',
-  margin: '0 0 24px',
+  margin: '0 0 30px',
 } as const;
+
+/** A lead paragraph that another one follows. */
+const leadFirst = { ...lead, margin: '0 0 12px' } as const;
+
+const column = { display: 'flex', flexDirection: 'column', gap: 18 } as const;
 
 /** Today as `yyyy-mm-dd` in the browser's calendar — only the form's own checks use it. */
 function localToday(): string {
@@ -172,6 +189,15 @@ export default function JoinPage({ token }: { token: string }) {
   };
 
   const stage = joinStage({ lookup, link: joinLink, sessionEmail });
+
+  // Rendered inside each face, directly above its primary button.
+  const problemAlert =
+    problem === null ? null : (
+      <div role="alert" style={errorBox}>
+        <strong style={{ display: 'block', marginBottom: 4 }}>{problem.title}</strong>
+        {problem.body}
+      </div>
+    );
   const dead = deadJoinCopy({ status: joinLink?.status ?? null, code: deadCode });
 
   return (
@@ -187,20 +213,10 @@ export default function JoinPage({ token }: { token: string }) {
       />
 
       <div className="auth-form-pane">
-        <div style={{ width: '100%', maxWidth: 420, animation: 'fadeInUp .55s ease both' }}>
+        <div style={{ width: '100%', maxWidth: 400, animation: 'fadeInUp .55s ease both' }}>
           <span className="eyebrow">Account set-up</span>
 
-          <h1
-            style={{
-              fontFamily: 'var(--font-heading)',
-              fontWeight: 800,
-              fontSize: 'clamp(26px, 3.4vw, 36px)',
-              letterSpacing: '-0.01em',
-              lineHeight: 1.15,
-              margin: '14px 0 12px',
-              color: 'var(--text)',
-            }}
-          >
+          <h1 style={heading}>
             {stage === 'dead'
               ? dead.title
               : joinLink === null
@@ -217,104 +233,109 @@ export default function JoinPage({ token }: { token: string }) {
           {stage === 'dead' ? (
             <>
               <p style={lead}>{dead.body}</p>
-              <Link href="/login" className="btn btn-gold btn-block">
+              <Link href="/login" className="btn btn-gold btn-block btn-auth">
                 GO TO SIGN IN
               </Link>
             </>
           ) : null}
 
           {(stage === 'signed-out' || stage === 'signed-in-other') && joinLink !== null ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <p style={{ ...lead, margin: 0 }}>
+            <>
+              <p style={stage === 'signed-in-other' ? leadFirst : lead}>
                 This account is for <strong>{joinLink.email}</strong>. You&apos;ll choose a password
                 next. The link works once, for 7 days.
               </p>
               {stage === 'signed-in-other' ? (
-                <p style={{ ...lead, margin: 0 }}>
+                <p style={lead}>
                   This computer is signed in as <strong>{sessionEmail}</strong>. Setting up signs
                   that account out here.
                 </p>
               ) : null}
-              <button
-                type="button"
-                className="btn btn-gold btn-block"
-                disabled={busy}
-                onClick={() => void setUp()}
-              >
-                {busy ? 'SETTING UP…' : 'SET UP MY ACCOUNT'}
-              </button>
-            </div>
+              <div style={column}>
+                {problemAlert}
+                <button
+                  type="button"
+                  className="btn btn-gold btn-block btn-auth"
+                  disabled={busy}
+                  onClick={() => void setUp()}
+                >
+                  {busy ? 'SETTING UP…' : 'SET UP MY ACCOUNT'}
+                </button>
+              </div>
+            </>
           ) : null}
 
           {stage === 'signed-in' && joinLink !== null ? (
-            <form
-              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void finish();
-              }}
-            >
-              <p style={{ ...lead, margin: 0 }}>
+            <>
+              <p style={lead}>
                 Signed in as <strong>{sessionEmail}</strong>. Choose a password so you can sign in
                 again next time.
               </p>
-              <div className="field">
-                <label htmlFor="join-password">Password</label>
-                <PasswordInput
-                  id="join-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="join-confirm">Confirm password</label>
-                <PasswordInput
-                  id="join-confirm"
-                  placeholder="••••••••"
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="join-dob">Date of birth</label>
-                <input
-                  id="join-dob"
-                  className="input"
-                  type="date"
-                  value={dateOfBirth}
-                  max={dayBefore(localToday())}
-                  onChange={(event) => setDateOfBirth(event.target.value)}
-                  required
-                />
-              </div>
-
-              <button type="submit" className="btn btn-gold btn-block" disabled={busy}>
-                {busy ? 'SAVING…' : 'FINISH SETTING UP'}
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-block"
-                disabled={busy}
-                onClick={() => void signOut()}
+              <form
+                style={column}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void finish();
+                }}
               >
-                NOT YOU? SIGN OUT
-              </button>
-            </form>
-          ) : null}
+                <div className="field">
+                  <label htmlFor="join-password">Password</label>
+                  <PasswordInput
+                    id="join-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="join-confirm">Confirm password</label>
+                  <PasswordInput
+                    id="join-confirm"
+                    placeholder="••••••••"
+                    value={confirm}
+                    onChange={(event) => setConfirm(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={8}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="join-dob">Date of birth</label>
+                  <input
+                    id="join-dob"
+                    className="input"
+                    type="date"
+                    value={dateOfBirth}
+                    max={dayBefore(localToday())}
+                    onChange={(event) => setDateOfBirth(event.target.value)}
+                    required
+                  />
+                </div>
 
-          {problem === null ? null : (
-            <div role="alert" style={{ ...errorBox, marginTop: 16 }}>
-              <strong style={{ display: 'block', marginBottom: 4 }}>{problem.title}</strong>
-              {problem.body}
-            </div>
-          )}
+                {problemAlert}
+
+                <button
+                  type="submit"
+                  className="btn btn-gold btn-block btn-auth"
+                  style={{ marginTop: 4 }}
+                  disabled={busy}
+                >
+                  {busy ? 'SAVING…' : 'FINISH SETTING UP'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-block btn-auth"
+                  disabled={busy}
+                  onClick={() => void signOut()}
+                >
+                  NOT YOU? SIGN OUT
+                </button>
+              </form>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

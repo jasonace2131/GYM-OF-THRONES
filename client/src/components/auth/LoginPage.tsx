@@ -461,15 +461,8 @@ export default function LoginPage() {
                 id="login-submit-btn"
                 type="submit"
                 disabled={submitting}
-                className="btn btn-gold btn-block"
-                style={{
-                  padding: 14,
-                  fontSize: 14.5,
-                  letterSpacing: '0.12em',
-                  marginTop: 4,
-                  opacity: submitting ? 0.6 : 1,
-                  cursor: submitting ? 'not-allowed' : 'pointer',
-                }}
+                className="btn btn-gold btn-block btn-auth"
+                style={{ marginTop: 4 }}
               >
                 {submitting ? 'SIGNING IN…' : 'SIGN IN'}
               </button>
@@ -506,8 +499,7 @@ export default function LoginPage() {
                     ? '/register'
                     : `/register?next=${encodeURIComponent(requested)}`
                 }
-                className="btn btn-ghost btn-block"
-                style={{ padding: 13, fontSize: 13.5, letterSpacing: '0.1em' }}
+                className="btn btn-ghost btn-block btn-auth"
               >
                 CREATE A MEMBER ACCOUNT
               </Link>

@@ -7,6 +7,7 @@ import type {
   StaffInviteAccepted,
   StaffInviteClaim,
   StaffInvitationLookup,
+  StaffInvitationMatch,
   StaffInvitationView,
 } from '@got/shared';
 import { apiFetch } from './api';
@@ -112,6 +113,10 @@ export const staffApi = {
 export const inviteApi = {
   lookup: (token: string): Promise<StaffInvitationLookup> =>
     apiFetch<StaffInvitationLookup>(`/staff-invitations/lookup?token=${seg(token)}`),
+
+  /** Signed in: whether this account is the one the invitation was sent to. */
+  match: (token: string): Promise<StaffInvitationMatch> =>
+    apiFetch<StaffInvitationMatch>(`/staff-invitations/match?token=${seg(token)}`),
 
   claimLink: (token: string): Promise<StaffInviteClaim> =>
     apiFetch<StaffInviteClaim>('/staff-invitations/claim-link', {

@@ -15,6 +15,7 @@ import type {
   StaffInviteAccepted,
   StaffInviteClaim,
   StaffInvitationLookup,
+  StaffInvitationMatch,
   StaffInvitationView,
 } from '@got/shared';
 import { Public } from '../auth/decorators/public.decorator';
@@ -39,8 +40,8 @@ import { StaffInvitationsService } from './staff-invitations.service';
  *   - `@Public()` and throttled: `lookup` and `claim-link`, which the invite
  *     page calls before anybody is signed in. The token is the only
  *     credential, so both answer as little as they can.
- *   - Any signed-in account: `accept`. The service checks the caller's
- *     address against the invitation's.
+ *   - Any signed-in account: `match` and `accept`. The service checks the
+ *     caller's address against the invitation's.
  *
  * `Origin` is read so the links point back at the site that asked — but only
  * when CORS_ORIGIN already trusts it (`resolveAppOrigin`).
@@ -59,6 +60,21 @@ export class StaffInvitationsController {
   @Throttle({ default: { limit: 10, ttl: 60_000 }, origin: { limit: 30, ttl: 60_000 } })
   async lookup(@Query() query: StaffInvitationLookupQueryDto): Promise<StaffInvitationLookup> {
     return this.invitations.lookup(query.token);
+  }
+
+  /**
+   * Signed in, no permission key. Whether the caller's account is the invited
+   * address — a yes/no, so the invite page can tell an admin who opened the
+   * link in their own browser to sign out, instead of offering an Accept that
+   * would be refused. Throttled like `lookup`: it answers for any token.
+   */
+  @Get('match')
+  @Throttle({ default: { limit: 10, ttl: 60_000 }, origin: { limit: 30, ttl: 60_000 } })
+  async match(
+    @Query() query: StaffInvitationLookupQueryDto,
+    @CurrentUser() user: AuthUser,
+  ): Promise<StaffInvitationMatch> {
+    return this.invitations.match(user, query.token);
   }
 
   @Get()

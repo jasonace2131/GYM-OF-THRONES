@@ -115,7 +115,7 @@ export default function ResetPasswordPage() {
               >
                 Your password is updated. Sign in with the new one.
               </p>
-              <Link href="/login" className="btn btn-gold btn-block">
+              <Link href="/login" className="btn btn-gold btn-block btn-auth">
                 GO TO SIGN IN
               </Link>
             </>
@@ -132,7 +132,7 @@ export default function ResetPasswordPage() {
                 This reset link is expired or already used. Request a new one — links are
                 deliberately short-lived.
               </p>
-              <Link href="/forgot-password" className="btn btn-gold btn-block">
+              <Link href="/forgot-password" className="btn btn-gold btn-block btn-auth">
                 REQUEST A NEW LINK
               </Link>
             </>
@@ -197,7 +197,8 @@ export default function ResetPasswordPage() {
 
               <button
                 type="submit"
-                className="btn btn-gold btn-block"
+                className="btn btn-gold btn-block btn-auth"
+                style={{ marginTop: 4 }}
                 disabled={submitting || ready !== true}
               >
                 {submitting ? 'SAVING…' : 'SET NEW PASSWORD'}

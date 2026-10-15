@@ -10,6 +10,7 @@ import {
   type StaffInviteAccepted,
   type StaffInviteClaim,
   type StaffInvitationLookup,
+  type StaffInvitationMatch,
   type StaffInvitationView,
 } from '@got/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -219,6 +220,21 @@ export class StaffInvitationsService {
   async lookup(token: string, now: Date = new Date()): Promise<StaffInvitationLookup> {
     const row = await this.usableInvitation(token, now);
     return { role: row.role as InvitableRole, maskedEmail: maskEmail(row.email) };
+  }
+
+  /**
+   * `GET /staff-invitations/match?token=` — signed in. Whether the caller's
+   * address is the invited one, compared exactly as `accept` compares it. A
+   * dead or unknown link answers with the same errors as `lookup`, so this
+   * route tells nobody anything the public lookup does not.
+   */
+  async match(
+    caller: Pick<AuthUser, 'email'>,
+    token: string,
+    now: Date = new Date(),
+  ): Promise<StaffInvitationMatch> {
+    const row = await this.usableInvitation(token, now);
+    return { matches: normaliseInviteEmail(caller.email) === row.email };
   }
 
   /**

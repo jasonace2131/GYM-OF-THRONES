@@ -355,15 +355,8 @@ export default function RegisterPage() {
               id="reg-submit-btn"
               type="submit"
               disabled={submitting}
-              className="btn btn-gold btn-block"
-              style={{
-                padding: 14,
-                fontSize: 14.5,
-                letterSpacing: '0.12em',
-                marginTop: 4,
-                opacity: submitting ? 0.6 : 1,
-                cursor: submitting ? 'not-allowed' : 'pointer',
-              }}
+              className="btn btn-gold btn-block btn-auth"
+              style={{ marginTop: 4 }}
             >
               {submitting ? 'CREATING ACCOUNT…' : 'CONTINUE TO PLAN'}
               {!submitting && (

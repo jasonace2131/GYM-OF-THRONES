@@ -2,17 +2,24 @@ import { describe, expect, it } from 'vitest';
 import {
   acceptErrorCopy,
   deadInviteCopy,
-  inviteHeadline,
+  INVITE_HEADLINE,
+  inviteRoleNote,
+  inviteRoleSentence,
   inviteStage,
   signInHref,
 } from './invitePage';
 
-describe('inviteHeadline', () => {
+describe('invite headline and role sentences', () => {
+  it('keeps the headline short and role-free', () => {
+    expect(INVITE_HEADLINE).toBe("You're invited");
+  });
+
   it('names the role from the invitation', () => {
-    expect(inviteHeadline('COACH')).toBe("You've been invited to join Gym of Thrones as Coach");
-    expect(inviteHeadline('FRONT_DESK')).toBe(
-      "You've been invited to join Gym of Thrones as Front desk",
+    expect(inviteRoleSentence('COACH')).toBe('Gym of Thrones invited you to join as Coach.');
+    expect(inviteRoleSentence('FRONT_DESK')).toBe(
+      'Gym of Thrones invited you to join as Front desk.',
     );
+    expect(inviteRoleNote('FRONT_DESK')).toBe('It is to join Gym of Thrones as Front desk.');
   });
 });
 
@@ -65,17 +72,42 @@ describe('acceptErrorCopy', () => {
 
 describe('inviteStage', () => {
   it('waits for both the invitation and the session', () => {
-    expect(inviteStage({ lookup: 'loading', session: 'signed-out' })).toBe('loading');
-    expect(inviteStage({ lookup: 'ok', session: 'checking' })).toBe('loading');
+    expect(inviteStage({ lookup: 'loading', session: 'signed-out', match: 'checking' })).toBe(
+      'loading',
+    );
+    expect(inviteStage({ lookup: 'ok', session: 'checking', match: 'checking' })).toBe('loading');
   });
 
   it('shows a dead link whatever the session', () => {
-    expect(inviteStage({ lookup: 'dead', session: 'signed-in' })).toBe('dead');
+    expect(inviteStage({ lookup: 'dead', session: 'signed-in', match: 'match' })).toBe('dead');
+    expect(inviteStage({ lookup: 'dead', session: 'signed-in', match: 'mismatch' })).toBe('dead');
   });
 
-  it('offers set-up when signed out, accept when signed in', () => {
-    expect(inviteStage({ lookup: 'ok', session: 'signed-out' })).toBe('signed-out');
-    expect(inviteStage({ lookup: 'ok', session: 'signed-in' })).toBe('signed-in');
+  it('offers set-up when signed out, whatever an old match answer said', () => {
+    expect(inviteStage({ lookup: 'ok', session: 'signed-out', match: 'checking' })).toBe(
+      'signed-out',
+    );
+    expect(inviteStage({ lookup: 'ok', session: 'signed-out', match: 'mismatch' })).toBe(
+      'signed-out',
+    );
+  });
+
+  it('keeps loading while a signed-in session is being matched — no flash of Accept', () => {
+    expect(inviteStage({ lookup: 'ok', session: 'signed-in', match: 'checking' })).toBe('loading');
+  });
+
+  it('offers Accept to the invited account', () => {
+    expect(inviteStage({ lookup: 'ok', session: 'signed-in', match: 'match' })).toBe('signed-in');
+  });
+
+  it('shows the wrong-account face, not Accept, to a different account', () => {
+    expect(inviteStage({ lookup: 'ok', session: 'signed-in', match: 'mismatch' })).toBe(
+      'wrong-account',
+    );
+  });
+
+  it('falls back to Accept when the match could not be checked', () => {
+    expect(inviteStage({ lookup: 'ok', session: 'signed-in', match: 'unknown' })).toBe('signed-in');
   });
 });
 

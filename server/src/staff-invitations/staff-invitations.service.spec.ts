@@ -429,6 +429,57 @@ describe('StaffInvitationsService', () => {
     });
   });
 
+  describe('match', () => {
+    beforeEach(() => {
+      m.prisma.staffInvitation.findUnique.mockResolvedValue(invitation());
+    });
+
+    it('finds the invitation by the HASH of the token', async () => {
+      await m.service.match(INVITEE, 'raw-token-value', NOW);
+
+      expect(m.prisma.staffInvitation.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tokenHash: hashInvitationToken('raw-token-value') } }),
+      );
+    });
+
+    it('says yes to the invited account', async () => {
+      await expect(m.service.match(INVITEE, 't', NOW)).resolves.toEqual({ matches: true });
+    });
+
+    it('matches the address case-insensitively and ignores stray spaces', async () => {
+      await expect(m.service.match({ email: '  Ana@Example.COM ' }, 't', NOW)).resolves.toEqual({
+        matches: true,
+      });
+    });
+
+    it('says no to a different account — the admin who opened the link', async () => {
+      await expect(m.service.match(ADMIN, 't', NOW)).resolves.toEqual({ matches: false });
+    });
+
+    it('404s an unknown token, exactly as lookup does', async () => {
+      m.prisma.staffInvitation.findUnique.mockResolvedValue(null);
+      await expect(m.service.match(INVITEE, 't', NOW)).rejects.toMatchObject({
+        response: { code: 'STAFF_INVITE_NOT_FOUND' },
+        status: HttpStatus.NOT_FOUND,
+      });
+    });
+
+    it('410s a dead link, exactly as lookup does', async () => {
+      m.prisma.staffInvitation.findUnique.mockResolvedValue(invitation({ expiresAt: NOW }));
+      await expect(m.service.match(INVITEE, 't', NOW)).rejects.toMatchObject({
+        response: { code: 'STAFF_INVITE_EXPIRED' },
+        status: HttpStatus.GONE,
+      });
+    });
+
+    it('never writes anything', async () => {
+      await m.service.match(ADMIN, 't', NOW);
+      expect(m.prisma.staffInvitation.updateMany).not.toHaveBeenCalled();
+      expect(m.prisma.user.update).not.toHaveBeenCalled();
+      expect(m.audit.record).not.toHaveBeenCalled();
+    });
+  });
+
   describe('claimLink (public)', () => {
     it('hands back a NEW account link that returns to this invite page', async () => {
       m.prisma.staffInvitation.findUnique.mockResolvedValue(invitation());
