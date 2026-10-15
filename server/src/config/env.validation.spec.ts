@@ -147,6 +147,24 @@ describe('envValidationSchema', () => {
     });
   });
 
+  describe('LOGIN_CODE_REQUIRED', () => {
+    it('defaults to true — the emailed code is on unless someone turns it off', () => {
+      expect(parse().LOGIN_CODE_REQUIRED).toBe(true);
+    });
+
+    it("parses the STRING 'false' to boolean false (the kill switch)", () => {
+      expect(parse({ LOGIN_CODE_REQUIRED: 'false' }).LOGIN_CODE_REQUIRED).toBe(false);
+    });
+
+    it("parses 'true' to boolean true", () => {
+      expect(parse({ LOGIN_CODE_REQUIRED: 'true' }).LOGIN_CODE_REQUIRED).toBe(true);
+    });
+
+    it('rejects anything else rather than guessing', () => {
+      expect(() => parse({ LOGIN_CODE_REQUIRED: '0' })).toThrow(/LOGIN_CODE_REQUIRED/);
+    });
+  });
+
   describe('chunk 1 operating parameters', () => {
     it('accepts the bounds of MEMBERSHIP_GRACE_ADMISSIONS_MAX', () => {
       expect(parse({ MEMBERSHIP_GRACE_ADMISSIONS_MAX: '0' }).MEMBERSHIP_GRACE_ADMISSIONS_MAX).toBe(

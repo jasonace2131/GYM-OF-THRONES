@@ -56,6 +56,13 @@ export function loadTestEnv(): void {
   // STALE_CLOSE assertion). Nothing in the e2e suite relies on a registered
   // job; a spec that ever needs one can set this back explicitly.
   if (process.env['SCHEDULER_ENABLED'] === undefined) process.env['SCHEDULER_ENABLED'] = 'false';
+
+  // The emailed sign-in code is OFF inside a test app unless a spec turns it
+  // on: fixture tokens are password sign-ins with no LoginVerification row, so
+  // the gate would answer every request 401 LOGIN_CODE_REQUIRED.
+  if (process.env['LOGIN_CODE_REQUIRED'] === undefined) {
+    process.env['LOGIN_CODE_REQUIRED'] = 'false';
+  }
 }
 
 loadTestEnv();

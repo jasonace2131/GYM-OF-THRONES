@@ -1,0 +1,38 @@
+/// One Supabase sign-in's emailed code (feat/login-code, 2026-10-15).
+/// ONE ROW PER SIGN-IN, keyed by the token's `session_id`, which every
+/// refreshed token of that sign-in repeats.
+///
+/// Only an HMAC of the code is stored (key IP_HASH_PEPPER, domain-separated by
+/// session id), and it is cleared on a successful verify.
+///
+/// The CHECKs (hash shape, attempts 0..5, sendCount 0..5, hash and expiry
+/// together, verified not before created) live only in migration
+/// 20261015000000_login_verification — Prisma cannot represent them.
+model LoginVerification {
+  sessionId     String    @id @db.Uuid
+  userId        String    @db.Uuid
+  codeHash      String?   @db.Char(64)
+  codeExpiresAt DateTime? @db.Timestamptz(3)
+  /// Wrong guesses against the CURRENT code. 5 burns it.
+  attempts      Int       @default(0)
+  /// Codes sent for this sign-in. 5 is the ceiling.
+  sendCount     Int       @default(0)
+  lastSentAt    DateTime? @db.Timestamptz(3)
+  verifiedAt    DateTime? @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation("LoginVerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// The API's LOGIN_CODE_REQUIRED, mirrored for the Realtime policy (which
+/// cannot read env). ONE ROW: id 1. Written by LoginCodeSettingSync at every
+/// boot. A missing row reads as "required" (fail closed).
+///
+/// The single-row CHECK lives only in migration 20261015000100_login_code_realtime.
+model LoginCodeSetting {
+  id        Int      @id @default(1)
+  required  Boolean
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

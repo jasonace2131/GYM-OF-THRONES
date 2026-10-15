@@ -9,9 +9,12 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from './decorators/public.decorator';
+import { ALLOW_UNVERIFIED_LOGIN_KEY } from './decorators/allow-unverified-login.decorator';
 import { JwtVerifierService } from './jwt-verifier.service';
 import { UserProvisioningService } from './user-provisioning.service';
-import type { AuthUser } from './auth.types';
+import { LoginGateService } from './login-gate.service';
+import { authSessionFrom } from './auth-session';
+import type { AuthSession, AuthUser } from './auth.types';
 
 /**
  * Authenticates every request: verify the token, resolve the local user,
@@ -28,6 +31,7 @@ export class AuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtVerifierService,
     private readonly provisioning: UserProvisioningService,
+    private readonly gate: LoginGateService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -37,13 +41,17 @@ export class AuthGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const request = context.switchToHttp().getRequest<Request & { user?: AuthUser }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: AuthUser; authSession?: AuthSession }>();
     const token = this.extractBearerToken(request.headers.authorization);
 
     let user: AuthUser;
+    let session: AuthSession;
     try {
       const claims = await this.jwt.verify(token);
       user = await this.provisioning.resolve(claims);
+      session = authSessionFrom(claims);
     } catch (error) {
       // Log the real reason server-side; tell the client only that auth
       // failed. Echoing the verification error back would tell an attacker
@@ -69,7 +77,18 @@ export class AuthGuard implements CanActivate {
       throw new ForbiddenException('Account is not active');
     }
 
+    // The emailed sign-in code. AFTER the status check, so a closed account
+    // hears 403 rather than being asked for a code it cannot use. Only the two
+    // /auth/login-code routes are exempt.
+    const exempt =
+      this.reflector.getAllAndOverride<boolean>(ALLOW_UNVERIFIED_LOGIN_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) === true;
+    await this.gate.assertVerified(session, exempt);
+
     request.user = user;
+    request.authSession = session;
     return true;
   }
 

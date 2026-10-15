@@ -22,6 +22,8 @@ export * from './rbac/role-hierarchy';
 export * from './types/staff.types';
 // Counter sign-up: a staff-created member's setup link.
 export * from './types/member-join.types';
+// The emailed sign-in code: the two /auth/login-code responses.
+export * from './types/login-code.types';
 // The statutory money arithmetic, consumed by the server's payment writes and
 // by the console's amend preview. One copy, two runtimes.
 export * from './money/amounts';

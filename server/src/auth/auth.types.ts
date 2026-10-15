@@ -24,6 +24,14 @@ export interface SupabaseClaims {
    * an instant here is how it drifts by a day for anyone east of UTC.
    */
   dateOfBirth: string | null;
+  /**
+   * The Supabase sign-in this token belongs to (`session_id`, lower-case
+   * uuid). One per sign-in, repeated by every refreshed token of it. A token
+   * without one is refused: a sign-in we cannot identify cannot be verified.
+   */
+  sessionId: string;
+  /** `amr` method names, lower-case: how this sign-in happened ('password', 'otp', …). */
+  amr: string[];
 }
 
 /**
@@ -48,4 +56,14 @@ export interface AuthUser {
   heightCm: number | null;
   weightKg: number | null;
   deletedAt: Date | null;
+}
+
+/**
+ * The sign-in behind a request, attached by AuthGuard as `request.authSession`
+ * beside `request.user`. The emailed-code gate keys on `sessionId`.
+ */
+export interface AuthSession {
+  sessionId: string;
+  /** Created by a link opened in the inbox (magic link, invite, password reset). */
+  viaEmailLink: boolean;
 }

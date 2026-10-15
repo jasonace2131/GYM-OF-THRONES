@@ -274,6 +274,21 @@ export type DomainErrorCode =
   | 'MEMBER_ALREADY_SIGNED_IN'
   // 409 — resend or change-email for a staff account; staff accounts are set up from Staff & Access.
   | 'MEMBER_JOIN_STAFF_ACCOUNT'
+  // ── Sign-in code (feat/login-code) ──────────────────────────────────────────
+  // 401 on every authenticated route except the two /auth/login-code routes
+  // while this sign-in has not entered its emailed code. apiFetch sends the
+  // browser to /login?next=…, and the login page shows the code step.
+  | 'LOGIN_CODE_REQUIRED'
+  // 429. Five codes for this sign-in, or ten for this account in an hour.
+  | 'LOGIN_CODE_SEND_LIMIT'
+  // 503. Resend refused or is not configured. The send is not counted.
+  | 'LOGIN_CODE_EMAIL_FAILED'
+  // 422. `details` is LoginCodeInvalidDetails (`{ attemptsLeft }`).
+  | 'LOGIN_CODE_INVALID'
+  // 422. Past its 10 minutes, replaced by a newer code, or never sent.
+  | 'LOGIN_CODE_EXPIRED'
+  // 422. Five wrong guesses burned this code until a new one is requested.
+  | 'LOGIN_CODE_LOCKED'
   // ── GCash proof screenshots and the member's own payment claim ──
   //
   // The image is a PAPER TRAIL, never verification: a reference absent from the

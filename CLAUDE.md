@@ -135,6 +135,7 @@ Full design: `docs/superpowers/specs/2026-08-16-rbac-auth-design.md`. It ships i
 - **Phase 3 — scoping.** `UserPermission` overrides, `PermissionScope` (`OWN`/`ALL`), `CoachAssignment`.
 - **Phase 4 — admin.** Admin user/permission/role API, `AuditLog`.
 - **Phase 5 — check-in.** QR-based member check-in.
+- **Sign-in code (2026-10-15).** After the password, every sign-in enters a 6-digit code our API emails through Resend (`docs/superpowers/specs/2026-10-15-login-code-design.md`). `LoginGateService` is the one decision point — `AuthGuard` and `StationTokenAccessGuard`'s staff path both call it — and an unverified sign-in gets `401 LOGIN_CODE_REQUIRED` on every authenticated route except the two `@AllowUnverifiedLogin()` routes, `POST /auth/login-code` and `POST /auth/login-code/verify`. Verified means a `LoginVerification` row with `verifiedAt` for the token's `session_id`, or an email-link `amr` (`otp`, `magiclink`, `invite`, `recovery`), or `LOGIN_CODE_REQUIRED=false`. That env var (default `true`) is the **kill switch** when email breaks: set it `false` and restart. Live chat applies the same rule in SQL (`public.login_session_verified()` in the Realtime policy), reading the switch from the one-row `LoginCodeSetting` the API writes at boot. A token without `session_id` is refused. The e2e harness defaults the switch to `false` (`test/support/db.ts`).
 
 Roles are `CLIENT | FRONT_DESK | COACH | ADMIN | DEV`. `DEV` is the superuser escape hatch — assignable only by seed script or direct DB access, never through the API.
 

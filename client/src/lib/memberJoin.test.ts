@@ -148,6 +148,14 @@ describe('joinErrorCopy', () => {
     });
   });
 
+  it('tells an unfinished password sign-in to sign out and reopen the link', () => {
+    const copy = joinErrorCopy('LOGIN_CODE_REQUIRED');
+    expect(copy.title).toMatch(/sign out/i);
+    expect(copy.body).toMatch(/sign out/i);
+    expect(copy.body).toMatch(/open the link from your email again/i);
+    expect(copy.body).not.toMatch(/try again/i);
+  });
+
   it('falls back to "try again" for anything else', () => {
     expect(joinErrorCopy(null).body).toMatch(/try again/i);
   });

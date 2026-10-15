@@ -71,6 +71,13 @@ export function acceptErrorCopy(code: string | null, maskedEmail: string): Invit
     case 'STAFF_INVITE_USED':
     case 'STAFF_INVITE_NOT_FOUND':
       return deadInviteCopy(code);
+    // apiFetch normally sends this to the login page's code step first; this
+    // is the words for the moment before that navigation lands.
+    case 'LOGIN_CODE_REQUIRED':
+      return {
+        title: 'Finish signing in first',
+        body: 'Enter the code we emailed you when you signed in, then accept the invitation.',
+      };
     default:
       return {
         title: 'Something went wrong',

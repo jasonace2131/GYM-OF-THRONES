@@ -1,14 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import type { LoginCodePending } from '@got/shared';
 import AuthBrandPanel from './AuthBrandPanel';
+import { LoginCodeStep } from './LoginCodeStep';
 import { supabase } from '@/lib/supabase';
 import { type HeldPermission, destinationFor } from '@/lib/safeNext';
 import { EMAIL_INPUT_PROPS, normaliseIdentifier, normalisePassword } from '@/lib/credentials';
-import { ApiError, apiFetch } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
+import {
+  SIGN_IN_ENDED_MESSAGE,
+  classifyMeFailure,
+  codeStepFailure,
+  isCompleteCode,
+  loginCodeErrorMessage,
+  secondsUntil,
+  sendLoginCode,
+  verifyLoginCode,
+} from '@/lib/loginCode';
 import { PasswordInput } from './PasswordInput';
 
 /** One retry before giving up, long enough to outlast a cold start. */
@@ -42,6 +54,22 @@ export default function LoginPage() {
   const [stranded, setStranded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // ── The emailed sign-in code (second step) ──
+  const [step, setStep] = useState<'password' | 'code'>('password');
+  const [pending, setPending] = useState<LoginCodePending | null>(null);
+  const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  // The Resend countdown ticks only while the code step is on screen.
+  useEffect(() => {
+    if (step !== 'code') return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [step]);
+
   /** Resolve who this is, then go. Separated so Retry can re-run exactly it. */
   const routeByPermissions = async (token: string | undefined): Promise<void> => {
     const me = await apiFetch<{ permissions: HeldPermission[] }>('/me', {
@@ -50,16 +78,128 @@ export default function LoginPage() {
     router.replace(destinationFor(requested, me.permissions));
   };
 
+  /**
+   * The code is in (or the sign-in turned out already verified): go where
+   * /me says. No code-required branch here on purpose, so a server that
+   * disagrees with itself can never loop this page.
+   */
+  const finishSignIn = async (): Promise<void> => {
+    try {
+      await routeByPermissions(undefined);
+    } catch {
+      setVerifying(false);
+      setStep('password');
+      setStranded(true);
+    }
+  };
+
+  /** Ask the API to email a code; show what it says. */
+  const requestCode = async (token: string | undefined): Promise<void> => {
+    setCodeError(null);
+    setResending(true);
+    try {
+      const result = await sendLoginCode(token);
+      if (result.verified) {
+        await finishSignIn();
+        return;
+      }
+      setPending(result);
+      setNow(Date.now());
+    } catch (caught) {
+      if (await leftCodeStep(caught)) return;
+      setCodeError(loginCodeErrorMessage(caught));
+    } finally {
+      setResending(false);
+    }
+  };
+
+  /** Password accepted (or a session arrived), but this sign-in still needs its code. */
+  const enterCodeStep = async (token: string | undefined): Promise<void> => {
+    setSubmitting(false);
+    setError(null);
+    setStranded(false);
+    setCode('');
+    setPending(null);
+    setStep('code');
+    await requestCode(token);
+  };
+
+  const handleVerify = async (): Promise<void> => {
+    if (verifying || !isCompleteCode(code)) return;
+    setVerifying(true);
+    setCodeError(null);
+    try {
+      await verifyLoginCode(code);
+    } catch (caught) {
+      if (await leftCodeStep(caught)) return;
+      setCodeError(loginCodeErrorMessage(caught));
+      setCode('');
+      setVerifying(false);
+      return;
+    }
+    // `verifying` stays true across the redirect, like `submitting` does.
+    await finishSignIn();
+  };
+
+  /**
+   * Sign out and go back to the password step, with `message` (if any) shown
+   * there. The state is reset even if signOut rejects: a failed sign-out must
+   * not strand the caller on a code step whose session is already unusable.
+   */
+  const backToPassword = async (message: string | null): Promise<void> => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Nothing to show: the local session is dropped either way, and the
+      // password form is the right place to be.
+    }
+    setStep('password');
+    setPending(null);
+    setCode('');
+    setCodeError(null);
+    setPassword('');
+    setVerifying(false);
+    setResending(false);
+    setSubmitting(false);
+    setStranded(false);
+    setError(message);
+  };
+
+  /**
+   * Whether a verify/resend failure ended the code step. A revoked session
+   * (a 401 that is not LOGIN_CODE_REQUIRED) and the send cap both send the
+   * caller back to the password form; everything else stays on the code step.
+   */
+  const leftCodeStep = async (caught: unknown): Promise<boolean> => {
+    const outcome = codeStepFailure(caught);
+    if (outcome === 'stay') return false;
+    await backToPassword(
+      outcome === 'session-ended' ? SIGN_IN_ENDED_MESSAGE : loginCodeErrorMessage(caught),
+    );
+    return true;
+  };
+
+  const handleSwitchAccount = (): Promise<void> => backToPassword(null);
+
   const resolveDestination = async (token: string | undefined): Promise<void> => {
     setStranded(false);
     try {
       await routeByPermissions(token);
     } catch (caught) {
+      const failure = classifyMeFailure(caught);
+
+      // The password was right; this sign-in just has not entered its emailed
+      // code. NOT the sign-out branch below — that would throw away a good session.
+      if (failure === 'code-required') {
+        await enterCodeStep(token);
+        return;
+      }
+
       // A 401 here is not a blip — the session is genuinely unusable, so keep
       // the caller on the form rather than bouncing them into a shell that
       // will bounce them straight back. `admin/layout.tsx:46-59` documents
       // that loop; do not hand them a console link from here.
-      if (caught instanceof ApiError && caught.status === 401) {
+      if (failure === 'signed-out') {
         await supabase.auth.signOut();
         setSubmitting(false);
         setError('That session could not be verified. Please sign in again.');
@@ -81,7 +221,11 @@ export default function LoginPage() {
       try {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
         await routeByPermissions(token);
-      } catch {
+      } catch (again) {
+        if (classifyMeFailure(again) === 'code-required') {
+          await enterCodeStep(token);
+          return;
+        }
         setSubmitting(false);
         setStranded(true);
       }
@@ -126,6 +270,32 @@ export default function LoginPage() {
     await resolveDestination(signInData.session?.access_token);
   };
 
+  // ARRIVING WITH A SESSION THAT STILL NEEDS ITS CODE — a reload mid-step, a
+  // deep link, or apiFetch / the console bouncing a LOGIN_CODE_REQUIRED here.
+  // Go straight to the code step without asking for the password again. Any
+  // other outcome leaves the password form exactly as it was; this effect
+  // never signs anybody out.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (cancelled || !token) return;
+      try {
+        await apiFetch('/me', { headers: { Authorization: `Bearer ${token}` } });
+      } catch (caught) {
+        if (!cancelled && classifyMeFailure(caught) === 'code-required') {
+          await enterCodeStep(token);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Mount only. enterCodeStep is re-created each render and only sets state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="auth-split">
       <AuthBrandPanel
@@ -153,74 +323,90 @@ export default function LoginPage() {
               color: 'var(--text)',
             }}
           >
-            SIGN IN
+            {step === 'code' ? 'CHECK YOUR EMAIL' : 'SIGN IN'}
           </h1>
           <p
             style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-2)', margin: '0 0 30px' }}
           >
-            Manage your schedule, membership and payments.
+            {step === 'code'
+              ? 'One more step: enter the code we just sent you.'
+              : 'Manage your schedule, membership and payments.'}
           </p>
 
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
-          >
-            <div className="field">
-              <label htmlFor="login-identifier">Email or mobile number</label>
-              <input
-                id="login-identifier"
-                className="input"
-                type="text"
-                placeholder="you@example.com"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                autoComplete="username"
-                // Stops iOS capitalising the first letter and appending a
-                // space. `type` stays "text" and inputMode is overridden back,
-                // because this field also accepts a mobile number.
-                {...EMAIL_INPUT_PROPS}
-                inputMode="text"
-                required
-              />
-            </div>
+          {step === 'code' ? (
+            <LoginCodeStep
+              sentTo={pending?.sentTo ?? null}
+              code={code}
+              error={codeError}
+              verifying={verifying}
+              resending={resending}
+              resendSecondsLeft={secondsUntil(pending?.resendAvailableAt ?? null, now)}
+              onCodeChange={setCode}
+              onVerify={() => void handleVerify()}
+              onResend={() => void requestCode(undefined)}
+              onSwitchAccount={() => void handleSwitchAccount()}
+            />
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: 'flex', flexDirection: 'column', gap: 18 }}
+            >
+              <div className="field">
+                <label htmlFor="login-identifier">Email or mobile number</label>
+                <input
+                  id="login-identifier"
+                  className="input"
+                  type="text"
+                  placeholder="you@example.com"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
+                  // Stops iOS capitalising the first letter and appending a
+                  // space. `type` stays "text" and inputMode is overridden back,
+                  // because this field also accepts a mobile number.
+                  {...EMAIL_INPUT_PROPS}
+                  inputMode="text"
+                  required
+                />
+              </div>
 
-            <div className="field">
-              <label htmlFor="login-password">Password</label>
-              <PasswordInput
-                id="login-password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
-              <div style={{ textAlign: 'right', marginTop: 2 }}>
-                {/* Was href="#" - a dead link for the whole of development,
+              <div className="field">
+                <label htmlFor="login-password">Password</label>
+                <PasswordInput
+                  id="login-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+                <div style={{ textAlign: 'right', marginTop: 2 }}>
+                  {/* Was href="#" - a dead link for the whole of development,
                     and the only recovery path a member had. */}
-                <Link href="/forgot-password" style={{ fontSize: 12.5 }}>
-                  Forgot password?
-                </Link>
+                  <Link href="/forgot-password" style={{ fontSize: 12.5 }}>
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
-            </div>
 
-            {error && (
-              <div
-                role="alert"
-                style={{
-                  padding: '11px 14px',
-                  borderRadius: 7,
-                  border: '1px solid rgba(255,90,70,.4)',
-                  background: 'rgba(255,90,70,.1)',
-                  color: '#ff9d92',
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                }}
-              >
-                {error}
-              </div>
-            )}
+              {error && (
+                <div
+                  role="alert"
+                  style={{
+                    padding: '11px 14px',
+                    borderRadius: 7,
+                    border: '1px solid rgba(255,90,70,.4)',
+                    background: 'rgba(255,90,70,.1)',
+                    color: '#ff9d92',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {error}
+                </div>
+              )}
 
-            {/*
+              {/*
               SIGNED IN, BUT WE DO NOT KNOW WHERE TO SEND THEM.
               The alternative — the one this replaces — was to guess the member
               portal and say nothing, which is how an API outage presented as
@@ -228,102 +414,105 @@ export default function LoginPage() {
               a confident wrong answer, and both doors are offered because at
               this point the caller knows which one they want better than we do.
             */}
-            {stranded && (
-              <div
-                role="alert"
+              {stranded && (
+                <div
+                  role="alert"
+                  style={{
+                    padding: '13px 15px',
+                    borderRadius: 7,
+                    border: '1px solid rgba(201,146,42,.42)',
+                    background: 'rgba(201,146,42,.09)',
+                    color: 'var(--text-2)',
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <span>
+                    Signed in — but we could not reach the server to work out where to send you.
+                  </span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-gold"
+                      style={{ padding: '8px 16px', fontSize: 12.5, letterSpacing: '0.08em' }}
+                      onClick={() => {
+                        setSubmitting(true);
+                        void supabase.auth
+                          .getSession()
+                          .then(({ data }) => resolveDestination(data.session?.access_token));
+                      }}
+                    >
+                      RETRY
+                    </button>
+                    <Link href="/portal/dashboard" style={{ fontSize: 12.5 }}>
+                      Member portal
+                    </Link>
+                    <Link href="/admin" style={{ fontSize: 12.5 }}>
+                      Staff console
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              <button
+                id="login-submit-btn"
+                type="submit"
+                disabled={submitting}
+                className="btn btn-gold btn-block"
                 style={{
-                  padding: '13px 15px',
-                  borderRadius: 7,
-                  border: '1px solid rgba(201,146,42,.42)',
-                  background: 'rgba(201,146,42,.09)',
-                  color: 'var(--text-2)',
-                  fontSize: 13,
-                  lineHeight: 1.55,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 10,
+                  padding: 14,
+                  fontSize: 14.5,
+                  letterSpacing: '0.12em',
+                  marginTop: 4,
+                  opacity: submitting ? 0.6 : 1,
+                  cursor: submitting ? 'not-allowed' : 'pointer',
                 }}
               >
-                <span>
-                  Signed in — but we could not reach the server to work out where to send you.
-                </span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    className="btn btn-gold"
-                    style={{ padding: '8px 16px', fontSize: 12.5, letterSpacing: '0.08em' }}
-                    onClick={() => {
-                      setSubmitting(true);
-                      void supabase.auth
-                        .getSession()
-                        .then(({ data }) => resolveDestination(data.session?.access_token));
-                    }}
-                  >
-                    RETRY
-                  </button>
-                  <Link href="/portal/dashboard" style={{ fontSize: 12.5 }}>
-                    Member portal
-                  </Link>
-                  <Link href="/admin" style={{ fontSize: 12.5 }}>
-                    Staff console
-                  </Link>
-                </div>
+                {submitting ? 'SIGNING IN…' : 'SIGN IN'}
+              </button>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-3)',
+                }}
+              >
+                <span style={{ flex: 1, height: 1, background: 'var(--line-2)' }} />
+                New here
+                <span style={{ flex: 1, height: 1, background: 'var(--line-2)' }} />
               </div>
-            )}
 
-            <button
-              id="login-submit-btn"
-              type="submit"
-              disabled={submitting}
-              className="btn btn-gold btn-block"
-              style={{
-                padding: 14,
-                fontSize: 14.5,
-                letterSpacing: '0.12em',
-                marginTop: 4,
-                opacity: submitting ? 0.6 : 1,
-                cursor: submitting ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {submitting ? 'SIGNING IN…' : 'SIGN IN'}
-            </button>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                fontFamily: 'var(--font-heading)',
-                fontSize: 10.5,
-                fontWeight: 600,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'var(--text-3)',
-              }}
-            >
-              <span style={{ flex: 1, height: 1, background: 'var(--line-2)' }} />
-              New here
-              <span style={{ flex: 1, height: 1, background: 'var(--line-2)' }} />
-            </div>
-
-            {/*
+              {/*
               A BARE /register WHEN NOTHING WAS REQUESTED.
               Appending `next` unconditionally is what manufactured a `?next=`
               out of nothing and sent it round the register screen and back —
               see the block at the top of this file. Only a destination the
               caller genuinely asked for survives the round trip now.
             */}
-            <Link
-              id="login-register-btn"
-              href={
-                requested === null ? '/register' : `/register?next=${encodeURIComponent(requested)}`
-              }
-              className="btn btn-ghost btn-block"
-              style={{ padding: 13, fontSize: 13.5, letterSpacing: '0.1em' }}
-            >
-              CREATE A MEMBER ACCOUNT
-            </Link>
-          </form>
+              <Link
+                id="login-register-btn"
+                href={
+                  requested === null
+                    ? '/register'
+                    : `/register?next=${encodeURIComponent(requested)}`
+                }
+                className="btn btn-ghost btn-block"
+                style={{ padding: 13, fontSize: 13.5, letterSpacing: '0.1em' }}
+              >
+                CREATE A MEMBER ACCOUNT
+              </Link>
+            </form>
+          )}
 
           {/* Small reminder of what is behind the door */}
           <div

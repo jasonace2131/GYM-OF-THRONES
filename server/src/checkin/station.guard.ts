@@ -13,7 +13,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtVerifierService } from '../auth/jwt-verifier.service';
 import { UserProvisioningService } from '../auth/user-provisioning.service';
 import { PermissionsService } from '../rbac/permissions.service';
-import type { AuthUser } from '../auth/auth.types';
+import { LoginGateService } from '../auth/login-gate.service';
+import { authSessionFrom } from '../auth/auth-session';
+import type { AuthSession, AuthUser } from '../auth/auth.types';
 
 /** The only key this guard's staff fallback accepts — §6.14.2, kept as seeded. */
 export const STATION_TOKEN_ISSUE_PERMISSION = 'checkin.station_token.issue';
@@ -28,6 +30,7 @@ export interface AuthenticatedStation {
 
 export type RequestWithStationAccess = Request & {
   user?: AuthUser;
+  authSession?: AuthSession;
   station?: AuthenticatedStation;
 };
 
@@ -56,6 +59,7 @@ export class StationTokenAccessGuard implements CanActivate {
     private readonly jwt: JwtVerifierService,
     private readonly provisioning: UserProvisioningService,
     private readonly permissions: PermissionsService,
+    private readonly gate: LoginGateService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -117,9 +121,11 @@ export class StationTokenAccessGuard implements CanActivate {
     }
 
     let user: AuthUser;
+    let session: AuthSession;
     try {
       const claims = await this.jwt.verify(token);
       user = await this.provisioning.resolve(claims);
+      session = authSessionFrom(claims);
     } catch {
       // Same doctrine as AuthGuard: the real reason never reaches the client.
       throw new UnauthorizedException('Invalid or expired token');
@@ -129,6 +135,11 @@ export class StationTokenAccessGuard implements CanActivate {
       throw new ForbiddenException('Account is not active');
     }
 
+    // The emailed sign-in code — the SAME decision AuthGuard makes, from the
+    // same service. This route is @Public() for AuthGuard, so without this a
+    // password alone would open the station display's token feed.
+    await this.gate.assertVerified(session, false);
+
     const held = await this.permissions.getEffectivePermissions(user);
     if (!held.some((permission) => permission.key === STATION_TOKEN_ISSUE_PERMISSION)) {
       throw new ForbiddenException(
@@ -137,5 +148,6 @@ export class StationTokenAccessGuard implements CanActivate {
     }
 
     request.user = user;
+    request.authSession = session;
   }
 }

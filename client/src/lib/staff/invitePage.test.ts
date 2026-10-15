@@ -54,6 +54,13 @@ describe('acceptErrorCopy', () => {
   it('falls back to the dead-link sentences for a link that died meanwhile', () => {
     expect(acceptErrorCopy('STAFF_INVITE_EXPIRED', 'x').title).toMatch(/expired/i);
   });
+
+  it('asks for the emailed sign-in code rather than "try again" on LOGIN_CODE_REQUIRED', () => {
+    const copy = acceptErrorCopy('LOGIN_CODE_REQUIRED', 'x');
+    expect(copy.title).toBe('Finish signing in first');
+    expect(copy.body).toMatch(/code we emailed/i);
+    expect(copy.body).not.toMatch(/try again/i);
+  });
 });
 
 describe('inviteStage', () => {

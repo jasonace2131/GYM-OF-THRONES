@@ -103,6 +103,28 @@ export class EmailService {
   }
 
   /**
+   * The emailed sign-in code: the second step after the password, on every
+   * sign-in. Throws like the others; `LoginCodeService.send` catches, un-counts
+   * the send and answers 503 LOGIN_CODE_EMAIL_FAILED.
+   */
+  async sendLoginCode(to: string, input: { name: string; code: string }): Promise<void> {
+    if (this.client === null || this.from === null) {
+      throw new Error('EmailService is disabled: RESEND_API_KEY / RESEND_FROM not configured.');
+    }
+
+    const { error } = await this.client.emails.send({
+      from: this.from,
+      to,
+      subject: `Your Gym of Thrones sign-in code: ${input.code}`,
+      html: loginCodeHtml(input),
+    });
+
+    if (error) {
+      throw new Error(`Resend send failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Tell the gym somebody enquired.
    *
    * Throws like `sendMemberJoin`, and `ContactService` catches — the lead is
@@ -174,6 +196,15 @@ function staffInviteHtml(invite: { roleLabel: string; inviterName: string; link:
     `<strong>${escapeHtml(invite.roleLabel)}</strong>.</p>` +
     `<p><a href="${escapeAttribute(invite.link)}">Accept your invitation</a></p>` +
     `<p>The link works for 7 days. If you did not expect this, you can ignore this email.</p>`
+  );
+}
+
+/** The expiry sentence is literal HTML: escapeHtml would turn its apostrophe into `&#39;`. */
+function loginCodeHtml(input: { name: string; code: string }): string {
+  return (
+    `<p>Hi ${escapeHtml(input.name)}, here is your Gym of Thrones sign-in code:</p>` +
+    `<p style="font-size:32px;font-weight:700;letter-spacing:8px;margin:16px 0">${escapeHtml(input.code)}</p>` +
+    `<p>It expires in 10 minutes. If you didn't try to sign in, change your password.</p>`
   );
 }
 

@@ -178,4 +178,48 @@ describe('EmailService', () => {
       ).rejects.toThrow(/rate limited/);
     });
   });
+
+  // ── Sign-in code ────────────────────────────────────────────────────────
+  describe('sendLoginCode', () => {
+    it('puts the code in the subject and large in the body, with the expiry line', async () => {
+      send.mockResolvedValue({ data: { id: 'email_4' }, error: null });
+      const service = new EmailService(buildConfig());
+
+      await service.sendLoginCode('ana@example.com', { name: 'Ana', code: '012345' });
+
+      const sent = send.mock.calls[0][0];
+      expect(sent.to).toBe('ana@example.com');
+      expect(sent.subject).toBe('Your Gym of Thrones sign-in code: 012345');
+      expect(sent.html).toContain('012345');
+      expect(sent.html).toContain(
+        "It expires in 10 minutes. If you didn't try to sign in, change your password.",
+      );
+    });
+
+    it('escapes the name', async () => {
+      send.mockResolvedValue({ data: { id: 'email_4' }, error: null });
+      const service = new EmailService(buildConfig());
+
+      await service.sendLoginCode('ana@example.com', { name: '<b>Ana</b>', code: '123456' });
+      const html = send.mock.calls[0][0].html as string;
+      expect(html).not.toContain('<b>Ana</b>');
+      expect(html).toContain('&lt;b&gt;Ana&lt;/b&gt;');
+    });
+
+    it('throws, and never calls Resend, when disabled', async () => {
+      const disabled = new EmailService(buildConfig({ RESEND_FROM: undefined }));
+      await expect(
+        disabled.sendLoginCode('ana@example.com', { name: 'Ana', code: '123456' }),
+      ).rejects.toThrow(/disabled/);
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('throws when Resend reports an error', async () => {
+      send.mockResolvedValue({ data: null, error: { message: 'daily quota exceeded' } });
+      const service = new EmailService(buildConfig());
+      await expect(
+        service.sendLoginCode('ana@example.com', { name: 'Ana', code: '123456' }),
+      ).rejects.toThrow(/daily quota exceeded/);
+    });
+  });
 });

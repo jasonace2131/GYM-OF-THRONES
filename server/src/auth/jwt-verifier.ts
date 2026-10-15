@@ -67,6 +67,35 @@ function asBoundedNumber(value: unknown, min: number, max: number): number | nul
   return Math.round(n * 10) / 10;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The sign-in id, lower-cased, or null when absent or not a uuid. */
+function asSessionId(value: unknown): string | null {
+  const raw = asString(value);
+  return raw !== null && UUID.test(raw) ? raw.toLowerCase() : null;
+}
+
+/**
+ * `amr` method names. Supabase sends `[{ method, timestamp }]`; a bare string
+ * entry is accepted too. Anything unusable is dropped, never guessed at.
+ */
+function asAmrMethods(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const methods: string[] = [];
+  for (const entry of value) {
+    const method =
+      typeof entry === 'string'
+        ? entry
+        : entry !== null && typeof entry === 'object'
+          ? (entry as { method?: unknown }).method
+          : undefined;
+    if (typeof method === 'string' && method.trim() !== '') {
+      methods.push(method.trim().toLowerCase());
+    }
+  }
+  return methods;
+}
+
 /**
  * Verifies a Supabase access token and narrows it to the claims this app uses.
  *
@@ -90,6 +119,8 @@ export async function verifyAccessToken(
 
   const sub = asString(payload.sub);
   if (!sub) throw new Error('Invalid token: missing sub claim');
+  const sessionId = asSessionId(payload['session_id']);
+  if (!sessionId) throw new Error('Invalid token: missing session_id claim');
 
   const email = asString(payload['email']) ?? '';
   const metadata = (payload['user_metadata'] ?? {}) as RawUserMetadata;
@@ -110,5 +141,7 @@ export async function verifyAccessToken(
     heightCm: asBoundedNumber(metadata.heightCm, 50, 260),
     weightKg: asBoundedNumber(metadata.weightKg, 20, 400),
     dateOfBirth: asJoinableBirthDate(metadata.dateOfBirth),
+    sessionId,
+    amr: asAmrMethods(payload['amr']),
   };
 }

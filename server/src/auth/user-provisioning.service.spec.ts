@@ -12,6 +12,8 @@ const CLAIMS: SupabaseClaims = {
   heightCm: 175,
   weightKg: 72.4,
   dateOfBirth: null,
+  sessionId: '99999999-9999-4999-8999-999999999999',
+  amr: ['password'],
 };
 
 const NOW = new Date('2026-08-18T10:00:00.000Z');

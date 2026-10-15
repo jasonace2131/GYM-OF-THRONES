@@ -96,6 +96,14 @@ export function joinErrorCopy(code: string | null): JoinCopy {
     case 'MEMBER_JOIN_EXPIRED':
     case 'MEMBER_JOIN_NOT_FOUND':
       return deadJoinCopy({ status: null, code });
+    // A password sign-in that never entered its emailed code. /join is not a
+    // `?next=` the login page will return to, so the way through is a fresh
+    // email-link session: sign out, open the link again.
+    case 'LOGIN_CODE_REQUIRED':
+      return {
+        title: 'Please sign out and open your link again',
+        body: 'This browser has a sign-in that was not finished. Tap Sign out below, then open the link from your email again.',
+      };
     default:
       return {
         title: 'Something went wrong',

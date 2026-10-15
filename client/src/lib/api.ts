@@ -2,6 +2,7 @@
 
 import { supabase } from './supabase';
 import { API_URL } from './apiBase';
+import { LOGIN_CODE_REQUIRED, browserNavigation, loginCodeRedirectFor } from './loginCodeRedirect';
 
 /** Matches ApiSuccessResponse / ApiErrorResponse from the server's global interceptors. */
 interface ApiEnvelope<T> {
@@ -69,6 +70,17 @@ function notifyForbidden(path: string): void {
 }
 
 /**
+ * The sign-in has not entered its emailed code: send the browser to the login
+ * page's code step, which comes back here afterwards. The caller still gets
+ * its ApiError — navigation is a side effect, never a substitute for the throw.
+ */
+function redirectForLoginCode(): void {
+  if (typeof window === 'undefined') return;
+  const target = loginCodeRedirectFor(window.location.pathname, window.location.search);
+  if (target !== null) browserNavigation.assign(target);
+}
+
+/**
  * Calls the NestJS API with the current Supabase access token attached, and
  * unwraps the { success, data } envelope the server always returns.
  *
@@ -114,12 +126,14 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   if (!response.ok || !body.success) {
     if (response.status === 403) notifyForbidden(path);
-    throw new ApiError(
+    const error = new ApiError(
       body.error?.message ?? `Request failed with ${response.status}`,
       response.status,
       body.error?.code ?? `HTTP_${response.status}`,
       body.error?.details,
     );
+    if (error.code === LOGIN_CODE_REQUIRED) redirectForLoginCode();
+    throw error;
   }
 
   return body.data as T;

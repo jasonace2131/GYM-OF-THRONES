@@ -149,6 +149,7 @@ model User {
   assistantSettingsUpdated AssistantSettings[] @relation("AssistantSettingsUpdatedBy")
   memberJoinLink        MemberJoinLink?  @relation("MemberJoinLinkUser")
   memberJoinLinksIssued MemberJoinLink[] @relation("MemberJoinLinkIssuedBy")
+  loginVerifications    LoginVerification[] @relation("LoginVerificationUser")
   classSessionsCoached ClassSession[]    @relation("ClassSessionCoach")
   classSessionsCreated ClassSession[]    @relation("ClassSessionCreatedBy")
   classBookings        ClassBooking[]    @relation("ClassBookingMember")

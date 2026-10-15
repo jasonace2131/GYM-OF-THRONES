@@ -3,6 +3,7 @@ import type { JWK, JWTVerifyGetKey } from 'jose';
 import { verifyAccessToken } from './jwt-verifier';
 
 const ISSUER = 'https://project.supabase.co/auth/v1';
+const SESSION_ID = '99999999-9999-4999-8999-999999999999';
 
 // Derive the key type from the function itself — jose has changed this type
 // between major versions (KeyObject / CryptoKey / KeyLike), and this form is
@@ -27,7 +28,7 @@ async function sign(
   payload: Record<string, unknown>,
   expiresAt: number = nowSeconds() + 3600,
 ): Promise<string> {
-  return new SignJWT(payload)
+  return new SignJWT({ session_id: SESSION_ID, ...payload })
     .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
     .setIssuer(ISSUER)
     .setAudience('authenticated')
@@ -128,6 +129,8 @@ describe('verifyAccessToken', () => {
       heightCm: 175,
       weightKg: 72.4,
       dateOfBirth: null,
+      sessionId: SESSION_ID,
+      amr: [],
     });
   });
 
@@ -227,5 +230,63 @@ describe('verifyAccessToken', () => {
   it('rejects a token with no sub claim', async () => {
     const token = await sign({ email: 'nosub@example.com' });
     await expect(verifyAccessToken(token, keys, ISSUER)).rejects.toThrow('missing sub');
+  });
+});
+
+/**
+ * The emailed sign-in code keys on the sign-in (`session_id`, one per sign-in
+ * and unchanged by refresh) and trusts an email-link sign-in by its `amr`.
+ * Both are signed by Supabase.
+ */
+describe('verifyAccessToken — sign-in claims', () => {
+  const base = { sub: '11111111-1111-1111-1111-111111111111', email: 'juan@example.com' };
+
+  it('keeps session_id and the amr method names, in order', async () => {
+    const token = await sign({
+      ...base,
+      amr: [
+        { method: 'password', timestamp: 1_700_000_000 },
+        { method: 'otp', timestamp: 1_700_000_100 },
+      ],
+    });
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.sessionId).toBe(SESSION_ID);
+    expect(claims.amr).toEqual(['password', 'otp']);
+  });
+
+  it('lower-cases the session id and the methods, so cache keys and comparisons agree', async () => {
+    const token = await sign({
+      ...base,
+      session_id: SESSION_ID.toUpperCase(),
+      amr: [{ method: 'MagicLink' }],
+    });
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.sessionId).toBe(SESSION_ID);
+    expect(claims.amr).toEqual(['magiclink']);
+  });
+
+  it('accepts amr entries given as bare strings', async () => {
+    const token = await sign({ ...base, amr: ['recovery'] });
+    expect((await verifyAccessToken(token, keys, ISSUER)).amr).toEqual(['recovery']);
+  });
+
+  it.each<[unknown, string]>([
+    [undefined, 'absent'],
+    ['password', 'a string, not a list'],
+    [42, 'a number'],
+    [[null, { method: 7 }, { nope: 'otp' }, ''], 'entries with no usable method'],
+  ])('reads %p (%s) as no methods', async (amr) => {
+    const token = await sign({ ...base, amr });
+    expect((await verifyAccessToken(token, keys, ISSUER)).amr).toEqual([]);
+  });
+
+  it('refuses a token without session_id — an unidentifiable sign-in cannot be verified', async () => {
+    const token = await sign({ ...base, session_id: undefined });
+    await expect(verifyAccessToken(token, keys, ISSUER)).rejects.toThrow('missing session_id');
+  });
+
+  it('refuses a session_id that is not a uuid', async () => {
+    const token = await sign({ ...base, session_id: 'not-a-uuid' });
+    await expect(verifyAccessToken(token, keys, ISSUER)).rejects.toThrow('missing session_id');
   });
 });

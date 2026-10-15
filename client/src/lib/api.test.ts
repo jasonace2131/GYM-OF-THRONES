@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 
 vi.mock('./supabase', () => ({
   supabase: {
@@ -9,6 +9,7 @@ vi.mock('./supabase', () => ({
 }));
 
 import { ApiError, apiFetch, onApiForbidden } from './api';
+import { browserNavigation } from './loginCodeRedirect';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -206,5 +207,57 @@ describe('apiFetch idempotency header', () => {
     await apiFetch('/me');
 
     expect(headersOf(fetchMock)['Idempotency-Key']).toBeUndefined();
+  });
+});
+
+describe('apiFetch — LOGIN_CODE_REQUIRED', () => {
+  let assign: MockInstance<(url: string) => void>;
+
+  const required = (): Response =>
+    jsonResponse(
+      {
+        success: false,
+        error: { code: 'LOGIN_CODE_REQUIRED', message: 'Enter the 6-digit code we emailed you.' },
+      },
+      401,
+    );
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    assign = vi.spyOn(browserNavigation, 'assign').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    assign.mockRestore();
+    window.history.pushState({}, '', '/');
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('sends the browser to /login with this page as next, and still throws the ApiError', async () => {
+    window.history.pushState({}, '', '/portal/bookings?tab=past');
+    vi.mocked(fetch).mockResolvedValue(required());
+
+    await expect(apiFetch('/me')).rejects.toMatchObject({
+      status: 401,
+      code: 'LOGIN_CODE_REQUIRED',
+    });
+    expect(assign).toHaveBeenCalledWith('/login?next=%2Fportal%2Fbookings%3Ftab%3Dpast');
+  });
+
+  it('stays on /login, which shows the code step itself', async () => {
+    window.history.pushState({}, '', '/login?next=%2Fadmin');
+    vi.mocked(fetch).mockResolvedValue(required());
+
+    await expect(apiFetch('/me')).rejects.toMatchObject({ code: 'LOGIN_CODE_REQUIRED' });
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('does not navigate on an ordinary 401', async () => {
+    window.history.pushState({}, '', '/portal/dashboard');
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ success: false }, 401));
+
+    await expect(apiFetch('/me')).rejects.toMatchObject({ status: 401, code: 'HTTP_401' });
+    expect(assign).not.toHaveBeenCalled();
   });
 });

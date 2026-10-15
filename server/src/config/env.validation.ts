@@ -139,6 +139,16 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('true')
       .transform((value) => value === 'true'),
+    // The emailed sign-in code (password, then a 6-digit code, every sign-in).
+    // THE KILL SWITCH for when email is broken: 'false' and a restart lets
+    // everyone sign in with the password alone. Fail closed by default — with
+    // it on and Resend unconfigured nobody can finish signing in, and
+    // LoginCodeSettingSync logs an error at boot saying so. NOT
+    // z.coerce.boolean(), which maps the string "false" to true.
+    LOGIN_CODE_REQUIRED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
     // ±₱200. Beyond this the closing staffer must type a note explaining the
     // difference, which is the only thing that makes a blind count useful.
     SHIFT_VARIANCE_NOTE_THRESHOLD_CENTAVOS: z.coerce.number().int().min(0).default(20000),
