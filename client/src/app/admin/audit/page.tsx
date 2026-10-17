@@ -212,7 +212,7 @@ export default function AdminAuditPage() {
             <>
               Recording started{' '}
               <strong>{civilDate(coverage.data.recordingSince.slice(0, 10))}</strong>. Anything
-              before that date was never logged forward-only, with no back-fill — so a gap means
+              before that date was never logged forward-only, with no back-fill so a gap means
               &ldquo;not recorded&rdquo;, never &ldquo;did not happen&rdquo;.
             </>
           )}
