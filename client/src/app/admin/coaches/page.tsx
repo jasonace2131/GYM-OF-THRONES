@@ -257,7 +257,7 @@ export default function AdminCoachesPage() {
       <Card>
         <CardHead title="How assignment works" />
         <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: 'var(--p-ink2)' }}>
-          A member has <strong>at most one active coach</strong> — enforced in the database by a
+          A member has <strong>at most one active coach</strong> enforced in the database by a
           unique sentinel, not by a check in application code, so two staff assigning at once cannot
           both win. Assigning a member who already has a coach is a{' '}
           <strong>reassignment</strong>: the old assignment is ended and the new one starts, in one
@@ -465,7 +465,7 @@ function AssignForm({
             className="a-input"
             value={notes}
             maxLength={200}
-            placeholder="Why this pairing — read by staff, not the member"
+            placeholder="Why this pairing read by staff, not the member"
             onChange={(event) => setNotes(event.target.value)}
           />
         </label>
