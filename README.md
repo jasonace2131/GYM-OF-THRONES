@@ -1,4 +1,4 @@
-# 🐯 Gym of Thrones — House of Fitness
+# 🐯 Gym of Thrones House of Fitness
 
 Full-stack monorepo for the Gym of Thrones website.
 

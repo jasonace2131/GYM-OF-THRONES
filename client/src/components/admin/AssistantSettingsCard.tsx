@@ -183,7 +183,7 @@ export function AssistantSettingsCard() {
             </label>
 
             <p className="p-muted" style={{ fontSize: 12.5, margin: 0 }}>
-              Members can get the assistant to repeat these instructions — keep anything private out
+              Members can get the assistant to repeat these instructions keep anything private out
               of them.
             </p>
 

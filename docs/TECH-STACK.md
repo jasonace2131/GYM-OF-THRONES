@@ -3,7 +3,7 @@
 Reference document for thesis writing. Every version below is read from the
 committed `package.json` files, not from memory.
 
-**System:** *Gym of Thrones — House of Fitness*, a subscription-based gym
+**System:** *Gym of Thrones House of Fitness*, a subscription-based gym
 management and QR attendance system.
 
 **Scale at time of writing:** 279 source files, ~40,100 lines of TypeScript,

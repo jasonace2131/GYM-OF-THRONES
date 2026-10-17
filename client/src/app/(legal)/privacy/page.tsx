@@ -35,7 +35,7 @@ export default function PrivacyPage() {
 
       <h2>1. Who is responsible</h2>
       <p>
-        Gym of Thrones — House of Fitness, 4th Floor, JWMGI Building, Taguig City, Philippines 1630,
+        Gym of Thrones House of Fitness, 4th Floor, JWMGI Building, Taguig City, Philippines 1630,
         is the <strong>Personal Information Controller</strong> for the information described here.
       </p>
       <p>

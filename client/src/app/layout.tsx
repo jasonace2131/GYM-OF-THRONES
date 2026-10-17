@@ -60,12 +60,12 @@ const SITE_URL = process.env['NEXT_PUBLIC_SITE_URL']
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Gym of Thrones — House of Fitness · Est 2023',
+  title: 'Gym of Thrones House of Fitness · Est 2023',
   description:
     'Your premier fitness destination in Metro Manila. Equipment, coaching, and community. Join now and take the throne.',
   keywords: ['gym', 'fitness', 'Metro Manila', 'membership', 'personal training', 'Gym of Thrones'],
   openGraph: {
-    title: 'Gym of Thrones — House of Fitness',
+    title: 'Gym of Thrones House of Fitness',
     description: 'Where Champions Train. Equipment, coaching and community in Metro Manila.',
     type: 'website',
     siteName: 'Gym of Thrones',
@@ -90,7 +90,7 @@ export const metadata: Metadata = {
     // Without an explicit card type, X renders the small square thumbnail
     // rather than the wide image, and the 1200×630 crop is wasted.
     card: 'summary_large_image',
-    title: 'Gym of Thrones — House of Fitness',
+    title: 'Gym of Thrones House of Fitness',
     description: 'Where Champions Train. Equipment, coaching and community in Metro Manila.',
     images: ['/og.jpg'],
   },

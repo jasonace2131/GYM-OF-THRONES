@@ -22,7 +22,7 @@ export default function TermsPage() {
   return (
     <LegalDocument kind="TERMS" updated="1 September 2026">
       <p className="legal-lede">
-        These terms govern membership of Gym of Thrones — House of Fitness. They form an agreement
+        These terms govern membership of Gym of Thrones House of Fitness. They form an agreement
         between you and the Gym from the moment you accept them.
       </p>
 

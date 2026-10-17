@@ -264,7 +264,7 @@ export default function AdminWalkInsPage() {
               error={register.error}
               empty={(register.data?.items.length ?? 0) === 0}
               emptyTitle="No walk-ins in this range"
-              emptyHint="Every sale lands here the moment it is taken — Sell walk-in, top right."
+              emptyHint="Every sale lands here the moment it is taken Sell walk-in, top right."
               onRetry={register.reload}
             >
               <div className="a-scroll">

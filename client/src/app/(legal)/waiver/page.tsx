@@ -30,7 +30,7 @@ export default function WaiverPage() {
       <h2>1. What this covers</h2>
       <p>
         This waiver applies to your use of the premises, equipment, facilities, classes, and
-        coaching services of Gym of Thrones — House of Fitness, at 4th Floor, JWMGI Building,
+        coaching services of Gym of Thrones House of Fitness, at 4th Floor, JWMGI Building,
         Taguig City (&ldquo;the Gym&rdquo;). It applies every time you enter, not only on the day
         you accept it.
       </p>

@@ -56,7 +56,7 @@ export function LegalDocument({
 
         <footer className="legal-foot">
           <p>
-            Gym of Thrones — House of Fitness
+            Gym of Thrones House of Fitness
             <br />
             4th Floor, JWMGI Building, Taguig City, Philippines 1630
             <br />
