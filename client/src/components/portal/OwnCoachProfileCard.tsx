@@ -81,7 +81,7 @@ export function OwnCoachProfileCard() {
             </p>
           )}
           <p className="p-muted" style={{ margin: 0, fontSize: 12 }}>
-            Something to change? Ask an admin — they edit it from the console.
+            Something to change? Ask an admin they edit it from the console.
           </p>
         </div>
       )}

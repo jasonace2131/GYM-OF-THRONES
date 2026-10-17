@@ -400,7 +400,7 @@ function ProgressTab({ data, load }: { data: CoachMemberProgress; load: () => Pr
         <div className="p-card-pad" style={{ display: 'grid', gap: 18 }}>
           {data.goals.length === 0 ? (
             <p style={{ margin: 0, color: 'var(--p-ink3)', fontSize: 13.5 }}>
-              No goals yet. Something measurable — lose 5kg, bench 100kg, come 12 times this month.
+              No goals yet. Something measurable lose 5kg, bench 100kg, come 12 times this month.
             </p>
           ) : (
             data.goals.map((goal) => (

@@ -102,7 +102,7 @@ function Fields({
         </label>
       </div>
       <label style={{ display: 'grid', gap: 5 }}>
-        <span className="a-person-sub">NOTES — OPTIONAL</span>
+        <span className="a-person-sub">NOTES OPTIONAL</span>
         <input
           className="a-input"
           value={values.notes}

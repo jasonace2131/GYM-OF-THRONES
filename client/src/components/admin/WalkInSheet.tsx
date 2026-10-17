@@ -210,7 +210,7 @@ export function WalkInSheet({
                 />
               </label>
               <label>
-                <span className="a-person-sub">PHONE — OPTIONAL</span>
+                <span className="a-person-sub">PHONE OPTIONAL</span>
                 <input
                   className="a-input"
                   value={guestPhone}
@@ -219,7 +219,7 @@ export function WalkInSheet({
                 />
               </label>
               <label>
-                <span className="a-person-sub">EMERGENCY CONTACT — OPTIONAL</span>
+                <span className="a-person-sub">EMERGENCY CONTACT OPTIONAL</span>
                 <input
                   className="a-input"
                   value={guestEmergencyContact}
