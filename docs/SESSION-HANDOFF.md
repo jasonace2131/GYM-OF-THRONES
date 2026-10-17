@@ -178,7 +178,7 @@ chatbot* whose own prompt says "You cannot change anything". Additive.
   `membership-nightly.job.ts`, recording `emailSent` the way leads do. The
   nightly job now also raises a console notification, so the two should be
   designed together rather than duplicating each other.
-- **`PATCH /me` + `/portal/profile`** — members cannot edit their own contact
+- **`PATCH /me` + `/portal/profile`** members cannot edit their own contact
   details at all today; there is no `PATCH /me`, and the RBAC spec specified
   one (`docs/superpowers/specs/2026-08-16-rbac-auth-design.md:414`). **REQ009.**
 - Member Settings page (Figure 13's nav).

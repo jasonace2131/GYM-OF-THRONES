@@ -280,7 +280,7 @@ function CoachProfileSummary({ profile }: { profile: CoachProfileView | undefine
   if (profile === undefined || (line === '' && profile.bio === null)) {
     return (
       <p className="p-muted" style={{ margin: '14px 0 0', fontSize: 13 }}>
-        No profile yet — members see just the name.
+        No profile yet members see just the name.
       </p>
     );
   }

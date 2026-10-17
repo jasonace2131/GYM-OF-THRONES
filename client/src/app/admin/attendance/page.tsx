@@ -263,7 +263,7 @@ export default function AdminAttendancePage() {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
                     <span className="p-muted">{gymTime(denial.at)}</span>
                     {denial.offSiteOrigin ? (
-                      // A quiet chip. It denies nobody and never has — members
+                      // A quiet chip. It denies nobody and never has members
                       // on cellular inside the building are entirely
                       // legitimate.
                       <span className="p-badge p-badge-neutral">off-site network</span>

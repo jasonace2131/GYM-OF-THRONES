@@ -9,7 +9,7 @@ import { DashboardSkeleton } from './DashboardSkeleton';
 /**
  * One Dashboard row, two dashboards behind it (owner, 2026-10-06).
  *
- * A coach sees their coaching view; everybody else — members, and staff
+ * A coach sees their coaching view; everybody else, and staff
  * visiting the portal — sees the member dashboard. Decided by `isCoach`, the
  * same permission test (`coach.read` held by somebody who is not staff) that
  * sends a coach here after sign-in, so the landing page and what it shows can

@@ -284,7 +284,7 @@ function ClassesScreen() {
                 to < today
                   ? 'No classes ran in these two weeks.'
                   : canManage
-                    ? 'Press “Schedule a class” — members see it on their timetable straight away.'
+                    ? 'Press “Schedule a class” members see it on their timetable straight away.'
                     : 'Nothing is on the timetable for these two weeks yet.'
               }
             />
@@ -509,7 +509,7 @@ function SessionRow({
         tone="danger"
         reason={{
           required: true,
-          label: 'Reason — members will see this',
+          label: 'Reason members will see this',
           maxLength: 300,
           placeholder: 'e.g. Coach unwell — sorry, see you Thursday',
         }}

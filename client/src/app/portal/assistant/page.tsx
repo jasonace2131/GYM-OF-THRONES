@@ -48,7 +48,7 @@ const SUGGESTIONS = [
 ];
 
 /**
- * Gated on `ai.chat.use`, the key both of its routes check — members hold it,
+ * Gated on `ai.chat.use`, the key both of its routes check members hold it,
  * staff do not — so staff are no longer offered an assistant that 403s.
  */
 export default function AssistantPage() {

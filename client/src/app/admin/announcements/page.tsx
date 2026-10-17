@@ -272,7 +272,7 @@ function Row({
         }
         consequence={
           asking === 'delete'
-            ? 'It is removed permanently — members stop seeing it and it cannot be restored.'
+            ? 'It is removed permanently members stop seeing it and it cannot be restored.'
             : notice.isPinned
               ? "It drops back into date order on every member's board."
               : "It moves to the top of every member's board and stays there until you unpin it."

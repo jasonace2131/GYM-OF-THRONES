@@ -225,7 +225,7 @@ export default function AdminSettingsPage() {
         <CardHead title="Operating parameters" />
         <p style={{ margin: '0 0 14px', fontSize: 14, lineHeight: 1.6, color: 'var(--p-ink2)' }}>
           Opening hours, the grace window, freeze limits and the attendance thresholds are set in
-          the server environment and validated at boot — a bad value stops the deploy rather than
+          the server environment and validated at boot a bad value stops the deploy rather than
           the front desk. They are shown here as read-only for a reason: making them editable from a
           browser moves a boot-time failure to 06:00 on a Monday, with a queue at the counter and
           nobody able to say why.
@@ -237,7 +237,7 @@ export default function AdminSettingsPage() {
           />
           <ParamRow
             name="GYM_OPEN_TIME / GYM_CLOSE_TIME"
-            what="The FALLBACK behind the editable hours above. Used only when the hours table cannot be read — so a database problem never closes the door by accident."
+            what="The FALLBACK behind the editable hours above. Used only when the hours table cannot be read so a database problem never closes the door by accident."
           />
           <ParamRow
             name="MEMBERSHIP_GRACE_DAYS"
@@ -249,7 +249,7 @@ export default function AdminSettingsPage() {
           />
           <ParamRow
             name="CHECKIN_REENTRY_GRACE_MINUTES"
-            what="Scan back in within this window of your own scan-out and it stays one visit — stepping out for something forgotten never burns a daily slot."
+            what="Scan back in within this window of your own scan-out and it stays one visit stepping out for something forgotten never burns a daily slot."
           />
           <ParamRow
             name="CHECKIN_MAX_VISITS_PER_DAY"
@@ -265,7 +265,7 @@ export default function AdminSettingsPage() {
           <Link href="/admin/members" style={{ color: 'var(--gold-dark)' }}>
             Members
           </Link>{' '}
-          — open a member and use <em>Change role</em> (ADMIN-only) to make them front desk, coach
+          open a member and use <em>Change role</em> (ADMIN-only) to make them front desk, coach
           or admin, and <em>Suspend</em> to disable them.
           {/* Each pointer only for a caller who can open the screen behind it. */}
           {canSeeCoaches ? (

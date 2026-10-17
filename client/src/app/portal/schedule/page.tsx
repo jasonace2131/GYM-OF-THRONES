@@ -103,7 +103,7 @@ function Schedule() {
   const [failed, setFailed] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<MyBooking | null>(null);
-  // Book and Cancel both need `booking.create` — members hold it, staff and
+  // Book and Cancel both need `booking.create` members hold it, staff and
   // coaches do not — so the timetable is read-only for everybody else rather
   // than offering buttons that fail with "Missing required permission". The
   // plan banner is a member's too: a coach has no plan and needs none.

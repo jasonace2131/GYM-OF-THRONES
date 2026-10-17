@@ -1492,7 +1492,7 @@ export const adminApi = {
 
   /**
    * When recording started. The screen needs it to say "recorded from <date>"
-   * rather than presenting a short list as a complete history — forward-only
+   * rather than presenting a short list as a complete history forward-only
    * logging makes "nothing happened" and "nothing was recorded" identical
    * otherwise.
    */

@@ -3368,7 +3368,7 @@ Expected: everything passes, and `check:tailwind` reports a non-zero utility cou
 
 ```bash
 git add client/src
-git commit -m "feat(auth): /join/[token] — members set a password and birth date on first use
+git commit -m "feat(auth): /join/[token] members set a password and birth date on first use
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
