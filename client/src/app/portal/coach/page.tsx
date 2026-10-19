@@ -113,7 +113,7 @@ function MyCoachCard() {
         <Card>
           <EmptyState
             title="No coach assigned yet"
-            hint="Ask at the front desk about personal coaching — they can assign one to your account."
+            hint="Ask at the front desk about personal coaching they can assign one to your account."
           />
         </Card>
         {/* A coaching that ENDED leaves its conversation as read-only history. */}
