@@ -167,9 +167,9 @@ function Assistant() {
       <Card>
         <p style={{ margin: 0, fontSize: 13.5, color: 'var(--p-ink2)', lineHeight: 1.55 }}>
           Ask about your membership, your visits, your payments, or the gym&rsquo;s hours and prices
-          — or about training, from how to do an exercise to a weekly workout plan built around your
+          or about training, from how to do an exercise to a weekly workout plan built around your
           schedule. It only ever sees <strong>your own</strong> records, and it cannot change
-          anything — renewals, freezes and payments all happen at the front desk.
+          anything renewals, freezes and payments all happen at the front desk.
         </p>
       </Card>
 
