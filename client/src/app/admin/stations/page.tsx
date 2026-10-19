@@ -210,7 +210,7 @@ export default function AdminStationsPage() {
                 </div>
                 {station.credentials.length === 0 ? (
                   <span className="p-muted">
-                    No tablet is connected yet. Press “Set up a tablet” above it takes about a minute.
+                    No tablet is connected yet. Press “Set up a tablet” above — it takes about a minute.
                   </span>
                 ) : (
                   <div className="a-scroll">
@@ -359,6 +359,9 @@ function SetupCardModal({ station, onClose }: { station: AdminStation; onClose: 
             alignItems: 'center',
             gap: 10,
             flex: 'none',
+            maxWidth: '100%',
+            // Centres the QR on its own line once the instructions wrap below it.
+            marginInline: 'auto',
           }}
         >
           <canvas
@@ -377,7 +380,6 @@ function SetupCardModal({ station, onClose }: { station: AdminStation; onClose: 
               fontFamily: 'ui-monospace, monospace',
               wordBreak: 'break-all',
               textAlign: 'center',
-              maxWidth: 220,
             }}
           >
             {url}
