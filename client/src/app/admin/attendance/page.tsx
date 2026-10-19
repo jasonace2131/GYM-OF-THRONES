@@ -5,14 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
   PERMISSIONS,
   type ActiveCheckIn,
-  type DeskDenial,
   type DeskTodayPayload,
 } from '@got/shared';
 import { Card, CardHead } from '@/components/portal/ui';
 import { Badge } from '@/components/portal/ui';
 import { DataState, Kpi, Person } from '@/components/admin/ui';
 import { ManualCheckIn } from '@/components/admin/ManualCheckIn';
-import { WalkInSheet } from '@/components/admin/WalkInSheet';
 import { CheckOutConfirm } from '@/components/admin/CheckOutConfirm';
 import { NewMemberDrawer } from '@/components/admin/NewMemberDrawer';
 import { usePermission } from '@/components/rbac/MeProvider';
@@ -38,11 +36,10 @@ import { STAFF_QR_PATH } from '@/lib/stationAuth';
  * and keying on creation makes every departure invisible to a poller.
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * The denial rail is the commercially load-bearing half of this page. A denial
- * is a member standing at a counter who wants to train and cannot: it is the
- * highest-intent sales moment the gym gets, and it lasts about ninety seconds.
- * `staffMessage` is the server's directive — the blunt form that never went to
- * the member's phone — and it is rendered verbatim.
+ * The denial rail tells staff who was just turned away, live. It sells nothing
+ * (owner, 2026-10-20: no walk-in button here; walk-ins are sold from the
+ * dashboard or the Walk-ins page). `staffMessage` is the server's directive —
+ * the blunt form that never went to the member's phone — rendered verbatim.
  */
 
 /** Three seconds. Fast enough to feel live at a counter, slow enough to be free. */
@@ -51,10 +48,6 @@ const POLL_MS = 3_000;
 export default function AdminAttendancePage() {
   const [feed, setFeed] = useState<DeskTodayPayload | null>(null);
   const [stale, setStale] = useState(false);
-
-  // Which denial the walk-in sheet is answering; `null` when closed. Someone
-  // off the street with no denial is sold from the dashboard or Walk-ins page.
-  const [selling, setSelling] = useState<DeskDenial | null>(null);
 
   // The guest→member conversion. `member.create` is the same key that gates
   // POST /members AND the guest-contact read — a caller without it would 403
@@ -192,30 +185,15 @@ export default function AdminAttendancePage() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
         }}
       >
-        {/* One slot, two sheets. The walk-in sale REPLACES the search rather
-            than sitting beside it: both start from "who is this person", and
-            two search boxes on one screen is a decision staff has to make
-            before they can begin. */}
-        {selling === null ? (
-          <ManualCheckIn
-            onRecorded={() => {
-              // Both boards, not one: an entry changes who is inside AND the
-              // day's arrivals, and a console that refreshes half of itself
-              // teaches staff to reload the page.
-              cursorRef.current = undefined;
-              active.reload();
-            }}
-          />
-        ) : (
-          <WalkInSheet
-            denial={selling}
-            onClose={() => setSelling(null)}
-            onSold={() => {
-              cursorRef.current = undefined;
-              active.reload();
-            }}
-          />
-        )}
+        <ManualCheckIn
+          onRecorded={() => {
+            // Both boards, not one: an entry changes who is inside AND the
+            // day's arrivals, and a console that refreshes half of itself
+            // teaches staff to reload the page.
+            cursorRef.current = undefined;
+            active.reload();
+          }}
+        />
 
         <Card>
           <CardHead
@@ -246,24 +224,11 @@ export default function AdminAttendancePage() {
                       composes it so both surfaces cannot contradict each
                       other in front of the same person. */}
                   <p className="a-denial-say">{denial.staffMessage}</p>
-                  {/* THE FUNNEL, in one button. A denial is a person at a
-                      counter who wants to train and cannot — the highest-intent
-                      sales moment the gym gets, and it lasts about ninety
-                      seconds. Selling from here carries the denialId, so the
-                      sale both admits them and closes the denial. */}
-                  <button
-                    type="button"
-                    className="p-btn p-btn-gold p-btn-sm"
-                    style={{ justifySelf: 'start' }}
-                    onClick={() => setSelling(denial)}
-                  >
-                    Sell a walk-in
-                  </button>
 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
                     <span className="p-muted">{gymTime(denial.at)}</span>
                     {denial.offSiteOrigin ? (
-                      // A quiet chip. It denies nobody and never has members
+                      // A quiet chip. It denies nobody and never has — members
                       // on cellular inside the building are entirely
                       // legitimate.
                       <span className="p-badge p-badge-neutral">off-site network</span>
