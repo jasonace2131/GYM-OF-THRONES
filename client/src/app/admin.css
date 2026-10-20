@@ -130,6 +130,10 @@
   gap: 12px;
 }
 
+.a-kpis--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .a-kpi {
   position: relative;
   padding: 15px 16px;
@@ -1793,6 +1797,11 @@
 @media (max-width: 860px) {
   .a-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Two columns leave the third tile alone on its row; let it fill it. */
+  .a-kpis--3 > :last-child {
+    grid-column: 1 / -1;
   }
 
   .a-hero {

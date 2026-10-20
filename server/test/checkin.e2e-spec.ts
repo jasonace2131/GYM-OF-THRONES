@@ -60,6 +60,29 @@ describe('POST /api/v1/checkin (e2e)', () => {
     return res.body as Envelope<CheckInResult>;
   };
 
+  /** The Check out button: `POST /checkin/checkout` with the visit id. */
+  const confirmOut = async (
+    token: string,
+    checkInId: string,
+  ): Promise<{ status: number; body: Envelope<CheckInResult> }> => {
+    const res = await request(server)
+      .post('/api/v1/checkin/checkout')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ checkInId });
+    return { status: res.status, body: res.body as Envelope<CheckInResult> };
+  };
+
+  /**
+   * How a member leaves since 2026-10-20: a second scan offers the check-out
+   * (ALREADY_INSIDE) and the button confirms it. Neither half alone closes
+   * the visit.
+   */
+  const leave = async (token: string, at: Date): Promise<Envelope<CheckInResult>> => {
+    const offered = await scan(token, payloadFor(at));
+    expect(offered.data?.outcome).toBe('ALREADY_INSIDE');
+    return (await confirmOut(token, offered.data!.checkIn!.id)).body;
+  };
+
   /**
    * Moves the fake clock AND re-mints the caller's token.
    *
@@ -245,7 +268,7 @@ describe('POST /api/v1/checkin (e2e)', () => {
       expect(second.data?.replayed).toBe(false);
       // Neutral, not an error: it is a no-op, not a failure.
       expect(second.data?.display.tone).toBe('WELCOME');
-      expect(second.data?.checkOutAvailableAt).not.toBeNull();
+      expect(second.data?.display.detail).toBe('Leaving? Check out below.');
 
       expect(await ctx.prisma.checkIn.count({ where: { userId } })).toBe(1);
       // Both slots were consumed by presentation, which is the point of
@@ -259,32 +282,40 @@ describe('POST /api/v1/checkin (e2e)', () => {
   // ───────────────────────────────────────────────────────────────────────
 
   describe('the second scan', () => {
-    it('is a no-op inside CHECKIN_MIN_SESSION_MINUTES', async () => {
+    /**
+     * A second scan never checks anyone out by itself (owner, 2026-10-20) —
+     * not at one minute, not at an hour and a half. It offers the check-out,
+     * and links the scan to the visit so the button can use it as proof.
+     */
+    it.each([1, 86])('is ALREADY_INSIDE %i minutes in, and closes nothing', async (minutes) => {
       const { token, userId } = await client('ACTIVE');
       await scan(token, payloadForSlot(tokens.computeSlot(EVENING, SLOT_SECONDS)));
 
-      // Ten minutes later — inside the 20-minute floor.
-      const later = new Date(EVENING.getTime() + 10 * 60_000);
+      const later = new Date(EVENING.getTime() + minutes * 60_000);
       const fresh = await advanceTo(later);
       const body = await scan(fresh, payloadFor(later));
 
       expect(body.data?.outcome).toBe('ALREADY_INSIDE');
       expect(body.data?.display.headline).toBe("You're already in.");
-      // Naming the exact clock time is the whole fix: "try again later"
-      // generates a conversation at the desk every single time.
-      expect(body.data?.display.detail).toMatch(/Scan again after \d+:\d\d [AP]M to check out\./);
+      expect(body.data?.display.detail).toBe('Leaving? Check out below.');
 
       const row = await ctx.prisma.checkIn.findUniqueOrThrow({ where: { openUserId: userId } });
       expect(row.endedAt).toBeNull();
+      expect(body.data?.checkIn?.id).toBe(row.id);
+
+      const proof = await ctx.prisma.stationScan.findFirstOrThrow({
+        where: { userId, outcome: 'ALREADY_INSIDE' },
+      });
+      expect(proof.checkInId).toBe(row.id);
     });
 
-    it('checks out after the floor and before the stale window', async () => {
+    it('checks out when the member confirms, before the stale window', async () => {
       const { token, userId } = await client('ACTIVE');
       await scan(token, payloadForSlot(tokens.computeSlot(EVENING, SLOT_SECONDS)));
 
       const later = new Date(EVENING.getTime() + 86 * 60_000);
       const fresh = await advanceTo(later);
-      const body = await scan(fresh, payloadFor(later));
+      const body = await leave(fresh, later);
 
       expect(body.data?.outcome).toBe('CHECKED_OUT');
       // Slate, never green — a check-out must not read as an admission.
@@ -373,7 +404,7 @@ describe('POST /api/v1/checkin (e2e)', () => {
 
       const out = new Date(EVENING.getTime() + 30 * 60_000);
       const outToken = await advanceTo(out);
-      expect((await scan(outToken, payloadFor(out))).data?.outcome).toBe('CHECKED_OUT');
+      expect((await leave(outToken, out)).data?.outcome).toBe('CHECKED_OUT');
 
       const back = new Date(out.getTime() + 60_000);
       const backToken = await advanceTo(back);
@@ -406,7 +437,7 @@ describe('POST /api/v1/checkin (e2e)', () => {
 
       const out = new Date(EVENING.getTime() + 30 * 60_000);
       const outToken = await advanceTo(out);
-      const goodbye = await scan(outToken, payloadFor(out));
+      const goodbye = await leave(outToken, out);
       expect(goodbye.data?.outcome).toBe('CHECKED_OUT');
       // The card names the CONFIGURED window, not a baked-in 20.
       expect(goodbye.data?.display.detail).toContain('within 60 minutes');
@@ -428,7 +459,7 @@ describe('POST /api/v1/checkin (e2e)', () => {
 
       const out = new Date(EVENING.getTime() + 30 * 60_000);
       const outToken = await advanceTo(out);
-      expect((await scan(outToken, payloadFor(out))).data?.outcome).toBe('CHECKED_OUT');
+      expect((await leave(outToken, out)).data?.outcome).toBe('CHECKED_OUT');
 
       const back = new Date(out.getTime() + 61 * 60_000);
       const backToken = await advanceTo(back);
@@ -456,7 +487,7 @@ describe('POST /api/v1/checkin (e2e)', () => {
 
       const out = new Date(EVENING.getTime() + 30 * 60_000);
       const outToken = await advanceTo(out);
-      expect((await scan(outToken, payloadFor(out))).data?.outcome).toBe('CHECKED_OUT');
+      expect((await leave(outToken, out)).data?.outcome).toBe('CHECKED_OUT');
 
       const yesterday = asCivilDate('2026-08-17');
       await ctx.prisma.checkIn.updateMany({
@@ -759,6 +790,156 @@ describe('POST /api/v1/checkin (e2e)', () => {
   });
 
   // ───────────────────────────────────────────────────────────────────────
+  // POST /checkin/checkout — the confirmed check-out (owner, 2026-10-20)
+  // ───────────────────────────────────────────────────────────────────────
+
+  describe('POST /api/v1/checkin/checkout', () => {
+    /** Checked in at EVENING, second scan at +40 min; returns the offered card. */
+    const insideAndRescanned = async (): Promise<{
+      token: string;
+      userId: string;
+      checkInId: string;
+      at: Date;
+    }> => {
+      const { token, userId } = await client('ACTIVE');
+      await scan(token, payloadForSlot(tokens.computeSlot(EVENING, SLOT_SECONDS)));
+      const at = new Date(EVENING.getTime() + 40 * 60_000);
+      const fresh = await advanceTo(at);
+      const offered = await scan(fresh, payloadFor(at));
+      expect(offered.data?.outcome).toBe('ALREADY_INSIDE');
+      return { token: fresh, userId, checkInId: offered.data!.checkIn!.id, at };
+    };
+
+    it('closes the visit as STATION_QR at the scanned station', async () => {
+      const { token, userId, checkInId, at } = await insideAndRescanned();
+
+      const { status, body } = await confirmOut(token, checkInId);
+
+      expect(status).toBe(200);
+      expect(body.data?.outcome).toBe('CHECKED_OUT');
+      expect(body.data?.display.headline).toBe('Checked out.');
+      expect(body.data?.session?.durationMinutes).toBe(40);
+
+      const row = await ctx.prisma.checkIn.findUniqueOrThrow({ where: { id: checkInId } });
+      expect(row.endedAt?.toISOString()).toBe(at.toISOString());
+      expect(row.closeMethod).toBe('STATION_QR');
+      expect(row.openUserId).toBeNull();
+      expect(row.closeStationId).toBe(station.id);
+      expect(row.closeStationSlot).toBe(tokens.computeSlot(at, SLOT_SECONDS));
+      expect(row.closedById).toBeNull();
+      expect(row.autoClosed).toBe(false);
+      expect(await ctx.prisma.checkIn.count({ where: { userId } })).toBe(1);
+    });
+
+    it('answers a double tap with the same card and closes nothing twice', async () => {
+      const { token, checkInId } = await insideAndRescanned();
+
+      const first = await confirmOut(token, checkInId);
+      const second = await confirmOut(token, checkInId);
+
+      expect(second.status).toBe(200);
+      expect(second.body.data?.outcome).toBe('CHECKED_OUT');
+      expect(second.body.data?.session).toEqual(first.body.data?.session);
+    });
+
+    it('403s CHECK_OUT_SCAN_REQUIRED without a second scan', async () => {
+      const { token, userId } = await client('ACTIVE');
+      const opened = await scan(token, payloadFor());
+
+      const { status, body } = await confirmOut(token, opened.data!.checkIn!.id);
+
+      expect(status).toBe(403);
+      expect(body.error?.code).toBe('CHECK_OUT_SCAN_REQUIRED');
+      expect(body.error?.message).toBe('Scan the code at the desk again to check out.');
+      const row = await ctx.prisma.checkIn.findUniqueOrThrow({ where: { openUserId: userId } });
+      expect(row.endedAt).toBeNull();
+    });
+
+    it('403s when the second scan is older than two minutes', async () => {
+      const { userId, checkInId, at } = await insideAndRescanned();
+      // `consumedAt` is stamped by the DATABASE clock, not the suite's fake
+      // one, so it is set explicitly to the instant under test.
+      await ctx.prisma.stationScan.updateMany({
+        where: { userId, outcome: 'ALREADY_INSIDE' },
+        data: { consumedAt: at },
+      });
+      const late = new Date(at.getTime() + 2 * 60_000 + 1_000);
+      const lateToken = await advanceTo(late);
+
+      const { status, body } = await confirmOut(lateToken, checkInId);
+
+      expect(status).toBe(403);
+      expect(body.error?.code).toBe('CHECK_OUT_SCAN_REQUIRED');
+    });
+
+    /** A photo of an old code: recognised as a second scan, proves nothing. */
+    it('offers no check-out off an EXPIRED code, and refuses it as proof', async () => {
+      const { token } = await client('ACTIVE');
+      await scan(token, payloadForSlot(tokens.computeSlot(EVENING, SLOT_SECONDS)));
+      const at = new Date(EVENING.getTime() + 40 * 60_000);
+      const fresh = await advanceTo(at);
+      // Thirty minutes old: MAC-valid, long past the one-slot look-back.
+      const old = tokens.computeSlot(new Date(at.getTime() - 30 * 60_000), SLOT_SECONDS);
+
+      const offered = await scan(fresh, payloadForSlot(old));
+
+      expect(offered.data?.outcome).toBe('ALREADY_INSIDE');
+      expect(offered.data?.checkOutOffered).toBe(false);
+      expect(offered.data?.display.detail).toBeNull();
+
+      const { status, body } = await confirmOut(fresh, offered.data!.checkIn!.id);
+      expect(status).toBe(403);
+      expect(body.error?.code).toBe('CHECK_OUT_SCAN_REQUIRED');
+    });
+
+    it('refuses a scan from before a check-out and return', async () => {
+      const { token, checkInId, at } = await insideAndRescanned();
+      expect((await confirmOut(token, checkInId)).status).toBe(200);
+      const back = new Date(at.getTime() + 40_000);
+      const backToken = await advanceTo(back);
+      expect((await scan(backToken, payloadFor(back))).data?.outcome).toBe('REOPENED');
+
+      // The ALREADY_INSIDE scan at `at` is still inside two minutes, but it
+      // belongs to the stretch before the reopen. (`consumedAt` is the
+      // database clock, so both rows are pinned to the instants under test.)
+      await ctx.prisma.stationScan.updateMany({
+        where: { checkInId, outcome: 'ALREADY_INSIDE' },
+        data: { consumedAt: at },
+      });
+      await ctx.prisma.stationScan.updateMany({
+        where: { checkInId, outcome: 'REOPENED' },
+        data: { consumedAt: back },
+      });
+
+      const { status, body } = await confirmOut(backToken, checkInId);
+      expect(status).toBe(403);
+      expect(body.error?.code).toBe('CHECK_OUT_SCAN_REQUIRED');
+    });
+
+    it('409s CHECK_OUT_NOT_OPEN for somebody else’s visit', async () => {
+      const { checkInId } = await insideAndRescanned();
+      const other = await ctx.fixture.tokenFor('CLIENT', { supabaseId: FIXTURE_IDS.CLIENT_B });
+
+      const { status, body } = await confirmOut(other, checkInId);
+
+      expect(status).toBe(409);
+      expect(body.error?.code).toBe('CHECK_OUT_NOT_OPEN');
+      expect(body.error?.message).toBe("You're not checked in.");
+      const row = await ctx.prisma.checkIn.findUniqueOrThrow({ where: { id: checkInId } });
+      expect(row.endedAt).toBeNull();
+    });
+
+    it('400s a body that is not a visit id', async () => {
+      const { token } = await client('ACTIVE');
+      const res = await request(server)
+        .post('/api/v1/checkin/checkout')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ checkInId: 'nope' });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────
   // GET /me/check-in-status
   // ───────────────────────────────────────────────────────────────────────
 
@@ -778,12 +959,8 @@ describe('POST /api/v1/checkin (e2e)', () => {
       expect(body.data?.membership.planName).toBe('Monthly');
     });
 
-    /**
-     * The pre-flight line is the single thing that prevents the accidental
-     * check-out in a second-scan design, and it needs the exact clock time to
-     * say it with.
-     */
-    it('reports the open visit and when a check-out becomes possible', async () => {
+    /** The pre-flight line names the exact clock time the visit started. */
+    it('reports the open visit', async () => {
       const { token } = await client('ACTIVE');
       await scan(token, payloadFor());
 
@@ -793,9 +970,7 @@ describe('POST /api/v1/checkin (e2e)', () => {
 
       const body = res.body as Envelope<CheckInStatus>;
       expect(body.data?.open?.startedAt).toBe(EVENING.toISOString());
-      expect(body.data?.open?.checkOutAvailableAt).toBe(
-        new Date(EVENING.getTime() + 20 * 60_000).toISOString(),
-      );
+      expect(body.data?.open).not.toHaveProperty('checkOutAvailableAt');
       expect(body.data?.visitsToday).toBe(1);
     });
 

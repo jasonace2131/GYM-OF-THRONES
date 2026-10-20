@@ -26,7 +26,7 @@ const SCOPE = {
 const MEMBER = { id: MEMBER_ID, firstName: 'Juan', lastName: 'Dela Cruz', memberCode: 'GOT-7' };
 
 interface PrismaMock {
-  user: { findFirst: jest.Mock };
+  user: { findFirst: jest.Mock; findUnique: jest.Mock };
   coachAssignment: { findUnique: jest.Mock };
   bodyMeasurement: {
     findMany: jest.Mock;
@@ -82,7 +82,10 @@ function goalRow(over: Record<string, unknown> = {}): Record<string, unknown> {
 
 function build(): { prisma: PrismaMock; audit: { record: jest.Mock }; service: ProgressService } {
   const prisma: PrismaMock = {
-    user: { findFirst: jest.fn().mockResolvedValue(MEMBER) },
+    user: {
+      findFirst: jest.fn().mockResolvedValue(MEMBER),
+      findUnique: jest.fn().mockResolvedValue({ heightCm: null, weightKg: null }),
+    },
     coachAssignment: { findUnique: jest.fn().mockResolvedValue(null) },
     bodyMeasurement: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -232,6 +235,22 @@ describe('ProgressService.summary', () => {
   it('reports no coach when there is no active assignment', async () => {
     const { service } = build();
     await expect(service.summary(MEMBER_ID, NOW)).resolves.toMatchObject({ coach: null });
+  });
+
+  it("shows the member's own account weight as the current weight", async () => {
+    const { prisma, service } = build();
+    prisma.bodyMeasurement.findMany.mockResolvedValue([measurementRow()]);
+    prisma.user.findUnique.mockResolvedValue({ heightCm: 170, weightKg: 70 });
+
+    const result = await service.summary(MEMBER_ID, NOW);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: MEMBER_ID },
+      select: { heightCm: true, weightKg: true },
+    });
+    expect(result.latestWeightGrams).toBe(70_000);
+    // 70 / 1.70^2 = 24.221...
+    expect(result.bmiThousandths).toBe(24_221);
   });
 });
 

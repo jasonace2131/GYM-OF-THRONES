@@ -18,7 +18,7 @@ Render redeploys only when something the API is built from changes — `server/`
 
 ## Project
 
-Gym of Thrones House of Fitness. npm-workspaces monorepo: `client/` (Next.js 16 App Router) + `server/` (NestJS 11 + Prisma/Supabase Postgres) + `shared/` (types & constants consumed by both). Prisma, Health, Auth, Users, RBAC, Membership, Payments, Check-in, Front-desk and Announcements are wired up in `server/src/app.module.ts`; `ServicesModule` and `ContactModule` are still commented out and get added one phase at a time (see README's module-ownership table).
+Gym of Thrones — House of Fitness. npm-workspaces monorepo: `client/` (Next.js 16 App Router) + `server/` (NestJS 11 + Prisma/Supabase Postgres) + `shared/` (types & constants consumed by both). Prisma, Health, Auth, Users, RBAC, Membership, Payments, Check-in, Front-desk and Announcements are wired up in `server/src/app.module.ts`; `ServicesModule` and `ContactModule` are still commented out and get added one phase at a time (see README's module-ownership table).
 
 ## Commands
 

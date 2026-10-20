@@ -208,11 +208,13 @@ export interface CheckInResult {
   denial: { id: string; reason: DenialReason; memberMessage: string } | null;
 
   /**
-   * `ALREADY_INSIDE` only: the instant a check-out becomes possible. Naming
-   * the exact clock time is the whole fix — "try again later" generates a
-   * conversation at the desk every single time (§9.4).
+   * True only on `ALREADY_INSIDE` from the member's OWN scan of a still-current
+   * station code: the phone shows Check out / Stay checked in, and that scan
+   * is proof of presence for `POST /checkin/checkout` for two minutes. False
+   * on a desk entry and on an expired code. The client reads this flag rather
+   * than inferring it from outcome or station.
    */
-  checkOutAvailableAt: string | null;
+  checkOutOffered: boolean;
 
   nextStep: CheckInNextStep | null;
   membership: CheckInMembershipSummary;
@@ -224,13 +226,13 @@ export interface CheckInResult {
 /**
  * `GET /me/check-in-status` — the cached read on the way INTO the scanner.
  *
- * It is what renders "You're checked in since 6:12 PM — scanning again checks
- * you out" before the camera arms. That one line is the whole of what prevents
- * the accidental check-out in a second-scan design, and it costs nothing on
- * the critical path because it happens before the scan rather than during it.
+ * It is what renders "You're checked in since 6:12 PM — scan again when you
+ * leave to check out" before the camera arms. A second scan never closes the
+ * visit by itself: it offers a Check out button, and the member confirms
+ * through `POST /checkin/checkout` (owner, 2026-10-20).
  */
 export interface CheckInStatus {
-  open: { checkInId: string; startedAt: string; checkOutAvailableAt: string } | null;
+  open: { checkInId: string; startedAt: string } | null;
   membership: CheckInMembershipSummary;
   /** Whether `accessVerdict` would admit them right now. */
   wouldAdmit: boolean;

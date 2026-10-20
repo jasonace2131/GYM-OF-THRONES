@@ -4,6 +4,7 @@ import { MembersController } from './members.controller';
 import { MembersService } from './members.service';
 import { MemberJoinController } from './member-join.controller';
 import { MemberJoinService } from './member-join.service';
+import { MyProfileService } from './my-profile.service';
 import { RbacModule } from '../rbac/rbac.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -29,7 +30,7 @@ import { MembershipModule } from '../membership/membership.module';
 @Module({
   imports: [RbacModule, AuthModule, NotificationsModule, MembershipModule],
   controllers: [UsersController, MembersController, MemberJoinController],
-  providers: [MembersService, MemberJoinService],
+  providers: [MembersService, MemberJoinService, MyProfileService],
   exports: [MembersService, MemberJoinService],
 })
 export class UsersModule {}

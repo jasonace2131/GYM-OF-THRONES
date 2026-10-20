@@ -55,13 +55,22 @@ function latestOf<T>(rows: readonly T[], pick: (row: T) => number | null): numbe
   return null;
 }
 
+/**
+ * `account` is the member's own height from My account. Owner, 2026-10-20:
+ * the member is the source of truth, so it comes ahead of a measured height;
+ * the summary's weight and BMI are already account-first (`summarise`).
+ */
 export function buildPlanContext(
   progress: ProgressSummary,
   checkIns: MyCheckInSummary,
   today: CivilDate,
+  account: { heightCm: number | null } | null = null,
 ): PlanContext {
   // `measurements` is oldest first (ProgressService.summary).
-  const heightMm = latestOf(progress.measurements, (m) => m.heightMm);
+  const heightMm =
+    account?.heightCm != null
+      ? account.heightCm * 10
+      : latestOf(progress.measurements, (m) => m.heightMm);
   const bodyFat = latestOf(progress.measurements, (m) => m.bodyFatPermille);
   const since = addDays(today, -(ATTENDANCE_WINDOW_DAYS - 1));
 

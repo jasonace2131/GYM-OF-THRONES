@@ -145,6 +145,11 @@ export type DomainErrorCode =
   // falls outside CHECKIN_OFFLINE_MAX_AGE_HOURS or lands in the future.
   | 'CHECKIN_ALREADY_VOIDED'
   | 'CHECKIN_OCCURRED_AT_OUT_OF_RANGE'
+  // The member's own confirmed check-out (POST /checkin/checkout): the visit is
+  // not theirs or not open, or no scan of the station code in the last two
+  // minutes proves they are at the gym.
+  | 'CHECK_OUT_NOT_OPEN'
+  | 'CHECK_OUT_SCAN_REQUIRED'
   // The desk's sales funnel: a denial that no longer exists, or one a manager
   // already resolved by override — a different commercial outcome from a sale,
   // so the two are never silently conflated.

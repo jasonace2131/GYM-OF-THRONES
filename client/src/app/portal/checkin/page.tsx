@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import type { CheckInResult, CheckInStatus, CheckInTone } from '@got/shared';
+import type { CheckInResult, CheckInStatus } from '@got/shared';
 import { ApiError, apiFetch } from '@/lib/api';
 import { SUBMIT_BACKOFF_MS } from '@/lib/scanner';
 import { CheckInScanner } from '@/components/portal/CheckInScanner';
+import { CheckInVerdict, clockTime } from '@/components/portal/CheckInVerdict';
 
 /**
  * `/portal/checkin` — the member scans the counter.
@@ -24,17 +24,20 @@ import { CheckInScanner } from '@/components/portal/CheckInScanner';
  * not a copy note.
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * THE PRE-FLIGHT LINE IS THE POINT OF THIS PAGE'S TOP HALF. "You're checked in
- * since 6:12 PM — scanning again checks you out" is the single thing that
- * prevents the most common accidental action in a second-scan design, and it
- * costs nothing on the critical path because it happens BEFORE the camera
- * arms rather than during the scan.
+ * A SECOND SCAN NEVER CHECKS ANYONE OUT BY ITSELF (owner, 2026-10-20). It
+ * shows "You're already in." with a gold Check out button and a ghost Stay
+ * checked in. Check out calls `POST /checkin/checkout`, which closes the visit
+ * only because that scan, moments ago, proved the member is at the gym; Stay
+ * records nothing and goes back to the scanner. The pre-flight line — "You're
+ * checked in since 6:12 PM — scan again when you leave to check out" — tells
+ * them how, before the camera arms.
  */
 export default function CheckInPage() {
   const [status, setStatus] = useState<CheckInStatus | null>(null);
   const [result, setResult] = useState<CheckInResult | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
   const [announcement, setAnnouncement] = useState('');
 
   const busyRef = useRef(false);
@@ -45,7 +48,7 @@ export default function CheckInPage() {
     } catch {
       // A pre-flight that cannot load is not a reason to block the scan. The
       // member may still be able to check in; they simply do not get the
-      // "scanning again checks you out" warning.
+      // "scan again when you leave" line.
       setStatus(null);
     }
   }, []);
@@ -94,13 +97,56 @@ export default function CheckInPage() {
             // ONE catch-all for every non-2xx. Five error screens for five
             // things that mean the same thing to a member standing at a
             // counter is five screens nobody reads.
-            setFailure('Check-in is unavailable — please see the front desk.');
+            setFailure({
+              headline: 'Not checked in yet.',
+              message: 'Check-in is unavailable — please see the front desk.',
+            });
             setAnnouncement('Check-in is unavailable.');
             busyRef.current = false;
             setBusy(false);
             return;
           }
         }
+      }
+    },
+    [loadStatus],
+  );
+
+  /**
+   * The Check out button. No retry loop, unlike the scan: a refusal here is a
+   * decision (not checked in, or the scan is too old), and a repeat tap is
+   * already answered by the server with the same card.
+   */
+  const checkOut = useCallback(
+    async (checkInId: string): Promise<void> => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      setCheckingOut(true);
+
+      try {
+        const outcome = await apiFetch<CheckInResult>('/checkin/checkout', {
+          method: 'POST',
+          body: JSON.stringify({ checkInId }),
+        });
+        setResult(outcome);
+        setAnnouncement(outcome.display.headline);
+      } catch (error) {
+        // The server's own words — "Scan the code at the desk again to check
+        // out." — tell the member exactly what to do next.
+        setResult(null);
+        setFailure({
+          headline: 'Not checked out.',
+          // A 5xx carries a bare INTERNAL_SERVER_ERROR, not words for a member.
+          message:
+            error instanceof ApiError && error.status < 500
+              ? error.message
+              : 'Check-out is unavailable — please see the front desk.',
+        });
+        setAnnouncement('Not checked out.');
+      } finally {
+        busyRef.current = false;
+        setCheckingOut(false);
+        void loadStatus();
       }
     },
     [loadStatus],
@@ -140,19 +186,23 @@ export default function CheckInPage() {
           ) : null}
         </>
       ) : failure !== null ? (
-        <FailureCard message={failure} onRetry={scanAgain} />
+        <FailureCard failure={failure} onRetry={scanAgain} />
       ) : (
-        <Verdict result={result!} onScanAgain={scanAgain} />
+        <CheckInVerdict
+          result={result!}
+          onScanAgain={scanAgain}
+          onCheckOut={(checkInId) => void checkOut(checkInId)}
+          checkingOut={checkingOut}
+        />
       )}
     </div>
   );
 }
 
 /**
- * The line that prevents the accidental check-out.
- *
- * Naming the exact clock time is the whole fix: "try again later" generates a
- * conversation at the desk every single time.
+ * What the member sees before the camera arms: whether they are inside, and
+ * how to leave. Naming the exact clock time keeps "am I still checked in?"
+ * from becoming a conversation at the desk.
  */
 function PreFlight({ status }: { status: CheckInStatus | null }) {
   if (status === null) return null;
@@ -162,8 +212,8 @@ function PreFlight({ status }: { status: CheckInStatus | null }) {
       <div className="ci-preflight">
         <span aria-hidden>●</span>
         <span>
-          You’re checked in since <strong>{clockTime(status.open.startedAt)}</strong> — scanning
-          again checks you out.
+          You’re checked in since <strong>{clockTime(status.open.startedAt)}</strong> — scan again
+          when you leave to check out.
         </span>
       </div>
     );
@@ -182,79 +232,28 @@ function PreFlight({ status }: { status: CheckInStatus | null }) {
   );
 }
 
-const TONE_GLYPH: Record<CheckInTone, string> = {
-  WELCOME: '✓',
-  // THE SAME TICK as WELCOME. The door opened, and a different glyph would
-  // say otherwise to someone who was just let in.
-  GRACE: '✓',
-  GOODBYE: '→',
-  // Not a cross, not a warning triangle. A neutral dot: this is a card, not
-  // an alarm.
-  SEE_DESK: '·',
-};
-
-function Verdict({ result, onScanAgain }: { result: CheckInResult; onScanAgain: () => void }) {
-  const { display, session, nextStep, denial } = result;
-
-  return (
-    <div style={{ display: 'grid', gap: 14 }}>
-      <div className="ci-verdict" data-tone={display.tone}>
-        <div className="ci-glyph" aria-hidden>
-          {TONE_GLYPH[display.tone]}
-        </div>
-        <h1 className="ci-headline">{display.headline}</h1>
-        <p className="ci-subhead">{display.subhead}</p>
-        {display.detail === null ? null : <p className="ci-detail">{display.detail}</p>}
-
-        {session !== null ? (
-          <p className="ci-detail">
-            {clockTime(session.startedAt)} → {clockTime(session.endedAt)}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="ci-actions">
-        {/* Never a price the member can pay in-app: owner decision 9 forbids
-            the portal POSTing a purchase. Informational, and it routes to a
-            human at a counter. */}
-        {nextStep !== null && nextStep.kind !== 'NONE' ? (
-          <span className="p-badge p-badge-warn" style={{ justifySelf: 'center' }}>
-            {nextStep.label}
-          </span>
-        ) : null}
-
-        {denial !== null ? (
-          <Link href="/portal/dashboard" className="p-btn p-btn-gold p-btn-block">
-            Show this to the desk
-          </Link>
-        ) : null}
-
-        <button type="button" className="p-btn p-btn-ghost p-btn-block" onClick={onScanAgain}>
-          {result.outcome === 'CHECKED_OUT' ? 'Check in again' : 'Scan again'}
-        </button>
-      </div>
-
-      {/* NO AUTO-DISMISS. The member may be pocketing the phone and want a
-          second look; three seconds is not a decision to make for them. */}
-    </div>
-  );
+/** What went wrong, as the card says it. */
+interface Failure {
+  headline: string;
+  message: string;
 }
 
 /**
- * ONE catch-all for every non-2xx on this route.
+ * ONE catch-all for every non-2xx on the scan route, and the same card for a
+ * refused check-out, carrying the server's own message.
  *
  * Five screens for five things that all mean "go to the desk" is five screens
  * nobody reads, and the desk is three metres away.
  */
-function FailureCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+function FailureCard({ failure, onRetry }: { failure: Failure; onRetry: () => void }) {
   return (
     <div style={{ display: 'grid', gap: 14 }}>
       <div className="ci-verdict" data-tone="SEE_DESK">
         <div className="ci-glyph" aria-hidden>
           ·
         </div>
-        <h1 className="ci-headline">Not checked in yet.</h1>
-        <p className="ci-detail">{message}</p>
+        <h1 className="ci-headline">{failure.headline}</h1>
+        <p className="ci-detail">{failure.message}</p>
       </div>
       <div className="ci-actions">
         <button type="button" className="p-btn p-btn-gold p-btn-block" onClick={onRetry}>
@@ -263,14 +262,4 @@ function FailureCard({ message, onRetry }: { message: string; onRetry: () => voi
       </div>
     </div>
   );
-}
-
-/** An instant as a gym-local wall-clock time. */
-function clockTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Manila',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(new Date(iso));
 }

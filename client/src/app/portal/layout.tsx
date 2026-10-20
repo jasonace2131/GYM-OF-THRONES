@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { MEMBER_DEVICE_CACHE_KEYS, clearMemberDeviceCache } from '@/lib/deviceCache';
@@ -70,6 +71,10 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   const staff: 'unknown' | 'yes' | 'no' =
     permissions === null ? 'unknown' : isStaff(permissions) ? 'yes' : 'no';
   const [moreOpen, setMoreOpen] = useState(false);
+  /** The topbar's name and avatar link to My account when its nav row is visible. */
+  const showAccount = visibleNav(permissions).some((group) =>
+    group.items.some((item) => item.href === '/portal/account'),
+  );
   /**
    * `null` while unknown — NOT an empty array, which would be
    * indistinguishable from "nothing outstanding" and would flash the portal
@@ -265,15 +270,39 @@ function PortalShell({ children }: { children: React.ReactNode }) {
 
                     <NotificationBell />
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span
-                        className="hide-mobile"
-                        style={{ fontSize: 13, fontWeight: 500, color: 'var(--p-ink2)' }}
+                    {/* The name and initials open My account for whoever has
+                        that section (a member); for everybody else they stay
+                        a plain label, so nobody is shown a door they lack. */}
+                    {showAccount ? (
+                      <Link
+                        href="/portal/account"
+                        aria-label="My account"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                          textDecoration: 'none',
+                        }}
                       >
-                        {name}
-                      </span>
-                      <span className="p-avatar">{initials}</span>
-                    </div>
+                        <span
+                          className="hide-mobile"
+                          style={{ fontSize: 13, fontWeight: 500, color: 'var(--p-ink2)' }}
+                        >
+                          {name}
+                        </span>
+                        <span className="p-avatar">{initials}</span>
+                      </Link>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span
+                          className="hide-mobile"
+                          style={{ fontSize: 13, fontWeight: 500, color: 'var(--p-ink2)' }}
+                        >
+                          {name}
+                        </span>
+                        <span className="p-avatar">{initials}</span>
+                      </div>
+                    )}
                   </div>
                 </header>
 

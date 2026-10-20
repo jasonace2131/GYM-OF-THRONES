@@ -42,6 +42,7 @@ import {
   adjustPrompt,
   parseSwapReply,
   readModelJson,
+  sharedMedicalNotes,
   swapPrompt,
 } from './member-plan-prompt';
 import {
@@ -294,6 +295,18 @@ export class MemberWorkoutsService {
     return { id };
   }
 
+  /**
+   * The member's medical notes for a swap or adjust prompt — `null` unless
+   * they ticked "Let the workout planner use my medical notes" on My account.
+   */
+  private async sharedMedicalNotes(memberId: string): Promise<string | null> {
+    const row = await this.prisma.user.findUnique({
+      where: { id: memberId },
+      select: { medicalNotes: true, shareMedicalWithPlanner: true },
+    });
+    return sharedMedicalNotes(row);
+  }
+
   /** `POST /me/workouts/plans/:id/swap` — three alternatives for one exercise. */
   async swap(
     memberId: string,
@@ -313,6 +326,7 @@ export class MemberWorkoutsService {
       experience: view.intake.experience,
       healthFlag: view.intake.healthFlag,
       easyOn: view.intake.easyOn,
+      medicalNotes: await this.sharedMedicalNotes(memberId),
     });
 
     const quota = await this.charge(memberId, now);
@@ -361,9 +375,10 @@ export class MemberWorkoutsService {
       healthFlag: view.intake.healthFlag,
       easyOn: view.intake.easyOn,
     };
+    const medicalNotes = await this.sharedMedicalNotes(memberId);
     const prompt = hasPreset
-      ? adjustPrompt({ day, summary, preset: body.preset! })
-      : adjustPrompt({ day, summary, request: body.request!.trim() });
+      ? adjustPrompt({ day, summary, medicalNotes, preset: body.preset! })
+      : adjustPrompt({ day, summary, medicalNotes, request: body.request!.trim() });
 
     const quota = await this.charge(memberId, now);
     const { model, value, startedAt } = await this.paidAsk(

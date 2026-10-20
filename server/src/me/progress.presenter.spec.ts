@@ -219,6 +219,47 @@ describe('summarise', () => {
     expect(result.bmiThousandths).toBeNull();
   });
 
+  // Owner, 2026-10-20: the MEMBER is the source of truth for height and
+  // weight. Their account values are the "current" numbers everybody already
+  // shown this summary sees; measurements stay the history (and the trend).
+  describe("with the member's own account values", () => {
+    const history = [weighIn('a', '2026-06-01', 95_000, 1750), weighIn('b', '2026-08-26', 90_000)];
+
+    it('shows the account weight as the current weight, the trend unchanged', () => {
+      const result = summarise(history, [], TODAY, null, { weightKg: 80.5, heightCm: null });
+      expect(result.latestWeightGrams).toBe(80_500);
+      expect(result.changeGrams).toBe(-5000);
+      expect(result.changeOverDays).toBe(86);
+    });
+
+    it('works BMI out from the account weight and a measured height', () => {
+      const result = summarise(history, [], TODAY, null, { weightKg: 80, heightCm: null });
+      // 80 / 1.75^2 = 26.122...
+      expect(result.bmiThousandths).toBe(26_122);
+    });
+
+    it('works BMI out from a measured weight and the account height', () => {
+      const result = summarise(history, [], TODAY, null, { weightKg: null, heightCm: 180 });
+      expect(result.latestWeightGrams).toBe(90_000);
+      // 90 / 1.80^2 = 27.777...
+      expect(result.bmiThousandths).toBe(27_778);
+    });
+
+    it('needs no measurement at all when the account has both', () => {
+      const result = summarise([], [], TODAY, null, { weightKg: 72.4, heightCm: 170 });
+      expect(result.latestWeightGrams).toBe(72_400);
+      expect(result.changeGrams).toBeNull();
+      // 72.4 / 1.70^2 = 25.051...
+      expect(result.bmiThousandths).toBe(25_052);
+    });
+
+    it('falls back to the measurements when the account has neither', () => {
+      const result = summarise(history, [], TODAY, null, { weightKg: null, heightCm: null });
+      expect(result.latestWeightGrams).toBe(90_000);
+      expect(result.bmiThousandths).toBe(29_388);
+    });
+  });
+
   it('carries the assigned coach by name, or null when the member has none', () => {
     expect(summarise([], [], TODAY).coach).toBeNull();
     expect(summarise([], [], TODAY, { firstName: 'Ana', lastName: 'Reyes' }).coach).toEqual({

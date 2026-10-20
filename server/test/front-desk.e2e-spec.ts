@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { get as httpGet, type Server } from 'http';
 import type { AddressInfo } from 'net';
-import type { ActiveCheckIn, DeskTodayPayload, PaginatedData } from '@got/shared';
+import type { ActiveCheckIn, CheckInResult, DeskTodayPayload, PaginatedData } from '@got/shared';
 import { createTestApp, type TestApp } from './support/test-app';
 import { FIXTURE_IDS } from './support/auth-fixture';
 import { resetDatabase } from './support/db';
@@ -47,6 +47,23 @@ describe('front-desk console (e2e)', () => {
       .post('/api/v1/checkin')
       .set('Authorization', `Bearer ${memberToken}`)
       .send({ stationToken: payloadAt(at) });
+  };
+
+  /**
+   * A member leaving, the way they do since 2026-10-20: a second scan offers
+   * the check-out and the Check out button confirms it.
+   */
+  const leaveAs = async (memberToken: string, at: Date): Promise<void> => {
+    const offered = await request(server)
+      .post('/api/v1/checkin')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ stationToken: payloadAt(at) });
+    const checkInId = (offered.body as Envelope<CheckInResult>).data?.checkIn?.id;
+    await request(server)
+      .post('/api/v1/checkin/checkout')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ checkInId })
+      .expect(200);
   };
 
   const activeMember = async (
@@ -165,7 +182,7 @@ describe('front-desk console (e2e)', () => {
       const later = new Date(EVENING.getTime() + 40 * 60_000);
       jest.setSystemTime(later);
       const fresh = await ctx.fixture.tokenFor('CLIENT', { supabaseId: FIXTURE_IDS.CLIENT_A });
-      await scanAs(fresh, later);
+      await leaveAs(fresh, later);
 
       const res = await request(server)
         .get('/api/v1/front-desk/check-ins/active')
@@ -294,7 +311,7 @@ describe('front-desk console (e2e)', () => {
       const later = new Date(EVENING.getTime() + 40 * 60_000);
       jest.setSystemTime(later);
       const fresh = await ctx.fixture.tokenFor('CLIENT', { supabaseId: FIXTURE_IDS.CLIENT_A });
-      await scanAs(fresh, later);
+      await leaveAs(fresh, later);
 
       const after = await getToday(first.data?.cursor);
       expect(after.data?.arrivals).toHaveLength(1);

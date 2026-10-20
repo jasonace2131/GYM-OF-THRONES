@@ -58,7 +58,7 @@ function input(overrides: Partial<CheckInPresentationInput> = {}): CheckInPresen
     occurredAt: AT,
     timeZone: TZ,
     sessionMinutes: null,
-    checkOutAvailableAt: null,
+    checkOutOffered: false,
     reopenWindowMinutes: 60,
     ...overrides,
   };
@@ -121,21 +121,21 @@ describe('presentCheckIn — WELCOME', () => {
   });
 
   /**
-   * ALREADY_INSIDE is the most confusing state in any second-scan design, and
-   * the copy does all the work: naming the exact clock time is the whole fix.
-   * "Try again later" generates a conversation at the desk every single time.
+   * A second scan never checks anyone out by itself (owner, 2026-10-20). The
+   * card offers the check-out and points at the button under it.
    */
-  it('names the exact clock time a check-out becomes possible on ALREADY_INSIDE', () => {
-    const result = presentCheckIn(
-      input({
-        outcome: 'ALREADY_INSIDE',
-        checkOutAvailableAt: new Date('2026-08-20T10:34:00.000Z'),
-      }),
-    );
+  it('points at the Check out button on a self-scan ALREADY_INSIDE', () => {
+    const result = presentCheckIn(input({ outcome: 'ALREADY_INSIDE', checkOutOffered: true }));
     expect(result.display.tone).toBe('WELCOME');
     expect(result.display.headline).toBe("You're already in.");
     expect(result.display.subhead).toBe('Since 6:14 PM.');
-    expect(result.display.detail).toBe('Scan again after 6:34 PM to check out.');
+    expect(result.display.detail).toBe('Leaving? Check out below.');
+  });
+
+  it('offers no check-out line on a desk entry, which has no button', () => {
+    const result = presentCheckIn(input({ outcome: 'ALREADY_INSIDE', checkOutOffered: false }));
+    expect(result.display.headline).toBe("You're already in.");
+    expect(result.display.detail).toBeNull();
   });
 });
 

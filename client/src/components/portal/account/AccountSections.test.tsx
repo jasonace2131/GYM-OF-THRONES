@@ -1,0 +1,80 @@
+import { describe, expect, it, vi } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+// account.ts imports the API client, which needs Supabase's env at import.
+vi.mock('@/lib/api', () => ({
+  apiFetch: vi.fn(),
+  ApiError: class ApiError extends Error {},
+}));
+
+import { BodySection, EmailSection, PasswordSection } from './AccountSections';
+
+const PROFILE = {
+  email: 'juan@example.com',
+  heightCm: 175,
+  weightKg: 72.4,
+  medicalNotes: 'Bad left knee',
+  shareMedicalWithPlanner: false,
+};
+
+const noop = vi.fn();
+
+describe('BodySection', () => {
+  const html = renderToStaticMarkup(<BodySection profile={PROFILE} save={noop} onSaved={noop} />);
+
+  it('shows the current height, weight and notes', () => {
+    expect(html).toContain('value="175"');
+    expect(html).toContain('value="72.4"');
+    expect(html).toContain('>Bad left knee</textarea>');
+  });
+
+  it('has its own Save, disabled while nothing has changed', () => {
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save body &amp; health<\/button>/);
+  });
+
+  it('says the planner reads it and the desk never shows it', () => {
+    expect(html).toContain('workout planner');
+    expect(html).toContain('never shown at the front desk');
+  });
+
+  it('offers the medical-notes opt-in, unticked by default, with its helper', () => {
+    expect(html).toContain('Let the workout planner use my medical notes');
+    expect(html).toContain(
+      'Your notes go to the AI that writes your plans so it avoids exercises that could hurt you. Off: they stay on your account and the AI never sees them.',
+    );
+    const box = /<input[^>]*name="shareMedicalWithPlanner"[^>]*>/.exec(html)?.[0] ?? '';
+    expect(box).toContain('type="checkbox"');
+    expect(box).not.toContain('checked');
+  });
+
+  it('caps the notes at 2000 characters', () => {
+    expect(html).toContain('maxLength="2000"');
+  });
+});
+
+describe('EmailSection', () => {
+  const html = renderToStaticMarkup(<EmailSection email={PROFILE.email} change={noop} />);
+
+  it('shows the current email', () => {
+    expect(html).toContain('juan@example.com');
+  });
+
+  it('has an email field for the new address', () => {
+    expect(html).toContain('type="email"');
+    expect(html).toContain('autoComplete="email"');
+  });
+});
+
+describe('PasswordSection', () => {
+  const html = renderToStaticMarkup(<PasswordSection email={PROFILE.email} change={noop} />);
+
+  it('asks for the current password and the new one twice', () => {
+    expect(html.match(/type="password"/g)).toHaveLength(3);
+    expect(html).toContain('autoComplete="current-password"');
+    expect(html.match(/autoComplete="new-password"/g)).toHaveLength(2);
+  });
+
+  it('marks the 8-character floor on the new-password fields', () => {
+    expect(html.match(/minLength="8"/g)).toHaveLength(2);
+  });
+});

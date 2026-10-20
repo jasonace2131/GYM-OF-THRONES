@@ -133,15 +133,11 @@ export default function AdminAttendancePage() {
 
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div className="a-kpis">
+      {/* No "Needs you" tile (owner, 2026-10-20): with the walk-in button gone
+          nothing on this page resolves a denial, so its count only climbed. */}
+      <div className="a-kpis a-kpis--3">
         <Kpi value={counters?.inGym ?? '—'} label="In the gym now" />
         <Kpi value={counters?.today ?? '—'} label="Check-ins today" />
-        <Kpi
-          value={counters?.needsYou ?? '—'}
-          label="Needs you"
-          delta="unresolved, sellable"
-          tone={counters !== undefined && counters.needsYou > 0 ? 'danger' : undefined}
-        />
         <Kpi
           value={counters?.manualToday ?? '—'}
           label="Recorded by staff"

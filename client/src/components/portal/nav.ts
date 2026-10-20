@@ -10,6 +10,7 @@ import {
   IconChat,
   IconDashboard,
   IconDumbbell,
+  IconGear,
   IconHistory,
   IconQr,
   IconUserPlus,
@@ -190,6 +191,17 @@ export const NAV_GROUPS: NavGroup[] = [
         label: 'Ask the Gym',
         icon: IconChat,
         permission: PERMISSIONS.AI_CHAT_USE,
+      },
+      // feat/member-account: email, password, height, weight, medical notes.
+      // A member's own section (coaches are not members here, owner
+      // 2026-10-06), so it carries the member's key; `/me/profile` itself is
+      // keyless and hard-coded to the caller. Also reached from the topbar
+      // avatar.
+      {
+        href: '/portal/account',
+        label: 'My Account',
+        icon: IconGear,
+        permission: PERMISSIONS.MEMBERSHIP_SELF,
       },
     ],
   },

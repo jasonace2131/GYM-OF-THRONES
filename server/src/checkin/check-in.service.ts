@@ -135,11 +135,9 @@ export class CheckInService {
   /**
    * The cached read on the way INTO the scanner (§7.4).
    *
-   * It renders "You're checked in since 6:12 PM — scanning again checks you
-   * out" BEFORE the camera arms. That one line is the whole of what prevents
-   * the accidental check-out in a second-scan design, and it costs nothing on
-   * the critical path because it happens before the scan rather than during
-   * it.
+   * It renders "You're checked in since 6:12 PM — scan again when you leave
+   * to check out" BEFORE the camera arms. The second scan only OFFERS the
+   * check-out; the member confirms it with a button (`confirmCheckOut`).
    */
   async statusFor(user: AuthUser, now: Date = new Date()): Promise<CheckInStatus> {
     const today = gymToday(now, this.gym.timeZone);
@@ -160,7 +158,6 @@ export class CheckInService {
           : {
               checkInId: open.id,
               startedAt: open.occurredAt.toISOString(),
-              checkOutAvailableAt: this.checkOutAvailableAt(open.occurredAt).toISOString(),
             },
       membership: toCheckInMembershipSummary(subject.membership, verdict),
       // A BOOLEAN IS SAFE HERE AND ONLY HERE: this is a pre-flight hint the
@@ -370,6 +367,204 @@ export class CheckInService {
     return result;
   }
 
+  /**
+   * `POST /api/v1/checkin/checkout` — the member taps Check out on the card a
+   * second scan showed them (owner, 2026-10-20).
+   *
+   * ═══════════════════════════════════════════════════════════════════════════
+   * PROOF OF PRESENCE IS A RECENT SCAN, NOT THE BUTTON.
+   *
+   * The button is just a POST with a visit id; anyone signed in can send it
+   * from anywhere. What makes it a check-out AT THE GYM is the `StationScan`
+   * row the second scan left behind: outcome `ALREADY_INSIDE`, stamped with
+   * this visit's id, consumed within `CHECK_OUT_CONFIRM_WINDOW_MS`. Its
+   * station and slot become the close's station columns, exactly as if the
+   * scan itself had closed the visit — which is also what keeps the re-entry
+   * grace working, because `decide()`'s reopen path keys on
+   * `closeMethod = 'STATION_QR'`.
+   * ═══════════════════════════════════════════════════════════════════════════
+   *
+   * A DOUBLE TAP RETURNS THE SAME CARD. A visit this member closed by QR inside
+   * the same window answers with its CHECKED_OUT result again — no write, no
+   * second desk-feed event — so a phone that lost the first response does not
+   * show an error for a check-out that happened.
+   */
+  async confirmCheckOut(
+    user: AuthUser,
+    checkInId: string,
+    ip: string | undefined,
+    now: Date = new Date(),
+  ): Promise<CheckInResult> {
+    const windowStart = new Date(now.getTime() - CHECK_OUT_CONFIRM_WINDOW_MS);
+
+    const visit = await this.prisma.checkIn.findUnique({ where: { id: checkInId } });
+    // ONE answer for "not yours", "voided" and "no such visit": the route must
+    // not be an oracle for which check-in ids exist.
+    if (visit === null || visit.userId !== user.id || visit.voidedAt !== null) {
+      throw checkOutNotOpen();
+    }
+
+    const profile = await this.prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: { avatarUrl: true, firstName: true, lastName: true, memberCode: true },
+    });
+
+    if (visit.openUserId !== user.id) {
+      return this.repeatCheckOut(user, profile, visit, windowStart, now);
+    }
+
+    // A reopen draws a line under every scan before it: a proof scan from
+    // before a check-out-and-return must not close the resumed visit.
+    const lastReopen = await this.prisma.stationScan.findFirst({
+      where: { userId: user.id, checkInId: visit.id, outcome: 'REOPENED' },
+      orderBy: { consumedAt: 'desc' },
+      select: { consumedAt: true },
+    });
+
+    const proof = await this.prisma.stationScan.findFirst({
+      where: {
+        userId: user.id,
+        checkInId: visit.id,
+        outcome: 'ALREADY_INSIDE',
+        consumedAt:
+          lastReopen === null
+            ? { gte: windowStart }
+            : { gte: windowStart, gt: lastReopen.consumedAt },
+        // A FRESH code, not merely a recent request. An expired token still
+        // verifies (MAC-valid, old slot) and still lands as ALREADY_INSIDE, so
+        // the scan's own slot must sit inside the window too — otherwise a
+        // photo of Monday's code checks a member out from home on Tuesday.
+        // The `- 1` is the verifier's own one-slot look-back.
+        slot: {
+          gte:
+            this.tokens.computeSlot(
+              new Date(now.getTime() - CHECK_OUT_CONFIRM_WINDOW_MS),
+              this.gym.stationTokenSlotSeconds,
+            ) - 1,
+        },
+        // And the card that scan rendered must actually have offered the
+        // check-out: the server's own decision, stored verbatim.
+        responseSnapshot: { path: ['checkOutOffered'], equals: true },
+      },
+      orderBy: { consumedAt: 'desc' },
+      select: { slot: true, station: { select: { id: true, code: true, name: true } } },
+    });
+    if (proof === null) {
+      throw new DomainException(
+        'CHECK_OUT_SCAN_REQUIRED',
+        'Scan the code at the desk again to check out.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Best-effort and never fatal, exactly like the scan path.
+    const openShift = await this.prisma.shift.findFirst({
+      where: { closedAt: null },
+      select: { id: true },
+    });
+
+    const context: ScanContext = {
+      user: { id: user.id, role: user.role },
+      profile,
+      // Where the member scanned, not where the button was pressed: the
+      // proof scan is the presence, so it is also the close station.
+      station: proof.station,
+      slot: proof.slot,
+      method: 'STATION_QR',
+      recordedById: null,
+      originIpHash: hashIp(ip, this.ipPepper),
+      offSiteOrigin: isOffSiteOrigin(ip, this.gymEgress),
+      shiftId: openShift?.id ?? null,
+      offlineQueued: false,
+      now,
+      today: gymToday(now, this.gym.timeZone),
+      preVerdict: { kind: 'PROCEED' },
+      overriding: null,
+    };
+
+    const decided = await this.prisma.$transaction(
+      async (tx): Promise<Decided | null> => {
+        // Re-read inside the transaction: the visit may have been closed by
+        // the desk, the nightly job or a second tap since the read above.
+        const open = await tx.checkIn.findUnique({ where: { openUserId: user.id } });
+        if (open === null || open.id !== visit.id) return null;
+        const closed = await this.closeVisit(tx, context, open, 'STATION_QR');
+        if (closed === null) return null;
+        // MEMBERSHIP IS NEVER EVALUATED ON THE WAY OUT.
+        return this.finish(tx, context, { outcome: 'CHECKED_OUT', checkIn: closed });
+      },
+      { timeout: 8_000 },
+    );
+
+    if (decided === null) {
+      // Lost the close race. If the winner was this member's own QR close
+      // (the other tap), answer as the double tap; otherwise it is not open.
+      const after = await this.prisma.checkIn.findUnique({ where: { id: visit.id } });
+      if (after === null || after.voidedAt !== null) throw checkOutNotOpen();
+      return this.repeatCheckOut(user, profile, after, windowStart, now);
+    }
+
+    // After commit, never inside — same rule as the scan path.
+    const { result, feed } = decided.envelope;
+    if (feed !== null) this.deskFeed.publish(feed);
+    return result;
+  }
+
+  /**
+   * The double-tap answer: the CHECKED_OUT card for a visit this member closed
+   * by QR inside the confirm window, recomposed with no write and no feed
+   * event. Anything else that is not open is `CHECK_OUT_NOT_OPEN`.
+   */
+  private async repeatCheckOut(
+    user: AuthUser,
+    profile: ScanProfile,
+    visit: CheckIn,
+    windowStart: Date,
+    now: Date,
+  ): Promise<CheckInResult> {
+    if (
+      visit.openUserId !== null ||
+      visit.closeMethod !== 'STATION_QR' ||
+      visit.endedAt === null ||
+      visit.endedAt < windowStart
+    ) {
+      throw checkOutNotOpen();
+    }
+
+    const station =
+      visit.closeStationId === null
+        ? null
+        : await this.prisma.station.findUnique({
+            where: { id: visit.closeStationId },
+            select: { id: true, code: true, name: true },
+          });
+
+    const context: ScanContext = {
+      user: { id: user.id, role: user.role },
+      profile,
+      station,
+      slot: visit.closeStationSlot,
+      method: 'STATION_QR',
+      recordedById: null,
+      originIpHash: null,
+      offSiteOrigin: visit.closeOffSiteOrigin ?? false,
+      shiftId: null,
+      offlineQueued: false,
+      now,
+      today: gymToday(now, this.gym.timeZone),
+      preVerdict: { kind: 'PROCEED' },
+      overriding: null,
+    };
+
+    // `finish` reads nothing for a CHECKED_OUT outcome, so handing it the
+    // pooled client writes nothing; the feed event it composes is discarded.
+    const decided = await this.finish(this.prisma, context, {
+      outcome: 'CHECKED_OUT',
+      checkIn: visit,
+    });
+    return decided.envelope.result;
+  }
+
   // ───────────────────────────────────────────────────────────────────────
   // The transaction
   // ───────────────────────────────────────────────────────────────────────
@@ -430,25 +625,20 @@ export class CheckInService {
         ageMinutes >= this.gym.checkinStaleVisitHours * 60 ||
         civilDateFromPrisma(open.businessDate) !== ctx.today;
 
-      if (!stale && ageMinutes < this.gym.checkinMinSessionMinutes) {
-        // Someone re-scanning immediately is confused, not leaving. A slot is
-        // consumed, no row is written.
-        return this.finish(tx, ctx, {
-          outcome: 'ALREADY_INSIDE',
-          checkIn: open,
-          checkOutAvailableAt: this.checkOutAvailableAt(open.occurredAt),
-        });
-      }
-
       if (!stale) {
-        const closed = await this.closeVisit(tx, ctx, open, 'STATION_QR');
-        if (closed !== null) {
-          // MEMBERSHIP IS NEVER EVALUATED ON THE WAY OUT. A member whose term
-          // expired mid-session must still be able to check out.
-          return this.finish(tx, ctx, { outcome: 'CHECKED_OUT', checkIn: closed });
-        }
-        // Lost the close race. Fall through: the winner already closed it, so
-        // the admit path below either reopens or opens a fresh visit.
+        // A SECOND SCAN NEVER CHECKS ANYONE OUT BY ITSELF (owner, 2026-10-20).
+        // It used to close the visit once it was CHECKIN_MIN_SESSION_MINUTES
+        // old, which made a confused re-scan a departure and made the feature
+        // untestable for twenty minutes. Now it is ALREADY_INSIDE at any age:
+        // the slot is consumed, the StationScan row is stamped with this
+        // visit's id, and the phone offers a Check out button that calls
+        // `confirmCheckOut` — which accepts that stamped scan as its proof of
+        // presence for CHECK_OUT_CONFIRM_WINDOW_MS. No CheckIn row is written.
+        //
+        // A DESK ENTRY lands here too, and gets the same answer: staff close a
+        // visit with the explicit checkout on the desk console, never by
+        // recording the member a second time.
+        return this.finish(tx, ctx, { outcome: 'ALREADY_INSIDE', checkIn: open });
       } else {
         // An open visit older than CHECKIN_STALE_VISIT_HOURS, or carrying an
         // earlier businessDate, is not a live session — it is Monday's visit
@@ -581,10 +771,6 @@ export class CheckInService {
           checkIn: reopened.checkIn,
           verdict,
           subject: loaded.subject,
-          checkOutAvailableAt:
-            reopened.outcome === 'ALREADY_INSIDE'
-              ? this.checkOutAvailableAt(reopened.checkIn.occurredAt)
-              : undefined,
         });
       }
       // The walk-in row was voided or raced away between the ladder's read and
@@ -659,7 +845,6 @@ export class CheckInService {
           checkIn: existing,
           verdict,
           subject: loaded.subject,
-          checkOutAvailableAt: this.checkOutAvailableAt(existing.occurredAt),
         });
       }
       // The sentinel cleared between the insert and this read — the other
@@ -876,6 +1061,21 @@ export class CheckInService {
     const membership = outcome.subject?.membership ?? null;
     const checkIn = outcome.checkIn ?? null;
 
+    // Only a member holding the phone can confirm a check-out — a desk entry
+    // has no station and no button to press — and only off a code that was
+    // still current. An EXPIRED token is still a recognisable second scan, so
+    // it answers ALREADY_INSIDE, but it proves nothing about where the member
+    // is. GYM_CLOSED is deliberately NOT excluded: a member still inside
+    // after closing must be able to leave.
+    const checkOutOffered =
+      outcome.outcome === 'ALREADY_INSIDE' &&
+      checkIn !== null &&
+      ctx.station !== null &&
+      !(
+        ctx.preVerdict.kind === 'DENY' &&
+        ctx.preVerdict.reason === DenialReason.STATION_TOKEN_EXPIRED
+      );
+
     const presentation: CheckInPresentation = presentCheckIn({
       outcome: outcome.outcome,
       // CHECKED_OUT deliberately passes null: the goodbye card must not read
@@ -883,13 +1083,16 @@ export class CheckInService {
       verdict: outcome.outcome === 'CHECKED_OUT' ? null : verdict,
       firstName: ctx.profile.firstName,
       membership,
-      occurredAt: ctx.now,
+      // "Since 3:05 PM" on the already-inside card is when the VISIT began,
+      // not this scan.
+      occurredAt:
+        outcome.outcome === 'ALREADY_INSIDE' && checkIn !== null ? checkIn.occurredAt : ctx.now,
       timeZone: this.gym.timeZone,
       sessionMinutes:
         outcome.outcome === 'CHECKED_OUT' && checkIn?.endedAt != null
           ? (checkIn.endedAt.getTime() - checkIn.occurredAt.getTime()) / 60_000
           : null,
-      checkOutAvailableAt: outcome.checkOutAvailableAt ?? null,
+      checkOutOffered,
       reopenWindowMinutes: this.reopenWindowMinutes,
     });
 
@@ -940,7 +1143,9 @@ export class CheckInService {
               reason: outcome.denial.reason,
               memberMessage: presentation.memberMessage ?? presentation.display.detail ?? '',
             },
-      checkOutAvailableAt: outcome.checkOutAvailableAt?.toISOString() ?? null,
+      // Stored in the scan's responseSnapshot, where `confirmCheckOut` reads
+      // it back as part of the proof.
+      checkOutOffered,
       nextStep: presentation.nextStep,
       membership: summary,
       // Null on a desk entry, which carries no station by construction.
@@ -1018,14 +1223,11 @@ export class CheckInService {
   // Small pure helpers
   // ───────────────────────────────────────────────────────────────────────
 
-  private get minSessionMs(): number {
-    return this.gym.checkinMinSessionMinutes * 60_000;
-  }
-
   /**
    * The reopen window: re-entry grace with the min-session as its floor, so
    * REENTRY_GRACE=0 disables the grace without killing the §6.6.4
-   * scanned-by-mistake undo.
+   * scanned-by-mistake undo. This is the ONLY remaining reader of
+   * CHECKIN_MIN_SESSION_MINUTES — it no longer gates a check-out.
    */
   private get reopenWindowMinutes(): number {
     return Math.max(this.gym.checkinReentryGraceMinutes, this.gym.checkinMinSessionMinutes);
@@ -1033,10 +1235,6 @@ export class CheckInService {
 
   private get reopenWindowMs(): number {
     return this.reopenWindowMinutes * 60_000;
-  }
-
-  private checkOutAvailableAt(occurredAt: Date): Date {
-    return new Date(occurredAt.getTime() + this.minSessionMs);
   }
 
   /**
@@ -1180,7 +1378,6 @@ interface OutcomeInput {
   denial?: { id: string; reason: DenialReason };
   verdict?: AccessResult;
   subject?: AccessSubject;
-  checkOutAvailableAt?: Date;
 }
 
 interface Decided {
@@ -1196,6 +1393,20 @@ interface Decided {
  * write" in a table where every other row's hash is meaningful.
  */
 const NO_IDEMPOTENCY_HASH = '0'.repeat(64);
+
+/**
+ * How recent the member's `ALREADY_INSIDE` scan must be for the Check out
+ * button to close their visit — and how long a double tap keeps answering
+ * with the same CHECKED_OUT card. Two minutes is long enough to read the card
+ * and tap, short enough that a screenshot of it is worthless from home
+ * (owner-approved, 2026-10-20). A constant, not env: it is a security bound,
+ * not a gym preference.
+ */
+export const CHECK_OUT_CONFIRM_WINDOW_MS = 2 * 60_000;
+
+function checkOutNotOpen(): DomainException {
+  return new DomainException('CHECK_OUT_NOT_OPEN', "You're not checked in.", HttpStatus.CONFLICT);
+}
 
 /** Renderable with no membership at all — this is never a 404 state. */
 const EMPTY_MEMBERSHIP_SUMMARY: CheckInMembershipSummary = {

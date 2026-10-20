@@ -57,3 +57,42 @@ export interface User {
  * data and have no business appearing anywhere a user is listed to others.
  */
 export type PublicUser = Pick<User, 'id' | 'firstName' | 'lastName' | 'avatarUrl' | 'role'>;
+
+/**
+ * The caller's own editable profile — `GET`/`PATCH /me/profile`.
+ *
+ * Separate from `GET /me` on purpose: `/me` is fetched by every portal screen
+ * and refreshed on focus, and `medicalNotes` is sensitive personal information
+ * (RA 10173 §3(l)) that only the account page needs. `email` is read-only
+ * here — it changes through Supabase's confirmed email change, and the API
+ * copies it from the verified token on the next request.
+ */
+export interface MyProfile {
+  email: string;
+  heightCm: number | null;
+  weightKg: number | null;
+  medicalNotes: string | null;
+  /** The member's opt-in: medical notes reach the AI planner only when true. */
+  shareMedicalWithPlanner: boolean;
+}
+
+/** The `PATCH /me/profile` body. Every field optional; `null` clears it. */
+export interface MyProfilePatch {
+  heightCm?: number | null;
+  weightKg?: number | null;
+  medicalNotes?: string | null;
+  shareMedicalWithPlanner?: boolean;
+}
+
+/**
+ * Bounds the API enforces and the account page checks before Save. One copy,
+ * two runtimes. The SAME bounds sign-up accepts (server jwt-verifier.ts), so
+ * any value already stored can be saved back unchanged.
+ */
+export const PROFILE_LIMITS = {
+  heightCmMin: 50,
+  heightCmMax: 260,
+  weightKgMin: 20,
+  weightKgMax: 400,
+  medicalNotesMax: 2000,
+} as const;

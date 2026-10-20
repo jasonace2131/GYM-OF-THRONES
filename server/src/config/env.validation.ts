@@ -107,8 +107,9 @@ const envSchema = z
     GYM_EGRESS_CIDRS: z.string().default(''),
 
     // ── Attendance and housekeeping ──────────────────────────────────────
-    // Below this, a second scan is a no-op rather than a check-out (§6.6.1).
-    // It is also the FLOOR of the reopen window below.
+    // The FLOOR of the reopen window below — and, since 2026-10-20, nothing
+    // else. It no longer gates a check-out: a second scan at any age offers a
+    // Check out button and the member confirms it (POST /checkin/checkout).
     CHECKIN_MIN_SESSION_MINUTES: z.coerce.number().int().min(0).max(120).default(20),
     // Re-entry grace: a scan within this many minutes of the member's OWN
     // QR check-out reopens the same visit — left something at home, stepped

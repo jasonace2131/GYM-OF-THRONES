@@ -103,8 +103,15 @@ export class WorkoutPlansService {
     const progress = await this.progress.memberProgress(actor, memberId, scope, now);
     this.gemini.assertEnabled(PLAN_COPY);
 
-    const checkIns = await this.checkIns.summary(progress.member.id, now);
-    const context = buildPlanContext(progress, checkIns, gymToday(now, this.gym.timeZone));
+    const [checkIns, account] = await Promise.all([
+      this.checkIns.summary(progress.member.id, now),
+      // The member's own height (My account) — ahead of a measured one.
+      this.prisma.user.findUnique({
+        where: { id: progress.member.id },
+        select: { heightCm: true },
+      }),
+    ]);
+    const context = buildPlanContext(progress, checkIns, gymToday(now, this.gym.timeZone), account);
     const prompt = planPrompt(context);
 
     const { model, value, attempts, startedAt } = await this.gemini.rotate(

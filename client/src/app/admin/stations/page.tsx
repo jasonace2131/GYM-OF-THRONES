@@ -210,7 +210,7 @@ export default function AdminStationsPage() {
                 </div>
                 {station.credentials.length === 0 ? (
                   <span className="p-muted">
-                    No tablet is connected yet. Press “Set up a tablet” above it takes about a minute.
+                    No tablet is connected yet. Press “Set up a tablet” above — it takes about a minute.
                   </span>
                 ) : (
                   <div className="a-scroll">

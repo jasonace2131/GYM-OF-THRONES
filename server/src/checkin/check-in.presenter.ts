@@ -92,8 +92,12 @@ export interface CheckInPresentationInput {
   timeZone: string;
   /** `CHECKED_OUT` only. */
   sessionMinutes: number | null;
-  /** `ALREADY_INSIDE` only. */
-  checkOutAvailableAt: Date | null;
+  /**
+   * `ALREADY_INSIDE` only: whether the phone will show a Check out button
+   * under this card. True on a member's own station scan; false on a desk
+   * entry, where "check out below" would point at nothing.
+   */
+  checkOutOffered: boolean;
   /**
    * How long after a check-out a scan reopens the same visit — the re-entry
    * grace with the min-session as its floor. Rendered on the GOODBYE card;
@@ -181,7 +185,9 @@ export function presentCheckIn(input: CheckInPresentationInput): CheckInPresenta
           headline: alreadyInside ? HEADLINES.ALREADY_INSIDE : HEADLINES.WELCOME,
           subhead: alreadyInside ? `Since ${time}.` : identity,
           detail: alreadyInside
-            ? checkOutLine(input.checkOutAvailableAt, input.timeZone)
+            ? input.checkOutOffered
+              ? CHECK_OUT_PROMPT
+              : null
             : planLine(input.membership),
         },
         nextStep: null,
@@ -251,13 +257,11 @@ function planLine(membership: MembershipSnapshot | null): string | null {
 }
 
 /**
- * Naming the exact clock time is the whole fix. "Try again later" generates a
- * conversation at the desk every single time (§9.4).
+ * A second scan never checks anyone out by itself (owner, 2026-10-20): it
+ * offers the check-out, and the member confirms it with the button this line
+ * points at.
  */
-function checkOutLine(availableAt: Date | null, timeZone: string): string {
-  if (availableAt === null) return 'Scan again later to check out.';
-  return `Scan again after ${gymClockTime(availableAt, timeZone)} to check out.`;
-}
+const CHECK_OUT_PROMPT = 'Leaving? Check out below.';
 
 function relevantShortDate(verdict: AccessResult | null): string | null {
   const day: CivilDate | null | undefined = verdict?.relevantDate;

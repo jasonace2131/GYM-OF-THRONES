@@ -274,7 +274,7 @@ export class WorkoutDraftService {
 
   private async facts(memberId: string, intake: WorkoutIntake, now: Date) {
     const today = gymToday(now, this.gym.timeZone);
-    const [progress, checkIns, bookings, hours] = await Promise.all([
+    const [progress, checkIns, bookings, hours, account] = await Promise.all([
       intake.use.measurements ? this.progress.summary(memberId, now) : null,
       intake.use.attendance ? this.checkIns.summary(memberId, now) : null,
       intake.use.bookings
@@ -285,8 +285,29 @@ export class WorkoutDraftService {
           )
         : null,
       this.hours.week(),
+      // The member's account page: height and weight (ahead of a recorded
+      // measurement), and their medical notes if they opted in
+      // (member-plan-prompt).
+      this.prisma.user.findUnique({
+        where: { id: memberId },
+        select: {
+          heightCm: true,
+          weightKg: true,
+          medicalNotes: true,
+          shareMedicalWithPlanner: true,
+        },
+      }),
     ]);
-    return { progress, checkIns, bookings, hours, today, now, timeZone: this.gym.timeZone };
+    return {
+      progress,
+      checkIns,
+      bookings,
+      hours,
+      today,
+      now,
+      timeZone: this.gym.timeZone,
+      account,
+    };
   }
 
   /** One model's try. Throws UnusableReplyError (rotate) or DraftGoneError (stop). */

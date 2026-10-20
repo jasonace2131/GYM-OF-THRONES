@@ -172,11 +172,27 @@ function goalPercent(
   return Math.max(0, Math.min(100, Math.round((done / span) * 100)));
 }
 
+/** What the member typed on My account. Metric, as `User` stores it. */
+export interface AccountBody {
+  heightCm: number | null;
+  weightKg: number | null;
+}
+
+/**
+ * OWNER, 2026-10-20: THE MEMBER IS THE SOURCE OF TRUTH FOR HEIGHT AND WEIGHT.
+ * When the member has set them on My account, `latestWeightGrams` and the BMI
+ * come from those values; a coach's measurements fill only a value the member
+ * has not set, and stay the history — the trend (`changeGrams`) is still
+ * measured from them. Everybody who sees this summary (the member, their
+ * coach, the console's coach drill-down) already saw these two numbers; only
+ * their source changed.
+ */
 export function summarise(
   measurements: readonly MeasurementDto[],
   goals: readonly MemberGoalDto[],
   _today: CivilDate,
   coach: ProgressCoach | null = null,
+  account: AccountBody | null = null,
 ): ProgressSummary {
   // Only entries that actually carry a weight — a height-only row must not
   // become a point on the weight trend.
@@ -195,10 +211,10 @@ export function summarise(
   return {
     measurements: [...measurements],
     goals: [...goals],
-    latestWeightGrams: latest?.weightGrams ?? null,
+    latestWeightGrams: currentWeightGrams(latest, account),
     changeGrams: hasTrend ? latest.weightGrams - first.weightGrams : null,
     changeOverDays: hasTrend ? civilDaysBetween(first.businessDate, latest.businessDate) : null,
-    bmiThousandths: bmi(latest, measurements),
+    bmiThousandths: bmi(currentWeightGrams(latest, account), measurements, account),
     coach,
   };
 }
@@ -212,15 +228,26 @@ export function summarise(
  * without re-measuring their height.
  */
 function bmi(
-  latest: (MeasurementDto & { weightGrams: number }) | null,
+  weightGrams: number | null,
   all: readonly MeasurementDto[],
+  account: AccountBody | null,
 ): number | null {
-  if (latest === null) return null;
+  if (weightGrams === null) return null;
 
-  const withHeight = [...all].reverse().find((m) => m.heightMm !== null);
-  if (withHeight?.heightMm == null) return null;
+  const accountMm = account?.heightCm == null ? null : Math.round(account.heightCm * 10);
+  const heightMm = accountMm ?? [...all].reverse().find((m) => m.heightMm !== null)?.heightMm;
+  if (heightMm == null) return null;
 
-  const metres = withHeight.heightMm / 1000;
-  const kg = latest.weightGrams / 1000;
+  const metres = heightMm / 1000;
+  const kg = weightGrams / 1000;
   return Math.round((kg / (metres * metres)) * 1000);
+}
+
+/** The member's own weight when set, else the latest weigh-in. Grams. */
+function currentWeightGrams(
+  latest: (MeasurementDto & { weightGrams: number }) | null,
+  account: AccountBody | null,
+): number | null {
+  if (account?.weightKg != null) return Math.round(account.weightKg * 1000);
+  return latest?.weightGrams ?? null;
 }

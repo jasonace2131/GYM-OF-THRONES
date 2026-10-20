@@ -67,7 +67,7 @@ describe('WorkoutPlansService', () => {
   let generateContent: jest.Mock;
   let getGenerativeModel: jest.Mock;
   let prisma: {
-    user: { findFirst: jest.Mock };
+    user: { findFirst: jest.Mock; findUnique: jest.Mock };
     workoutPlan: { findUnique: jest.Mock; upsert: jest.Mock };
   };
   let progress: { memberProgress: jest.Mock };
@@ -124,6 +124,7 @@ describe('WorkoutPlansService', () => {
         findFirst: jest
           .fn()
           .mockResolvedValue({ id: MEMBER_ID, firstName: 'Maria', lastName: 'Santos' }),
+        findUnique: jest.fn().mockResolvedValue({ heightCm: 182 }),
       },
       workoutPlan: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -179,6 +180,19 @@ describe('WorkoutPlansService', () => {
         responseSchema: WORKOUT_PLAN_RESPONSE_SCHEMA,
       });
       expect(prisma.workoutPlan.upsert).not.toHaveBeenCalled();
+    });
+
+    it("sends the member's own account height", async () => {
+      generateContent.mockResolvedValue(reply(JSON.stringify(PLAN)));
+
+      await build().suggest(COACH, MEMBER_ID, scope, NOW);
+
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: MEMBER_ID },
+        select: { heightCm: true },
+      });
+      const [prompt] = generateContent.mock.calls[0] as [string];
+      expect(prompt).toContain('"heightCm":182');
     });
 
     it('sends the model no name, member code or id', async () => {

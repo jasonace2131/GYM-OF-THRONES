@@ -84,7 +84,7 @@ describe('portal nav', () => {
     expect(labels(portalVisibleNav(CLIENT_PERMISSIONS))).toEqual({
       Main: ['Dashboard', 'Workouts', 'Class Schedule', 'My Bookings', 'Check-in History'],
       Membership: ['My Subscription', 'Pay / GCash'],
-      More: ['Check In', 'My Progress', 'My Coach', 'Ask the Gym'],
+      More: ['Check In', 'My Progress', 'My Coach', 'Ask the Gym', 'My Account'],
     });
   });
 
@@ -125,7 +125,7 @@ describe('portal nav', () => {
       Main: ['Dashboard', 'Workouts', 'Class Schedule', 'My Bookings', 'Check-in History'],
       Membership: ['My Subscription', 'Pay / GCash'],
       Coaching: ['My Clients', 'Messages'],
-      More: ['Check In', 'My Progress', 'My Coach', 'Ask the Gym'],
+      More: ['Check In', 'My Progress', 'My Coach', 'Ask the Gym', 'My Account'],
     });
   });
 
@@ -133,6 +133,13 @@ describe('portal nav', () => {
     expect(labels(portalVisibleNav(null))).toEqual({
       Main: ['Dashboard', 'Class Schedule'],
     });
+  });
+
+  // feat/member-account: the member's own email, password and body numbers.
+  it('points My Account at the account page and titles it', () => {
+    const more = portalVisibleNav(CLIENT_PERMISSIONS).find((g) => g.heading === 'More');
+    expect(more?.items.find((i) => i.label === 'My Account')?.href).toBe('/portal/account');
+    expect(titleForPath('/portal/account')).toBe('My Account');
   });
 
   it("titles a client's own page after My Clients, which it was reached from", () => {

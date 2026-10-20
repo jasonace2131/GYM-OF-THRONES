@@ -39,7 +39,9 @@ model StationScan {
 
   // The exact rendered body, written in the claiming transaction. This is what
   // makes "the replay returns an identical response" literally true instead of
-  // approximately true — ALREADY_INSIDE links to no row at all, and membership
+  // approximately true — ALREADY_INSIDE writes no CheckIn of its own (it is
+  // stamped with the OPEN visit's id, which is what POST /checkin/checkout
+  // accepts as proof of presence for two minutes), and membership
   // summaries and visit counts legitimately change between two presentations
   // of one code.
   responseSnapshot Json?

@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Badge, Card, CardHead } from './ui';
 import { ApiError } from '@/lib/api';
 import { gcashApi, MAX_PROOF_BYTES, type MyGcashSubmission } from '@/lib/gcashApi';
+import { readGcashReference } from '@/lib/gcashReceiptRef';
 import { formatGymTime } from '@/lib/gymTime';
 
 /**
@@ -68,6 +69,57 @@ export function GcashClaimCard({
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // Reading the Ref No. off the screenshot. A typing aid only: it fills the
+  // field only while the member has not typed into it, and submit never waits
+  // for it. `readSeq` numbers each read so that when a member picks a second
+  // screenshot before the first is read, the first one's late answer is thrown
+  // away instead of filling in the wrong receipt's number.
+  const [refStatus, setRefStatus] = useState<null | 'reading' | 'filled' | 'failed'>(null);
+  const readSeq = useRef(0);
+  // The field's value as of right now, for a read that resolves later than the
+  // render that started it. Every write to `reference` goes through here.
+  const referenceNow = useRef('');
+  // What WE last put in the field, until the member edits it. Picking the wrong
+  // screenshot first is the common slip; without this the wrong receipt's
+  // number would sit in the field, unflagged, and the right one never be read.
+  const autoFilled = useRef<string | null>(null);
+  const refHelperId = useId();
+  const refStatusId = useId();
+  const changeReference = (value: string): void => {
+    referenceNow.current = value;
+    setReference(value);
+  };
+  const fieldIsOurs = (): boolean =>
+    referenceNow.current.trim() === '' || referenceNow.current === autoFilled.current;
+
+  const pickFile = (picked: File | null): void => {
+    setFile(picked);
+    const seq = ++readSeq.current;
+    if (picked === null || !fieldIsOurs()) {
+      setRefStatus(null);
+      return;
+    }
+    setRefStatus('reading');
+    void readGcashReference(picked).then((found) => {
+      if (seq !== readSeq.current) return;
+      // The member may have typed while we were reading; theirs wins.
+      if (!fieldIsOurs()) {
+        setRefStatus(null);
+        return;
+      }
+      if (found === null) {
+        // Don't leave the previous receipt's number standing as if it were this one's.
+        autoFilled.current = null;
+        changeReference('');
+        setRefStatus('failed');
+        return;
+      }
+      autoFilled.current = found;
+      changeReference(found);
+      setRefStatus('filled');
+    });
+  };
+
   const reload = useCallback(async () => {
     setMine(await gcashApi.mine());
   }, []);
@@ -111,8 +163,11 @@ export function GcashClaimCard({
       });
 
       setOpen(false);
-      setReference('');
+      changeReference('');
+      autoFilled.current = null;
       setFile(null);
+      readSeq.current += 1;
+      setRefStatus(null);
       if (fileRef.current !== null) fileRef.current.value = '';
       await reload();
       onSubmitted?.();
@@ -183,22 +238,47 @@ export function GcashClaimCard({
             </select>
           </label>
 
-          <label style={{ display: 'grid', gap: 5 }}>
-            <span className="p-muted" style={{ fontSize: 12, letterSpacing: '0.06em' }}>
-              REFERENCE NUMBER
-            </span>
-            <input
-              className="a-input"
-              value={reference}
-              required
-              inputMode="numeric"
-              placeholder="e.g. 6041 342 312154"
-              onChange={(event) => setReference(event.target.value)}
-            />
-            <span className="p-muted" style={{ fontSize: 12 }}>
-              On your receipt next to <strong>Ref No.</strong>
-            </span>
-          </label>
+          {/* The helper and the status line sit OUTSIDE the <label>, so they
+              describe the field (aria-describedby) instead of becoming part of
+              its name. The outer grid keeps them 5px under the input, as before. */}
+          <div style={{ display: 'grid', gap: 5 }}>
+            <label style={{ display: 'grid', gap: 5 }}>
+              <span className="p-muted" style={{ fontSize: 12, letterSpacing: '0.06em' }}>
+                REFERENCE NUMBER
+              </span>
+              <input
+                className="a-input"
+                value={reference}
+                required
+                inputMode="numeric"
+                placeholder="e.g. 6041 342 312154"
+                aria-describedby={refStatus === null ? refHelperId : refStatusId}
+                onChange={(event) => {
+                  autoFilled.current = null;
+                  changeReference(event.target.value);
+                  setRefStatus(null);
+                }}
+              />
+            </label>
+            <div className="p-muted" style={{ fontSize: 12 }}>
+              {refStatus === null ? (
+                <span id={refHelperId}>
+                  On your receipt next to <strong>Ref No.</strong>
+                </span>
+              ) : null}
+              {/* Always mounted: a live region added together with its text is
+                  often not announced. */}
+              <span id={refStatusId} role="status">
+                {refStatus === 'reading'
+                  ? 'Reading your receipt…'
+                  : refStatus === 'filled'
+                    ? 'Filled from your receipt — check it matches.'
+                    : refStatus === 'failed'
+                      ? 'Couldn’t read the Ref No. — type it in.'
+                      : null}
+              </span>
+            </div>
+          </div>
 
           <label style={{ display: 'grid', gap: 5 }}>
             <span className="p-muted" style={{ fontSize: 12, letterSpacing: '0.06em' }}>
@@ -210,7 +290,7 @@ export function GcashClaimCard({
               type="file"
               required
               accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              onChange={(event) => pickFile(event.target.files?.[0] ?? null)}
             />
             <span className="p-muted" style={{ fontSize: 12 }}>
               JPEG, PNG or WebP, up to {Math.round(MAX_PROOF_BYTES / 1024 / 1024)}MB.

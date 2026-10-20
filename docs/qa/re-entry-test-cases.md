@@ -17,19 +17,23 @@ The full second-scan ladder, for reference:
 
 | Scan, with an open visit | Outcome |
 |---|---|
-| age < 20 min (`CHECKIN_MIN_SESSION_MINUTES`) | `ALREADY_INSIDE` — a no-op; the card names the exact time checkout unlocks |
-| 20 min ≤ age < 3 h, same day | `CHECKED_OUT` — the goodbye card says "Scan again within 60 minutes and it stays one visit" |
+| age < 3 h, same day — **any** age, even 1 minute | `ALREADY_INSIDE` — nothing closes. The card reads "Leaving? Check out below." with a gold **Check out** and a ghost **Stay checked in** |
+| …then **Check out** tapped within 2 min of that scan | `CHECKED_OUT` (`POST /checkin/checkout`) — the goodbye card says "Scan again within 60 minutes and it stays one visit" |
 | ≥ 3 h (`CHECKIN_STALE_VISIT_HOURS`) or earlier date | old visit `STALE_CLOSE`d + a new one opened (`RECHECKED_IN`) |
+
+"QR out" below always means **scan, then tap Check out**. A second scan on
+its own never checks anyone out (owner, 2026-10-20; it replaced the old
+20-minute automatic checkout).
 
 | Scan, with no open visit | Outcome |
 |---|---|
 | own QR check-out within the grace window, same business date | `REOPENED` |
 | otherwise | new `CHECKED_IN`, counted against the daily ceiling |
 
-**Member who left WITHOUT scanning out**: their return scan lands in the
-20 min–3 h band and reads as a check-out. The goodbye card tells them to scan
-again; the second scan reopens. Two taps — the server cannot read intent, and
-the pre-flight banner ("scanning again checks you out") is the warning shot.
+**Member who left WITHOUT scanning out**: their return scan (inside 3 h) is
+`ALREADY_INSIDE`; they tap **Stay checked in** and the original visit simply
+continues. Nothing to undo — the confirm button is what stops a return from
+reading as a departure.
 
 **Daily-ceiling override is real now**: an ADMIN overriding a
 `CHECKIN_DAILY_LIMIT` denial (rail → Override) bypasses exactly that ceiling
@@ -43,11 +47,15 @@ ladder — an expired member's path stays the ₱90 rail conversion.
 - [ ] A2 · QR in again after ~40 min away → green card, portal history shows ONE visit; DB row has `reopenCount = 1`, `endedAt` null
 - [ ] A3 · Repeat out-and-in twice more within the window → still one row, `reopenCount` climbs; duration keeps accumulating from the original arrival
 - [ ] A4 · QR out, wait past 60 min, QR in → a SECOND visit row; both show in history; visit 2 of 8 consumed
-- [ ] A5 · Pre-flight: while checked in, open the check-in screen → banner says scanning again checks you out
+- [ ] A5 · Pre-flight: while checked in, open the check-in screen → banner says "scan again when you leave to check out"
+- [ ] A6 · Scan while checked in → "You're already in." + **Check out** / **Stay checked in**; tap **Stay checked in** → back to the scanner, visit still open, desk shows nothing new
+- [ ] A7 · Scan while checked in, tap **Check out** → "Checked out." with session times and **Check in again**; desk console and Admin Attendance show the check-out live
+- [ ] A8 · Scan while checked in, wait more than 2 minutes, tap **Check out** → "Not checked out." with "Scan the code at the desk again to check out."; visit still open
 
 ## B. The edges
 
-- [ ] B1 · Scan twice within 20 min of arrival → `ALREADY_INSIDE`, no accidental checkout, card names the unlock time
+- [ ] B1 · Scan twice within a minute of arrival → `ALREADY_INSIDE`, no accidental checkout; **Check out** works straight away (no 20-minute wait)
+- [ ] B1b · Desk records a member who is already inside → `ALREADY_INSIDE`, nothing closed (staff use the explicit **Check out** on the attendance screen)
 - [ ] B2 · Desk `Check out` on the attendance screen, then the member QRs in within 60 min → a NEW visit (a staff close is a decision, not a mistake to undo)
 - [ ] B3 · Near closing: QR out at 23:5x, QR in past midnight within the window → a new visit on the new business date, never a reopen of yesterday's row
 - [ ] B4 · Membership expires mid-day? A reopen does not re-run the door ladder (same-day only, documented) — but a fresh visit beyond the window does, and denies

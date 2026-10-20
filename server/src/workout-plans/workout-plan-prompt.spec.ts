@@ -100,6 +100,20 @@ describe('buildPlanContext', () => {
     expect(context.attendance).toEqual({ visitsLast30Days: 4, averageVisitsPerWeek: 2.4 });
   });
 
+  // Owner, 2026-10-20: the member's own height (My account) comes first; the
+  // weight and BMI arrive already account-first in the progress summary.
+  it("uses the member's account height ahead of a measured one", () => {
+    const context = buildPlanContext(progress(), checkIns, today, { heightCm: 182 });
+    expect(context.latest.heightCm).toBe(182);
+  });
+
+  it('falls back to the measured height when the account has none', () => {
+    const measured = buildPlanContext(progress(), checkIns, today).latest.heightCm;
+    expect(buildPlanContext(progress(), checkIns, today, { heightCm: null }).latest.heightCm).toBe(
+      measured,
+    );
+  });
+
   it('says nothing it does not know', () => {
     const context = buildPlanContext(
       progress({

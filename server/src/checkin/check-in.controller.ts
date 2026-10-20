@@ -6,6 +6,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { CheckInDto } from './dto/check-in.dto';
+import { CheckOutDto } from './dto/check-out.dto';
 import { CheckInService } from './check-in.service';
 
 /**
@@ -70,6 +71,32 @@ export class CheckInController {
     @Req() request: Request,
   ): Promise<CheckInResult> {
     return this.checkIns.recordStationScan(user, dto.stationToken, request.ip);
+  }
+
+  /**
+   * `POST /api/v1/checkin/checkout` — the Check out button under the card a
+   * second scan showed (owner, 2026-10-20). A second scan never closes a visit
+   * by itself any more; this route does, and only within two minutes of that
+   * scan, which is its proof the member is at the gym.
+   *
+   * Unlike the scan, this one THROWS on refusal (409 CHECK_OUT_NOT_OPEN, 403
+   * CHECK_OUT_SCAN_REQUIRED): it is not a door decision, and the phone shows
+   * the server's message on a "Not checked out." card.
+   *
+   * No `@Scope()`: the visit id in the body is checked against the JWT's own
+   * user, so it can never name somebody else's visit. No `@Idempotent()`: a
+   * repeat tap inside the window returns the same CHECKED_OUT card by design.
+   */
+  @Post('checkout')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('checkin.self')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async checkOut(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CheckOutDto,
+    @Req() request: Request,
+  ): Promise<CheckInResult> {
+    return this.checkIns.confirmCheckOut(user, dto.checkInId, request.ip);
   }
 }
 

@@ -91,7 +91,7 @@ export class ProgressService {
 
   /** A member's progress. The caller has already decided who may see it. */
   async summary(userId: string, now: Date = new Date()): Promise<ProgressSummary> {
-    const [measurements, goals, assignment] = await Promise.all([
+    const [measurements, goals, assignment, account] = await Promise.all([
       this.prisma.bodyMeasurement.findMany({
         where: { userId },
         // Oldest first: the trend chart reads left to right, and reversing in
@@ -113,6 +113,12 @@ export class ProgressService {
         where: { activeMemberId: userId },
         select: { coach: { select: { firstName: true, lastName: true, deletedAt: true } } },
       }),
+      // The member's own height and weight from My account — the current
+      // numbers (owner, 2026-10-20); measurements are the history.
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { heightCm: true, weightKg: true },
+      }),
     ]);
 
     // A soft-deleted coach is nobody's coach: the member is told to ask for a
@@ -127,6 +133,7 @@ export class ProgressService {
       goals.map(toGoal),
       gymToday(now, this.gym.timeZone),
       coach,
+      account,
     );
   }
 

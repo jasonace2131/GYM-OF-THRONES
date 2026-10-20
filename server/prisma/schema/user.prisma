@@ -78,6 +78,11 @@ model User {
   /// medical note is not something a stranger reads over the counter.
   medicalNotes String?
 
+  /// The member's opt-in (My account, owner 2026-10-20): `medicalNotes` reach
+  /// the AI workout planner's prompts (plan, swap, adjust) ONLY when true.
+  /// Off by default; the member ticks it themselves.
+  shareMedicalWithPlanner Boolean @default(false)
+
   /// Collected at registration since the first version and DISCARDED at every
   /// layer until now — required on the input, absent from the signUp payload,
   /// no column. The system could not answer "is this member a minor?" for

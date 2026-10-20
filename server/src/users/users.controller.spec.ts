@@ -1,6 +1,7 @@
 import { UsersController } from './users.controller';
 import { PermissionsService } from '../rbac/permissions.service';
 import type { AuthUser } from '../auth/auth.types';
+import type { MyProfileService } from './my-profile.service';
 
 const USER: AuthUser = {
   id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -20,9 +21,14 @@ describe('UsersController', () => {
   const getEffectivePermissions = jest
     .fn()
     .mockResolvedValue([{ key: 'checkin.self', scope: 'OWN' }]);
-  const controller = new UsersController({
-    getEffectivePermissions,
-  } as unknown as PermissionsService);
+  const profiles = {
+    get: jest.fn().mockResolvedValue({ email: USER.email }),
+    update: jest.fn().mockResolvedValue({ email: USER.email }),
+  };
+  const controller = new UsersController(
+    { getEffectivePermissions } as unknown as PermissionsService,
+    profiles as unknown as MyProfileService,
+  );
 
   it("returns the current user's profile with effective permissions", async () => {
     await expect(controller.me(USER)).resolves.toEqual({
@@ -46,5 +52,15 @@ describe('UsersController', () => {
     const body = await controller.me(USER);
     expect(body).not.toHaveProperty('supabaseId');
     expect(body).not.toHaveProperty('permissionVersion');
+  });
+
+  it("GET /me/profile reads the caller's own profile, by the token's user id", async () => {
+    await controller.profile(USER);
+    expect(profiles.get).toHaveBeenCalledWith(USER.id);
+  });
+
+  it("PATCH /me/profile updates the caller's own profile, by the token's user id", async () => {
+    await controller.updateProfile(USER, { weightKg: 70 });
+    expect(profiles.update).toHaveBeenCalledWith(USER.id, { weightKg: 70 });
   });
 });

@@ -89,7 +89,11 @@ describe('WorkoutDraftService', () => {
     deleteMany: jest.Mock;
     updateMany: jest.Mock;
   };
-  let prisma: { memberWorkoutDraft: typeof draft; $transaction: jest.Mock };
+  let prisma: {
+    memberWorkoutDraft: typeof draft;
+    user: { findUnique: jest.Mock };
+    $transaction: jest.Mock;
+  };
   let quota: { charge: jest.Mock; refund: jest.Mock; view: jest.Mock };
   let logs: string[];
 
@@ -158,6 +162,14 @@ describe('WorkoutDraftService', () => {
     };
     prisma = {
       memberWorkoutDraft: draft,
+      user: {
+        findUnique: jest.fn().mockResolvedValue({
+          heightCm: 175,
+          weightKg: 72,
+          medicalNotes: 'Bad left knee',
+          shareMedicalWithPlanner: true,
+        }),
+      },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     };
     quota = {
@@ -292,6 +304,22 @@ describe('WorkoutDraftService', () => {
       const [prompt] = generateContentStream.mock.calls[0] as [string];
       expect(prompt).not.toContain(MEMBER);
       expect(prompt).toContain('"goalNotes":"Bigger arms"');
+    });
+
+    it("reads the member's account-page values and sends the medical notes", async () => {
+      generateContentStream.mockResolvedValue(streamOf(GOOD_LINES.join('\n')));
+      await build().run(MEMBER, 'job-1', parsedIntake(), STARTED);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: MEMBER },
+        select: {
+          heightCm: true,
+          weightKg: true,
+          medicalNotes: true,
+          shareMedicalWithPlanner: true,
+        },
+      });
+      const [prompt] = generateContentStream.mock.calls[0] as [string];
+      expect(prompt).toContain('"medicalNotes":"Bad left knee"');
     });
 
     it('resets the partial plan and rotates to the next model after a bad line', async () => {

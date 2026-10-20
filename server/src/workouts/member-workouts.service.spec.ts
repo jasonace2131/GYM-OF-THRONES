@@ -137,6 +137,7 @@ describe('MemberWorkoutsService', () => {
   let prisma: {
     memberWorkoutPlan: typeof plans;
     memberWorkoutDraft: typeof drafts;
+    user: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let quota: { charge: jest.Mock; refund: jest.Mock; view: jest.Mock };
@@ -198,6 +199,11 @@ describe('MemberWorkoutsService', () => {
     prisma = {
       memberWorkoutPlan: plans,
       memberWorkoutDraft: drafts,
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValue({ medicalNotes: 'Bad left knee', shareMedicalWithPlanner: false }),
+      },
       $transaction: jest.fn((fn: (tx: unknown) => Promise<unknown>) => fn(prisma)),
     };
     quota = {
@@ -474,6 +480,25 @@ describe('MemberWorkoutsService', () => {
       expect(quota.refund).not.toHaveBeenCalled();
     });
 
+    it('sends the medical notes only when the member opted in', async () => {
+      generateContent.mockResolvedValue(reply(ALTERNATIVES));
+      await build().swap(MEMBER, PLAN_ID, { weekday: 1, index: 1 }, NOW);
+      expect((generateContent.mock.calls[0] as [string])[0]).not.toContain('Bad left knee');
+
+      prisma.user.findUnique.mockResolvedValue({
+        medicalNotes: 'Bad left knee',
+        shareMedicalWithPlanner: true,
+      });
+      await build().swap(MEMBER, PLAN_ID, { weekday: 1, index: 1 }, NOW);
+      expect((generateContent.mock.calls[1] as [string])[0]).toContain(
+        '"medicalNotes":"Bad left knee"',
+      );
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: MEMBER },
+        select: { medicalNotes: true, shareMedicalWithPlanner: true },
+      });
+    });
+
     it('refunds and says "could not use" when every model answers badly', async () => {
       generateContent.mockResolvedValue(reply({ alternatives: [exercise()] }));
 
@@ -525,6 +550,21 @@ describe('MemberWorkoutsService', () => {
       expect(prompt).not.toContain('Bigger arms');
       expect(result.day.title).toBe('Shorter day');
       expect(result.quota).toEqual(QUOTA);
+    });
+
+    it('sends the medical notes only when the member opted in', async () => {
+      generateContent.mockResolvedValue(reply(day(1)));
+      await build().adjust(MEMBER, PLAN_ID, { weekday: 1, preset: 'SHORTER' }, NOW);
+      expect((generateContent.mock.calls[0] as [string])[0]).not.toContain('Bad left knee');
+
+      prisma.user.findUnique.mockResolvedValue({
+        medicalNotes: 'Bad left knee',
+        shareMedicalWithPlanner: true,
+      });
+      await build().adjust(MEMBER, PLAN_ID, { weekday: 1, preset: 'SHORTER' }, NOW);
+      expect((generateContent.mock.calls[1] as [string])[0]).toContain(
+        '"medicalNotes":"Bad left knee"',
+      );
     });
 
     it('treats a day for another weekday as unusable, and refunds', async () => {
