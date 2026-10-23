@@ -41,7 +41,7 @@ export function FinishScreen({
           <div className="flex flex-col items-center gap-2 text-center">
             <span
               aria-hidden
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-[linear-gradient(180deg,var(--gold-lit),var(--gold))] text-night shadow-[0_8px_24px_rgba(201,146,42,0.35)]"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-gold text-night"
             >
               <IconCheck size={32} strokeWidth={2.6} />
             </span>

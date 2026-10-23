@@ -162,13 +162,13 @@ export function CoachPlanPage() {
           <div className="flex flex-wrap gap-1.5">
             <Tag
               tone="info"
-              className="gap-[5px] px-[9px] py-[3px] text-[10.5px] tracking-[0.08em]"
+              className="gap-[5px] px-[9px] py-[3px] text-[11px] tracking-[0.08em]"
             >
               <IconPerson />
               {coachBadge(plan)}
             </Tag>
             {plan.isActive ? (
-              <Tag tone="ok" className="px-[9px] py-[3px] text-[10.5px]">
+              <Tag tone="ok" className="px-[9px] py-[3px] text-[11px]">
                 Active
               </Tag>
             ) : null}

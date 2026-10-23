@@ -33,6 +33,8 @@ import {
   type StationMode,
 } from '@/lib/stationAuth';
 import { supabase } from '@/lib/supabase';
+import { CODE_CHAR_CLASS, STATION_CODE_LENGTH } from '@got/shared';
+import { CODE_HINT, filterCodeTyping } from '@/lib/codeInput';
 
 /**
  * `/desk/station` — the panel members scan.
@@ -657,6 +659,7 @@ function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void })
                   autoComplete="off"
                   autoFocus
                   value={value}
+                  maxLength={128}
                   onChange={(e) => { setValue(e.target.value); setError(null); }}
                   placeholder="paste the key here"
                 />
@@ -666,12 +669,15 @@ function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void })
                 <span className="st-diag">
                   STATION CODE — label under the screen, e.g. ZDQA (optional if one station)
                 </span>
+                <span className="st-diag">{CODE_HINT}</span>
                 <input
                   className="st-input"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  // Upper-case; O→0 and I/L→1; only characters a station code can hold.
+                  onChange={(e) => setCode(filterCodeTyping(e.target.value, STATION_CODE_LENGTH))}
                   placeholder="leave blank if you only have one station"
-                  maxLength={4}
+                  maxLength={STATION_CODE_LENGTH}
+                  pattern={`${CODE_CHAR_CLASS}{${STATION_CODE_LENGTH}}`}
                 />
               </label>
 

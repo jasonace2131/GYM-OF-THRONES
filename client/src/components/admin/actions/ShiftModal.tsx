@@ -5,6 +5,7 @@ import { adminApi, peso } from '@/lib/adminApi';
 import { ApiError } from '@/lib/api';
 import { Modal, ModalError } from '../Modal';
 import { ConfirmDialog } from './ConfirmDialog';
+import { filterDecimalTyping, parsePesosToCentavos } from '@/lib/numberInput';
 
 /**
  * The cash drawer, opened or closed.
@@ -49,8 +50,10 @@ export function ShiftModal({
     onClose();
   };
 
-  const centavos = Math.round(Number(amount) * 100);
-  const valid = amount.trim() !== '' && Number.isFinite(centavos) && centavos >= 0;
+  // ₱0–₱100,000 with at most two decimals — the server's centavos ceiling.
+  const parsed = parsePesosToCentavos(amount, 100_000);
+  const centavos = parsed ?? 0;
+  const valid = parsed !== null;
 
   const submit = async (): Promise<void> => {
     setBusy(true);
@@ -113,7 +116,8 @@ export function ShiftModal({
               inputMode="decimal"
               autoComplete="off"
               placeholder="0"
-              onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
+              maxLength={9}
+              onChange={(event) => setAmount(filterDecimalTyping(event.target.value, 2))}
             />
           </div>
           {valid && centavos > 0 && <p className="a-field-hint">{peso(centavos, { decimals: true })}</p>}
@@ -128,6 +132,7 @@ export function ShiftModal({
               id="shift-note"
               className="a-input"
               value={note}
+              maxLength={500}
               autoComplete="off"
               placeholder="e.g. ₱20 short, gave change from own pocket"
               onChange={(event) => setNote(event.target.value)}

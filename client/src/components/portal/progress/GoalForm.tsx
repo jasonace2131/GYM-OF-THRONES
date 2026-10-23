@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { goalBody, goalProblem, type GoalForm as FormValues } from '@/lib/progress/progressView';
 import type { GoalBody } from '@/lib/progress/types';
+import { GOAL_VALUE_LIMIT, blockExponentKeys } from '@/lib/numberInput';
 
 const EMPTY: FormValues = { name: '', unit: 'kg', start: '', target: '' };
 const fieldLabel = { display: 'grid', gap: 5, flex: '1 1 110px', minWidth: 0 } as const;
@@ -71,6 +72,9 @@ export function GoalForm({ onSave }: { onSave: (body: GoalBody) => Promise<void>
             type="number"
             inputMode="decimal"
             step="0.1"
+            min={-GOAL_VALUE_LIMIT}
+            max={GOAL_VALUE_LIMIT}
+            onKeyDown={blockExponentKeys}
             value={values.start}
             disabled={busy}
             onChange={set('start')}
@@ -83,6 +87,9 @@ export function GoalForm({ onSave }: { onSave: (body: GoalBody) => Promise<void>
             type="number"
             inputMode="decimal"
             step="0.1"
+            min={-GOAL_VALUE_LIMIT}
+            max={GOAL_VALUE_LIMIT}
+            onKeyDown={blockExponentKeys}
             value={values.target}
             disabled={busy}
             onChange={set('target')}

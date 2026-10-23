@@ -29,14 +29,31 @@ import {
   describeSaveFailure,
   emailProblem,
   passwordProblem,
+  detailsForm,
+  detailsPatch,
+  deletePlanWarning,
+  deleteAccount,
+  ACCOUNT_DELETED_NOTICE,
 } from './account';
+import type { MyProfile } from '@got/shared';
 
 const PROFILE = {
   email: 'juan@example.com',
+  firstName: 'Juan',
+  lastName: 'Dela Cruz',
+  phone: '+63 917 555 0142' as string | null,
+  memberCode: 'K7Q2MX' as string | null,
   heightCm: 175,
   weightKg: 72.4,
   medicalNotes: 'Bad left knee',
   shareMedicalWithPlanner: false,
+  membership: {
+    planName: 'Quarterly',
+    status: 'ACTIVE',
+    endsOn: '2027-01-11',
+    daysLeft: 80,
+  } as MyProfile['membership'],
+  canDeleteAccount: true,
 };
 
 describe('bodyForm', () => {
@@ -318,6 +335,163 @@ describe('the /me/profile calls', () => {
     expect(apiFetch).toHaveBeenLastCalledWith('/me/profile', {
       method: 'PATCH',
       body: JSON.stringify({ weightKg: 70.5 }),
+    });
+  });
+});
+
+describe('deletePlanWarning', () => {
+  it('warns about the days an ACTIVE plan still has', () => {
+    expect(deletePlanWarning(PROFILE)).toBe("Your Quarterly plan has 80 days left. They'll be lost.");
+  });
+
+  it('says "1 day" for one', () => {
+    expect(
+      deletePlanWarning({ ...PROFILE, membership: { ...PROFILE.membership!, daysLeft: 1 } }),
+    ).toBe("Your Quarterly plan has 1 day left. It'll be lost.");
+  });
+
+  it('says nothing without an active plan', () => {
+    expect(deletePlanWarning({ ...PROFILE, membership: null })).toBeNull();
+    expect(
+      deletePlanWarning({ ...PROFILE, membership: { ...PROFILE.membership!, status: 'EXPIRED' } }),
+    ).toBeNull();
+  });
+});
+
+describe('deleteAccount', () => {
+  const input = { email: 'juan@example.com', password: ' secret12 ' };
+
+  it('checks the password, then asks the API to delete, with the password', async () => {
+    const verify = vi.fn().mockResolvedValue('ok');
+    vi.mocked(apiFetch).mockResolvedValueOnce({ deleted: true });
+    await expect(deleteAccount({ verify }, input)).resolves.toEqual({
+      ok: true,
+      message: ACCOUNT_DELETED_NOTICE,
+    });
+    expect(verify).toHaveBeenCalledWith('juan@example.com', ' secret12 ');
+    expect(apiFetch).toHaveBeenLastCalledWith('/me/delete-account', {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true, password: ' secret12 ' }),
+    });
+    expect(ACCOUNT_DELETED_NOTICE).toBe('Your account was deleted.');
+  });
+
+  it('stops at a wrong password without calling the API', async () => {
+    vi.mocked(apiFetch).mockClear();
+    const verify = vi.fn().mockResolvedValue('wrong');
+    await expect(deleteAccount({ verify }, input)).resolves.toEqual({
+      ok: false,
+      message: ACCOUNT_COPY.wrongPassword,
+    });
+    expect(apiFetch).not.toHaveBeenCalled();
+  });
+
+  it('falls back when the check could not run', async () => {
+    const verify = vi.fn().mockResolvedValue('error');
+    await expect(deleteAccount({ verify }, input)).resolves.toEqual({
+      ok: false,
+      message: ACCOUNT_COPY.saveFailed,
+    });
+  });
+
+  it("shows the server's 4xx reason, and the generic line otherwise", async () => {
+    const verify = vi.fn().mockResolvedValue('ok');
+    vi.mocked(apiFetch).mockRejectedValueOnce(
+      new ApiError("That's not your current password.", 422, 'WRONG_PASSWORD'),
+    );
+    await expect(deleteAccount({ verify }, input)).resolves.toEqual({
+      ok: false,
+      message: "That's not your current password.",
+    });
+    vi.mocked(apiFetch).mockRejectedValueOnce(new Error('network'));
+    await expect(deleteAccount({ verify }, input)).resolves.toEqual({
+      ok: false,
+      message: ACCOUNT_COPY.saveFailed,
+    });
+  });
+});
+
+describe('detailsForm', () => {
+  it('shows the name and phone as the strings a person edits', () => {
+    expect(detailsForm(PROFILE)).toEqual({
+      firstName: 'Juan',
+      lastName: 'Dela Cruz',
+      phone: '+63 917 555 0142',
+    });
+    expect(detailsForm({ ...PROFILE, phone: null }).phone).toBe('');
+  });
+});
+
+describe('detailsPatch', () => {
+  const form = detailsForm(PROFILE);
+
+  it('sends nothing when nothing changed', () => {
+    expect(detailsPatch(PROFILE, form)).toEqual({ patch: {}, problems: {}, problem: null });
+  });
+
+  it('sends only the trimmed fields that changed', () => {
+    expect(detailsPatch(PROFILE, { ...form, firstName: '  Juanito ' }).patch).toEqual({
+      firstName: 'Juanito',
+    });
+  });
+
+  it('clears the phone with null when it is emptied', () => {
+    expect(detailsPatch(PROFILE, { ...form, phone: '  ' }).patch).toEqual({ phone: null });
+  });
+
+  it('sends a PH mobile as +639XXXXXXXXX, like the server', () => {
+    expect(detailsPatch(PROFILE, { ...form, phone: ' 0917  555 0199 ' }).patch).toEqual({
+      phone: '+639175550199',
+    });
+  });
+
+  it('collapses the spaces inside a name', () => {
+    expect(detailsPatch(PROFILE, { ...form, lastName: ' Dela   Rosa ' }).patch).toEqual({
+      lastName: 'Dela Rosa',
+    });
+  });
+
+  it('needs a first and a last name, on that field', () => {
+    const result = detailsPatch(PROFILE, { ...form, firstName: ' ', lastName: '' });
+    expect(result.patch).toEqual({});
+    expect(result.problems).toEqual({
+      firstName: 'Enter your first name.',
+      lastName: 'Enter your last name.',
+    });
+    expect(result.problem).toBe('Enter your first name.');
+  });
+
+  it('holds a name to 60 characters', () => {
+    expect(detailsPatch(PROFILE, { ...form, lastName: 'a'.repeat(61) }).problems.lastName).toBe(
+      'Your last name can be at most 60 characters.',
+    );
+  });
+
+  it('refuses digits and symbols in a name, but not accents, apostrophes, hyphens or dots', () => {
+    expect(detailsPatch(PROFILE, { ...form, firstName: 'Juan2' }).problems.firstName).toBe(
+      "Use letters, spaces, apostrophes ('), hyphens (-) and dots only.",
+    );
+    expect(
+      detailsPatch(PROFILE, { ...form, firstName: 'Ma. Niña', lastName: "O'Brien-Santos" })
+        .problem,
+    ).toBeNull();
+  });
+
+  it('refuses anything but a PH mobile, landlines included', () => {
+    const message = 'Enter a PH mobile number — 09XX XXX XXXX or +63 9XX XXX XXXX.';
+    expect(detailsPatch(PROFILE, { ...form, phone: 'call me' }).problems.phone).toBe(message);
+    expect(detailsPatch(PROFILE, { ...form, phone: '(02) 8123 4567' }).problems.phone).toBe(
+      message,
+    );
+  });
+
+  it('does not re-check a field the member left alone', () => {
+    // A provisioning-era empty last name must not block saving the phone.
+    const legacy = { ...PROFILE, lastName: '' };
+    expect(detailsPatch(legacy, { ...detailsForm(legacy), phone: '0917 555 0199' })).toEqual({
+      patch: { phone: '+639175550199' },
+      problems: {},
+      problem: null,
     });
   });
 });

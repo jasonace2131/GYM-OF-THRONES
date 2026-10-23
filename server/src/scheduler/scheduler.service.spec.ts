@@ -5,6 +5,7 @@ import type { PruneEphemeraJob } from './jobs/prune-ephemera.job';
 import type { MembershipNightlyJob } from '../membership/membership-nightly.job';
 import type { AutoCloseVisitsJob } from './jobs/auto-close-visits.job';
 import type { PruneAnnouncementImagesJob } from './jobs/prune-announcement-images.job';
+import type { EraseDeletedAuthJob } from './jobs/erase-deleted-auth.job';
 
 function fakeJob(run: jest.Mock = jest.fn().mockResolvedValue(undefined)): PruneEphemeraJob {
   return {
@@ -44,6 +45,16 @@ function fakePruneImages(
   } as unknown as PruneAnnouncementImagesJob;
 }
 
+function fakeEraseAuth(
+  run: jest.Mock = jest.fn().mockResolvedValue(undefined),
+): EraseDeletedAuthJob {
+  return {
+    name: 'eraseDeletedAuth',
+    cronExpression: '*/30 * * * *',
+    run,
+  } as unknown as EraseDeletedAuthJob;
+}
+
 function gymConfig(overrides: Partial<GymConfigService> = {}): GymConfigService {
   return {
     timeZone: 'Asia/Manila',
@@ -73,16 +84,18 @@ describe('SchedulerService', () => {
       fakeNightly(),
       fakeAutoClose(),
       fakePruneImages(),
+      fakeEraseAuth(),
     );
 
     service.onModuleInit();
 
-    expect(registry.getCronJobs().size).toBe(4);
+    expect(registry.getCronJobs().size).toBe(5);
     for (const name of [
       'pruneEphemera',
       'membershipNightly',
       'autoCloseVisits',
       'pruneAnnouncementImages',
+      'eraseDeletedAuth',
     ]) {
       const job = registry.getCronJob(name);
       expect(job).toBeDefined();
@@ -98,6 +111,7 @@ describe('SchedulerService', () => {
       fakeNightly(),
       fakeAutoClose(),
       fakePruneImages(),
+      fakeEraseAuth(),
     );
 
     service.onModuleInit();
@@ -116,6 +130,7 @@ describe('SchedulerService', () => {
       fakeNightly(),
       fakeAutoClose(),
       fakePruneImages(),
+      fakeEraseAuth(),
     );
 
     service.onModuleInit();
@@ -132,6 +147,7 @@ describe('SchedulerService', () => {
       fakeNightly(run),
       fakeAutoClose(),
       fakePruneImages(),
+      fakeEraseAuth(),
     );
     const error = jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
 

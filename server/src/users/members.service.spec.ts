@@ -649,6 +649,24 @@ describe('MembersService', () => {
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
+    // Owner, 2026-10-23: an account its owner deleted is anonymised — there
+    // is nobody to put back.
+    it('409s an account its owner deleted, without writing', async () => {
+      prisma.user.findFirst.mockResolvedValue({
+        id: MEMBER_ID,
+        email: `deleted+${MEMBER_ID}@deleted.invalid`,
+        deletedAt: NOW,
+        role: Role.CLIENT,
+        status: UserStatus.ACTIVE,
+      });
+
+      await expect(service.restore(MEMBER_ID, ADMIN, ALL_SCOPE, NOW)).rejects.toMatchObject({
+        response: { code: 'MEMBER_SELF_DELETED' },
+        status: HttpStatus.CONFLICT,
+      });
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
     it('clears deletedAt and returns the restored row, re-read through findOne', async () => {
       prisma.user.findFirst
         .mockResolvedValueOnce({

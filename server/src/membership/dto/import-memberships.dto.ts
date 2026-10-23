@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type, type TransformFnParams } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -8,7 +8,6 @@ import {
   IsOptional,
   IsString,
   Length,
-  Matches,
   Max,
   MaxLength,
   Min,
@@ -17,6 +16,7 @@ import {
 import type { CivilDate } from '../../common/time/gym-time';
 import { IsGymDate } from '../../common/validators/is-gym-date.validator';
 import { ConfirmDto } from '../../common/dto/confirm.dto';
+import { IsPersonName, IsPhPhone, Trim } from '../../common/validators/text.validators';
 
 /**
  * One notebook line. `email` and `phone` are both optional here and at least
@@ -28,22 +28,24 @@ import { ConfirmDto } from '../../common/dto/confirm.dto';
  */
 export class ImportMemberRowDto {
   @IsOptional()
+  @Transform(({ value }: TransformFnParams): unknown =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
   @IsEmail()
+  @MaxLength(254)
   email?: string;
 
   @IsOptional()
-  @IsString()
-  @Matches(/^[0-9+][0-9\s-]{6,19}$/, { message: 'phone must be a plausible PH number' })
-  phone?: string;
+  @IsPhPhone()
+  phone?: string | null;
 
-  @IsString()
-  @Length(1, 80)
+  @IsPersonName('firstName')
   firstName!: string;
 
-  @IsString()
-  @Length(1, 80)
+  @IsPersonName('lastName')
   lastName!: string;
 
+  @Trim()
   @IsString()
   @MaxLength(32)
   planCode!: string;
@@ -74,11 +76,13 @@ export class ExtendAllDto extends ConfirmDto {
   @Max(60)
   days!: number;
 
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;
 
   /** The @@unique([membershipId, batchRef]) key that makes a re-run a no-op. */
+  @Trim()
   @IsString()
   @Length(3, 64)
   batchRef!: string;

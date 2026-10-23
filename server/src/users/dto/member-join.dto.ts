@@ -1,4 +1,5 @@
 import { IsString, Length, Matches } from 'class-validator';
+import { IsBirthDate } from '../../common/validators/is-birth-date.validator';
 
 /**
  * The setup-link secret as it arrives from the email: 43 base64url characters
@@ -20,7 +21,7 @@ export class MemberJoinTokenDto {
  * sets it with Supabase directly, before calling this.
  *
  * `dateOfBirth` is a `yyyy-mm-dd` civil date from a date input. The SHAPE is
- * checked here; whether it is joinable is `asJoinableBirthDate`'s call in the
+ * checked here; the service re-checks it with `asBirthDate`, the same rule self sign-up uses —
  * service, the same rule self sign-up uses.
  */
 export class AcceptMemberJoinDto {
@@ -29,7 +30,6 @@ export class AcceptMemberJoinDto {
   @Matches(TOKEN_SHAPE)
   token!: string;
 
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsBirthDate()
   dateOfBirth!: string;
 }

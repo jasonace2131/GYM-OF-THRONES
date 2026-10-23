@@ -1,5 +1,6 @@
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { Trim } from '../../common/validators/text.validators';
 
 /** Route 38. The cash physically in the box when the drawer is opened. */
 export class OpenShiftDto {
@@ -31,6 +32,7 @@ export class CloseShiftDto {
    * code it can branch on to re-prompt with the variance rendered.
    */
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   note?: string;

@@ -674,7 +674,8 @@ export interface AuditEntry {
     | 'ASSISTANT_INSTRUCTIONS_RESET'
     // ── Gym equipment list ── an admin added, edited, removed or reordered
     // equipment ({ change, before?, after? }).
-    | 'GYM_EQUIPMENT_CHANGED';
+    | 'GYM_EQUIPMENT_CHANGED'
+    | 'MEMBER_SELF_DELETED';
   actorId: string;
   actorName: string;
   actorRole: string;
@@ -977,7 +978,7 @@ export const adminApi = {
   /** `PATCH /members/:id` — name, phone, emergency contact only. */
   updateMember: (
     id: string,
-    body: { firstName?: string; lastName?: string; phone?: string; emergencyContact?: string },
+    body: { firstName?: string; lastName?: string; phone?: string | null; emergencyContact?: string | null },
   ): Promise<MemberListItem> =>
     apiFetch<MemberListItem>(`/members/${id}`, {
       method: 'PATCH',

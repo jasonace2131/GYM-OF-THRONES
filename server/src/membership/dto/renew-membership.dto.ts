@@ -1,6 +1,7 @@
 import { IsBoolean, IsEnum, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 import { DiscountType, PaymentMethod } from '@got/shared';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsPaymentReference, Trim } from '../../common/validators/text.validators';
 
 /**
  * Route 23. CreateMembershipDto's fields minus `userId`, which comes from the
@@ -29,17 +30,20 @@ export class RenewMembershipDto {
   discountCentavos?: number;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 64)
   statutoryIdNo?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 200)
   discountReason?: string;
 
   /** A promo code, instead of a hand-keyed discount. See CreateMembershipDto. */
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(2, 24)
   promoCode?: string;
@@ -48,11 +52,11 @@ export class RenewMembershipDto {
   method!: PaymentMethod;
 
   @IsOptional()
-  @IsString()
-  @Length(1, 64)
+  @IsPaymentReference()
   reference?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(32)
   receiptNo?: string;
@@ -69,6 +73,7 @@ export class RenewMembershipDto {
   gcashVerified?: boolean;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;

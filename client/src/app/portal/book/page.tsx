@@ -49,8 +49,8 @@ export default function MyBookingsPage() {
 
 function BookingsSkeleton() {
   return (
-    <div className="grid gap-3">
-      <Skeleton className="h-9 w-60" />
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+      <Skeleton className="h-9 w-full max-w-60" />
       <Skeleton className="h-[340px] w-full" />
     </div>
   );
@@ -225,7 +225,7 @@ function MyBookings() {
 
   if (bookings === null) {
     return (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         {header}
         <BookingsSkeleton />
       </div>
@@ -240,9 +240,9 @@ function MyBookings() {
     const bookable = date >= today && date <= shiftDay(today, windowDays - 1);
 
     return (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         {header}
-        <div className="grid items-start gap-4 min-[900px]:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 min-[900px]:grid-cols-[380px_minmax(0,1fr)]">
           <MonthCalendar
             selected={date}
             month={`${date.slice(0, 7)}-01`}
@@ -291,7 +291,7 @@ function MyBookings() {
     }));
 
     return (
-      <div className="grid gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         {header}
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-display text-base font-semibold">
@@ -353,7 +353,7 @@ function MyBookings() {
   const { onNow, comingUp, past } = groupBookings(bookings, now);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       {header}
       {onNow.length === 0 ? null : (
         <DayAgenda

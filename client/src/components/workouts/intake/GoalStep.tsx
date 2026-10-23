@@ -5,6 +5,7 @@ import type { IntakeAction, IntakeState } from '@/lib/workouts/intake';
 import { GOAL_LABEL } from '@/lib/workouts/labels';
 import { RadioCard } from '../ui';
 import { StepHeading, StepProblem } from './StepHeading';
+import { CharCounter } from '@/components/inputs/CharCounter';
 
 /**
  * Step 1 — What's your main goal?
@@ -49,7 +50,7 @@ export function GoalStep({
       <div
         role="radiogroup"
         aria-label="Main goal"
-        className="grid grid-cols-2 gap-3 @2xl:grid-cols-3"
+        className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 @2xl:grid-cols-3"
       >
         {goals.map((goal) => (
           <RadioCard
@@ -70,10 +71,16 @@ export function GoalStep({
           id="wk-own-words"
           rows={3}
           value={state.goalNotes}
-          maxLength={WORKOUT_LIMITS.goalNotesMax + 20}
+          maxLength={WORKOUT_LIMITS.goalNotesMax}
+          aria-describedby="wk-own-words-count"
           onChange={(e) => dispatch({ type: 'goalNotes', value: e.target.value })}
           placeholder="e.g. I want to do 10 full push-ups by December"
           className="resize-none rounded-[10px] border-[1.5px] border-[color:var(--p-border-2)] bg-card px-3.5 py-3 text-[14.5px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        />
+        <CharCounter
+          id="wk-own-words-count"
+          value={state.goalNotes}
+          max={WORKOUT_LIMITS.goalNotesMax}
         />
         <span className="text-[12.5px] text-ink-3">
           Keep health details for the health check in step 4 — this box is sent to the AI as

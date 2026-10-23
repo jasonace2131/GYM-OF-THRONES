@@ -29,6 +29,7 @@ import {
 } from '@/lib/schedule/coachClasses';
 import { gymClock12 } from '@/lib/schedule/gymClock';
 import { shortDay } from '@/lib/schedule/labels';
+import { blockIntJunk, wholeOrNaN } from '@/lib/numberInput';
 
 const FIELD =
   'h-10 w-full min-w-0 rounded-md border border-[color:var(--p-border-2)] bg-card px-3 text-[14.5px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold';
@@ -139,7 +140,7 @@ function ClassForm({
           <input
             className={FIELD}
             value={draft.title}
-            maxLength={CLASS_LIMITS.titleMax + 10}
+            maxLength={CLASS_LIMITS.titleMax}
             placeholder="HIIT Conditioning"
             onChange={(e) => set({ title: e.target.value })}
             disabled={busy}
@@ -178,8 +179,11 @@ function ClassForm({
               type="number"
               min={CLASS_LIMITS.minutesMin}
               max={CLASS_LIMITS.minutesMax}
-              value={draft.minutes}
-              onChange={(e) => set({ minutes: Number(e.target.value) })}
+              step={1}
+              onKeyDown={blockIntJunk}
+              value={Number.isNaN(draft.minutes) ? '' : draft.minutes}
+              // Blank is "not set" (NaN, refused by the form check), never 0.
+              onChange={(e) => set({ minutes: wholeOrNaN(e.target.value) })}
               disabled={busy}
             />
           </label>
@@ -190,8 +194,10 @@ function ClassForm({
               type="number"
               min={session === null ? 1 : Math.max(1, session.bookedCount)}
               max={CLASS_LIMITS.placesMax}
-              value={draft.capacity}
-              onChange={(e) => set({ capacity: Number(e.target.value) })}
+              step={1}
+              onKeyDown={blockIntJunk}
+              value={Number.isNaN(draft.capacity) ? '' : draft.capacity}
+              onChange={(e) => set({ capacity: wholeOrNaN(e.target.value) })}
               disabled={busy}
             />
           </label>

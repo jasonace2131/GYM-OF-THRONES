@@ -1,4 +1,5 @@
 import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { Trim } from '../../common/validators/text.validators';
 
 /**
  * The first POST body DTO in this codebase.
@@ -15,6 +16,7 @@ export class CreateCoachAssignmentDto {
   memberId!: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;

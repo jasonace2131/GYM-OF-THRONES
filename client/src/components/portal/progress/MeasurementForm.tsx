@@ -12,6 +12,7 @@ import {
   type MeasurementForm as FormValues,
 } from '@/lib/progress/progressView';
 import type { Measurement, MeasurementBody, MeasurementPatch } from '@/lib/progress/types';
+import { filterDecimalTyping } from '@/lib/numberInput';
 
 /**
  * The coach's record and edit forms. Every decision — what the wire gets,
@@ -40,8 +41,13 @@ function Fields({
   dateEditable: boolean;
   today: string;
 }) {
-  const set = (key: keyof FormValues) => (event: { target: { value: string } }) =>
-    onChange({ ...values, [key]: event.target.value });
+  // Readings are text fields filtered to digits and one decimal place: a
+  // number field lets e, + and - in from Android keyboards and pastes.
+  const set = (key: keyof FormValues) => (event: { target: { value: string } }) => {
+    const raw = event.target.value;
+    const reading = key === 'weight' || key === 'height' || key === 'bodyFat';
+    onChange({ ...values, [key]: reading ? filterDecimalTyping(raw, 1) : raw });
+  };
 
   return (
     <>
@@ -62,11 +68,9 @@ function Fields({
           <span className="a-person-sub">WEIGHT (KG)</span>
           <input
             className="a-input"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.1"
-            min="20"
-            max="400"
+            autoComplete="off"
             value={values.weight}
             disabled={disabled}
             onChange={set('weight')}
@@ -76,11 +80,9 @@ function Fields({
           <span className="a-person-sub">HEIGHT (CM)</span>
           <input
             className="a-input"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.5"
-            min="50"
-            max="250"
+            autoComplete="off"
             value={values.height}
             disabled={disabled}
             onChange={set('height')}
@@ -90,11 +92,9 @@ function Fields({
           <span className="a-person-sub">BODY FAT (%)</span>
           <input
             className="a-input"
-            type="number"
+            type="text"
             inputMode="decimal"
-            step="0.1"
-            min="1"
-            max="70"
+            autoComplete="off"
             value={values.bodyFat}
             disabled={disabled}
             onChange={set('bodyFat')}

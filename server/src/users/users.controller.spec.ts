@@ -1,4 +1,5 @@
 import { UsersController } from './users.controller';
+import type { AccountDeletionService } from './account-deletion.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import type { AuthUser } from '../auth/auth.types';
 import type { MyProfileService } from './my-profile.service';
@@ -27,10 +28,12 @@ describe('UsersController', () => {
     update: jest.fn().mockResolvedValue({ email: USER.email }),
   };
   const memberAccessFor = jest.fn().mockResolvedValue('READ_ONLY');
+  const deletion = { deleteOwnAccount: jest.fn().mockResolvedValue(undefined) };
   const controller = new UsersController(
     { getEffectivePermissions } as unknown as PermissionsService,
     profiles as unknown as MyProfileService,
     { memberAccessFor } as unknown as MembershipService,
+    deletion as unknown as AccountDeletionService,
   );
 
   it("returns the current user's profile with effective permissions", async () => {
@@ -69,5 +72,12 @@ describe('UsersController', () => {
   it("PATCH /me/profile updates the caller's own profile, by the token's user id", async () => {
     await controller.updateProfile(USER, { weightKg: 70 });
     expect(profiles.update).toHaveBeenCalledWith(USER.id, { weightKg: 70 });
+  });
+
+  it("POST /me/delete-account deletes the caller's own account, with the typed password", async () => {
+    await expect(
+      controller.deleteAccount(USER, { confirm: true, password: 'secret12' }),
+    ).resolves.toEqual({ deleted: true });
+    expect(deletion.deleteOwnAccount).toHaveBeenCalledWith(USER, 'secret12');
   });
 });

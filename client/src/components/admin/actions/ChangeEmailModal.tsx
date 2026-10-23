@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api';
 import { isPlausibleEmail } from '@/lib/guestEmail';
 import { Modal, ModalError } from '../Modal';
 import { ConfirmDialog } from './ConfirmDialog';
+import { EMAIL_MAX } from '@got/shared';
 
 /**
  * Correct a mistyped email on a member who has never signed in — the counter's
@@ -97,6 +98,7 @@ export function ChangeEmailModal({
               className="a-input"
               type="email"
               value={email}
+              maxLength={EMAIL_MAX}
               inputMode="email"
               autoComplete="off"
               autoFocus

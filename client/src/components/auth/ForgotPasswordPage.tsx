@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import AuthBrandPanel from './AuthBrandPanel';
 import { supabase } from '@/lib/supabase';
 import { EMAIL_INPUT_PROPS, normaliseIdentifier } from '@/lib/credentials';
+import { EMAIL_MAX } from '@got/shared';
 
 /**
  * Password recovery, step one.
@@ -120,6 +121,7 @@ export default function ForgotPasswordPage() {
                     className="input"
                     type="email"
                     placeholder="you@example.com"
+                    maxLength={EMAIL_MAX}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"

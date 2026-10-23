@@ -1,6 +1,6 @@
-import { Transform, type TransformFnParams } from 'class-transformer';
 import { IsEnum, IsOptional, IsString, IsUUID, Length, ValidateIf } from 'class-validator';
 import { LeadStatus } from '@prisma/client';
+import { TrimOrNull } from '../../common/validators/text.validators';
 
 /**
  * Working a lead. Everything optional — the screen sends only what changed.
@@ -22,10 +22,8 @@ export class UpdateLeadDto {
   assignedToId?: string | null;
 
   @IsOptional()
-  @Transform(({ value }: TransformFnParams): unknown =>
-    typeof value === 'string' ? value.trim() : value,
-  )
+  @TrimOrNull()
   @IsString()
-  @Length(0, 4000)
-  notes?: string;
+  @Length(1, 4000)
+  notes?: string | null;
 }

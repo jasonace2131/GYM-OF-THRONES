@@ -131,6 +131,8 @@ export function PaymentsToolbar({
                 type="date"
                 className="a-daterange-input"
                 value={filters.from === '' ? range.from : filters.from}
+                // From can never pass To, nor To precede From.
+                max={filters.to === '' ? range.to : filters.to}
                 onChange={(event) =>
                   onChange({ ...filters, range: 'all', from: event.target.value })
                 }
@@ -145,6 +147,7 @@ export function PaymentsToolbar({
                 type="date"
                 className="a-daterange-input"
                 value={filters.to === '' ? range.to : filters.to}
+                min={filters.from === '' ? range.from : filters.from}
                 onChange={(event) => onChange({ ...filters, range: 'all', to: event.target.value })}
               />
             </label>

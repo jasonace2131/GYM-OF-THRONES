@@ -107,13 +107,13 @@ export class MembershipImportService {
     // One identity key for both cases: when only a phone is on file, a
     // placeholder address is minted so User.email's unique index carries the
     // idempotency for the phone path too.
-    const email = row.email
-      ? row.email.trim().toLowerCase()
+    const keys = row.email
+      ? { current: row.email.trim().toLowerCase(), legacy: null }
       : row.phone
-        ? `${row.phone.replace(/\D/g, '')}@imported.gymofthrones.invalid`
+        ? placeholderEmails(row.phone)
         : null;
 
-    if (email === null) {
+    if (keys === null) {
       throw new DomainException(
         'MEMBER_NOT_FOUND',
         'This row has neither an email nor a phone, so it identifies no member.',
@@ -134,6 +134,14 @@ export class MembershipImportService {
 
     return this.prisma.$transaction(async (tx) => {
       const plan = await this.plans.requireSellable(tx, row.planCode);
+
+      // A phone-only row imported before phones were normalised was keyed on
+      // its 09… digits; re-importing it must find that user, not mint another.
+      const legacyHit =
+        keys.legacy === null
+          ? null
+          : await tx.user.findUnique({ where: { email: keys.legacy }, select: { id: true } });
+      const email = legacyHit === null ? keys.current : (keys.legacy as string);
 
       // createMany + skipDuplicates, never catch-then-query: a caught P2002
       // aborts the transaction and every later statement dies with 25P02.
@@ -261,4 +269,18 @@ export class MembershipImportService {
 
     return { affected };
   }
+}
+
+const PLACEHOLDER_DOMAIN = '@imported.gymofthrones.invalid';
+
+/**
+ * The placeholder address that makes a phone-only import idempotent. `current`
+ * is keyed on the stored +639XXXXXXXXX digits (639…); `legacy` is the 09… key
+ * rows imported before 2026-10-23 carry, or null when the two are the same.
+ */
+export function placeholderEmails(phone: string): { current: string; legacy: string | null } {
+  const digits = phone.replace(/\D/g, '');
+  const current = `${digits}${PLACEHOLDER_DOMAIN}`;
+  const legacy = /^639\d{9}$/.test(digits) ? `0${digits.slice(2)}${PLACEHOLDER_DOMAIN}` : null;
+  return { current, legacy };
 }

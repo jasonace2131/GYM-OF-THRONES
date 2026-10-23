@@ -11,9 +11,11 @@ import {
   Matches,
   Max,
   MaxLength,
+  MinLength,
   Min,
 } from 'class-validator';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { Trim, TrimOrNull } from '../../common/validators/text.validators';
 
 /**
  * Every bound here is written to match §5.8.2's Plan CHECKs, so no input the
@@ -35,14 +37,17 @@ export class CreatePlanDto {
   })
   code!: string;
 
+  @Trim()
   @IsString()
+  @MinLength(1)
   @MaxLength(60)
   name!: string;
 
   @IsOptional()
+  @TrimOrNull()
   @IsString()
   @MaxLength(300)
-  description?: string;
+  description?: string | null;
 
   @IsEnum(PlanKind)
   kind!: PlanKind;

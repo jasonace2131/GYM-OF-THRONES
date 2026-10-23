@@ -3,6 +3,7 @@ import { MembershipStatus } from '@got/shared';
 import type { CivilDate } from '../../common/time/gym-time';
 import { IsGymDate } from '../../common/validators/is-gym-date.validator';
 import { ConfirmDto } from '../../common/dto/confirm.dto';
+import { Trim } from '../../common/validators/text.validators';
 
 /**
  * Route 29 — §5.5.2 row 16. Comp days: goodwill, staff error, a closure applied
@@ -22,6 +23,7 @@ export class AdjustTermDto extends ConfirmDto {
   days!: number;
 
   /** Matches MembershipEvent_reason_required's `length(btrim(reason)) >= 3`. */
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;
@@ -60,6 +62,7 @@ export class CorrectMembershipDto extends ConfirmDto {
   @Max(31)
   billingAnchorDay?: number;
 
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;

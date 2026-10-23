@@ -5,6 +5,8 @@ import { MembersService } from './members.service';
 import { MemberJoinController } from './member-join.controller';
 import { MemberJoinService } from './member-join.service';
 import { MyProfileService } from './my-profile.service';
+import { AccountDeletionService } from './account-deletion.service';
+import { ClassesModule } from '../classes/classes.module';
 import { RbacModule } from '../rbac/rbac.module';
 import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -28,9 +30,9 @@ import { MembershipModule } from '../membership/membership.module';
  * creation, "Resend invite" and an email correction all issue one.
  */
 @Module({
-  imports: [RbacModule, AuthModule, NotificationsModule, MembershipModule],
+  imports: [RbacModule, AuthModule, NotificationsModule, MembershipModule, ClassesModule],
   controllers: [UsersController, MembersController, MemberJoinController],
-  providers: [MembersService, MemberJoinService, MyProfileService],
+  providers: [MembersService, MemberJoinService, MyProfileService, AccountDeletionService],
   exports: [MembersService, MemberJoinService],
 })
 export class UsersModule {}

@@ -4,6 +4,14 @@ import { useState } from 'react';
 import { Modal, ModalError } from '@/components/admin/Modal';
 import { adminApi, peso, type AdminPlan } from '@/lib/adminApi';
 import { ConfirmDialog } from './ConfirmDialog';
+import {
+  blockIntJunk,
+  blockNumberJunk,
+  filterDecimalTyping,
+  filterIntTyping,
+  parseIntField,
+  parsePesosToCentavos,
+} from '@/lib/numberInput';
 
 /**
  * Create or edit a plan — the screen behind "I can't change my prices".
@@ -60,14 +68,26 @@ export function PlanEditorModal({
   // A price change moves every future sale, so saving is confirmed.
   const [confirming, setConfirming] = useState(false);
 
-  const priceCentavos = Math.round(Number(pesos) * 100);
-  const validPrice = pesos.trim() !== '' && Number.isFinite(priceCentavos) && priceCentavos >= 0;
+  // ₱0–₱100,000, at most two decimals (the server's IsCentavos ceiling).
+  const parsedPrice = parsePesosToCentavos(pesos, 100_000);
+  const priceCentavos = parsedPrice ?? 0;
+  const validPrice = parsedPrice !== null;
+  // Whole numbers inside the DTO's bounds; a blank is invalid, never 0.
+  const termValue = parseIntField(termMonths, 1, 60);
+  const graceValue = parseIntField(graceDays, 0, 14);
+  const passesValue = parseIntField(guestPasses, 0, 12);
   // `Plan_term_matches_kind`: a TERM plan needs 1–60 months, a WALK_IN must
   // have none and cannot be freezable. Mirrored here so staff see the rule
   // rather than a 422 surfacing from a database constraint.
-  const validTerm = kind === 'WALK_IN' || (Number(termMonths) >= 1 && Number(termMonths) <= 60);
+  const validTerm = kind === 'WALK_IN' || termValue !== null;
   const validCode = isEdit || /^[A-Z][A-Z0-9_]{1,23}$/.test(code);
-  const canSave = name.trim() !== '' && validPrice && validTerm && validCode;
+  const canSave =
+    name.trim() !== '' &&
+    validPrice &&
+    validTerm &&
+    validCode &&
+    graceValue !== null &&
+    passesValue !== null;
 
   const submit = async (): Promise<void> => {
     setBusy(true);
@@ -77,10 +97,10 @@ export function PlanEditorModal({
         name: name.trim(),
         description: description.trim() === '' ? undefined : description.trim(),
         priceCentavos,
-        termMonths: kind === 'WALK_IN' ? null : Number(termMonths),
+        termMonths: kind === 'WALK_IN' ? null : termValue,
         freezable: kind === 'WALK_IN' ? false : freezable,
-        guestPassesPerTerm: Number(guestPasses),
-        graceDays: Number(graceDays),
+        guestPassesPerTerm: passesValue ?? 0,
+        graceDays: graceValue ?? 0,
       };
 
       if (isEdit) await adminApi.updatePlan(existing.id, shared);
@@ -132,7 +152,10 @@ export function PlanEditorModal({
             className="a-input"
             value={code}
             autoComplete="off"
-            onChange={(event) => setCode(event.target.value.toUpperCase())}
+            maxLength={24}
+            onChange={(event) =>
+              setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ''))
+            }
             disabled={isEdit || busy}
             placeholder="MONTHLY"
           />
@@ -169,6 +192,7 @@ export function PlanEditorModal({
             value={name}
             autoComplete="off"
             autoFocus
+            maxLength={60}
             onChange={(event) => setName(event.target.value)}
             disabled={busy}
             placeholder="Monthly"
@@ -184,6 +208,7 @@ export function PlanEditorModal({
             className="a-input"
             value={description}
             autoComplete="off"
+            maxLength={300}
             onChange={(event) => setDescription(event.target.value)}
             disabled={busy}
             placeholder="One month from your join date."
@@ -200,9 +225,11 @@ export function PlanEditorModal({
             type="number"
             inputMode="decimal"
             min={0}
+            max={100_000}
             step="0.01"
             value={pesos}
-            onChange={(event) => setPesos(event.target.value)}
+            onKeyDown={blockNumberJunk}
+            onChange={(event) => setPesos(filterDecimalTyping(event.target.value, 2))}
             disabled={busy}
           />
           <p className="a-field-hint">
@@ -223,7 +250,8 @@ export function PlanEditorModal({
               min={1}
               max={60}
               value={termMonths}
-              onChange={(event) => setTermMonths(event.target.value)}
+              onKeyDown={blockIntJunk}
+              onChange={(event) => setTermMonths(filterIntTyping(event.target.value))}
               disabled={busy}
             />
           </div>
@@ -240,7 +268,8 @@ export function PlanEditorModal({
             min={0}
             max={14}
             value={graceDays}
-            onChange={(event) => setGraceDays(event.target.value)}
+            onKeyDown={blockIntJunk}
+            onChange={(event) => setGraceDays(filterIntTyping(event.target.value))}
             disabled={busy}
           />
           <p className="a-field-hint">
@@ -259,7 +288,8 @@ export function PlanEditorModal({
             min={0}
             max={12}
             value={guestPasses}
-            onChange={(event) => setGuestPasses(event.target.value)}
+            onKeyDown={blockIntJunk}
+            onChange={(event) => setGuestPasses(filterIntTyping(event.target.value))}
             disabled={busy}
           />
         </div>

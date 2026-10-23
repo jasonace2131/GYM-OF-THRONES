@@ -15,13 +15,22 @@ export const LOGIN_CODE_REQUIRED = 'LOGIN_CODE_REQUIRED';
  * can meet an unverified session, and `safeNext` allows `/invite` — the
  * round trip through the code step lands back on the invitation.
  */
-const SELF_HANDLING_ROOTS = ['/login', '/join', '/reset-password'] as const;
+const SELF_HANDLING_ROOTS = ['/login', '/join', '/reset-password', '/register'] as const;
+
+/**
+ * The public landing page, matched EXACTLY. Its Navbar asks `/me` on mount
+ * only to label a "My portal" / "Staff console" button, and a visitor with a
+ * half-finished sign-in must not be pulled off the homepage for it — the
+ * button takes them to /login, which shows the code step. `/register` is in
+ * the list above for the same reason: it routes a signed-in visitor itself.
+ */
+const SELF_HANDLING_EXACT = ['/'] as const;
 
 /** `/login?next=<this page>`, or null when this page handles the code itself. */
 export function loginCodeRedirectFor(pathname: string, search: string): string | null {
-  const handled = SELF_HANDLING_ROOTS.some(
-    (root) => pathname === root || pathname.startsWith(`${root}/`),
-  );
+  const handled =
+    SELF_HANDLING_EXACT.some((path) => pathname === path) ||
+    SELF_HANDLING_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
   if (handled) return null;
   return `/login?next=${encodeURIComponent(`${pathname}${search}`)}`;
 }

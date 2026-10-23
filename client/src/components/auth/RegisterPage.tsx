@@ -1,12 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AuthBrandPanel from './AuthBrandPanel';
 import { supabase } from '@/lib/supabase';
-import { EMAIL_INPUT_PROPS, normaliseIdentifier } from '@/lib/credentials';
-import { safeNext } from '@/lib/safeNext';
+import {
+  BIRTH_DATE_MIN,
+  PROFILE_LIMITS,
+  collapseSpaces,
+  isPersonName,
+  isPlausibleBirthDate,
+  normalisePhPhone,
+} from '@got/shared';
+import { normaliseIdentifier } from '@/lib/credentials';
+import { GYM_TIMEZONE, gymToday } from '@/lib/gymTime';
+import { filterDecimalTyping, parseDecimalField } from '@/lib/numberInput';
+import { EmailInput } from '@/components/inputs/EmailInput';
+import { NameInput } from '@/components/inputs/NameInput';
+import { PhoneInput } from '@/components/inputs/PhoneInput';
+import { type HeldPermission, destinationFor, safeNext } from '@/lib/safeNext';
+import { apiFetch } from '@/lib/api';
+import { classifyMeFailure } from '@/lib/loginCode';
 import { PasswordInput } from './PasswordInput';
 
 interface RegisterFormState {
@@ -52,6 +67,49 @@ export default function RegisterPage() {
   const [form, setForm] = useState<RegisterFormState>(INITIAL_FORM);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  /** True until we know nobody is already signed in on this browser. */
+  const [checking, setChecking] = useState(true);
+
+  // ALREADY SIGNED IN (2026-10-23): this browser has an account, so route it
+  // on exactly as /login would rather than offering a second sign-up. A
+  // sign-in still owed its emailed code goes to /login, which shows the code
+  // step (/register is exempt from apiFetch's own redirect so the choice is
+  // made here). Any other failure shows the form; nobody is signed out.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      let token: string | undefined;
+      try {
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token;
+      } catch {
+        token = undefined;
+      }
+      if (cancelled) return;
+      if (!token) {
+        setChecking(false);
+        return;
+      }
+      try {
+        const me = await apiFetch<{ permissions: HeldPermission[] }>('/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!cancelled) router.replace(destinationFor(requested, me.permissions));
+      } catch (caught) {
+        if (cancelled) return;
+        if (classifyMeFailure(caught) === 'code-required') {
+          router.replace(loginHref);
+          return;
+        }
+        setChecking(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Mount only: where to go is decided once, on arrival.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setField = <K extends keyof RegisterFormState>(key: K, value: RegisterFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -61,6 +119,35 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
+    const fullName = collapseSpaces(form.fullName);
+    if (!isPersonName(fullName, 2)) {
+      setError("Enter your name — letters, spaces, apostrophes ('), hyphens (-) and dots only.");
+      return;
+    }
+    const phone = form.mobile.trim() === '' ? null : normalisePhPhone(form.mobile);
+    if (form.mobile.trim() !== '' && phone === null) {
+      setError('Enter a PH mobile number — 09XX XXX XXXX or +63 9XX XXX XXXX — or leave it blank.');
+      return;
+    }
+    if (!isPlausibleBirthDate(form.dateOfBirth, gymToday(new Date(), GYM_TIMEZONE))) {
+      setError('Enter your real date of birth — it cannot be in the future.');
+      return;
+    }
+    const L = PROFILE_LIMITS;
+    if (
+      form.heightCm !== '' &&
+      parseDecimalField(form.heightCm, L.heightCmMin, L.heightCmMax, 1) === null
+    ) {
+      setError(`Height is ${L.heightCmMin}–${L.heightCmMax} cm — or leave it blank.`);
+      return;
+    }
+    if (
+      form.weightKg !== '' &&
+      parseDecimalField(form.weightKg, L.weightKgMin, L.weightKgMax, 1) === null
+    ) {
+      setError(`Weight is ${L.weightKgMin}–${L.weightKgMax} kg — or leave it blank.`);
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -71,17 +158,18 @@ export default function RegisterPage() {
     // firstName / lastName / phone ride along in user_metadata. The server
     // reads them from the verified token when it provisions the local user,
     // so no separate profile call is needed on first sign-in.
-    const [firstName, ...rest] = form.fullName.trim().split(' ');
+    // First word is the first name, the rest the last name ("Juan Dela Cruz").
+    const [firstName, ...rest] = fullName.split(' ');
 
     const { error: signUpError } = await supabase.auth.signUp({
       email: normaliseIdentifier(form.email),
       password: form.password,
       options: {
         data: {
-          firstName: firstName ?? form.fullName,
+          firstName: firstName ?? fullName,
           lastName: rest.join(' '),
           // Optional, like height and weight below: sent only when filled in.
-          ...(form.mobile.trim() ? { phone: form.mobile.trim() } : {}),
+          ...(phone !== null ? { phone } : {}),
           // Collected since the first version and discarded at every layer:
           // required on the input, absent from this payload, no column. The
           // system could not answer "is this member a minor?" for anybody —
@@ -172,135 +260,133 @@ export default function RegisterPage() {
             Register now, choose a plan, then pay at the counter or via GCash.
           </p>
 
-          <form
-            onSubmit={handleSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
-          >
-            <div className="field">
-              <label htmlFor="reg-fullname">Full name</label>
-              <input
-                id="reg-fullname"
-                className="input"
-                placeholder="Juan Dela Cruz"
-                value={form.fullName}
-                onChange={(e) => setField('fullName', e.target.value)}
-                autoComplete="name"
-                required
-              />
-            </div>
-
-            <div className="field-row">
+          {checking ? (
+            <p role="status" style={{ fontSize: 14, color: 'var(--text-2)', margin: 0 }}>
+              Checking your sign-in…
+            </p>
+          ) : (
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+            >
               <div className="field">
-                <label htmlFor="reg-email">Email</label>
-                <input
-                  id="reg-email"
+                <label htmlFor="reg-fullname">Full name</label>
+                <NameInput
+                  id="reg-fullname"
                   className="input"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={form.email}
-                  onChange={(e) => setField('email', e.target.value)}
-                  autoComplete="email"
-                  // The address is normalised on submit too, but stopping the
-                  // keyboard adding a space is the half the member can see.
-                  {...EMAIL_INPUT_PROPS}
+                  placeholder="Juan Dela Cruz"
+                  value={form.fullName}
+                  onChange={(value) => setField('fullName', value)}
+                  autoComplete="name"
                   required
                 />
               </div>
-              <div className="field">
-                {/* Optional: the gym sends no SMS, so nothing here depends on a
+
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="reg-email">Email</label>
+                  {/* The address is normalised on submit too, but stopping the
+                    keyboard adding a space is the half the member can see. */}
+                  <EmailInput
+                    id="reg-email"
+                    className="input"
+                    placeholder="you@example.com"
+                    value={form.email}
+                    onChange={(value) => setField('email', value)}
+                    required
+                  />
+                </div>
+                <div className="field">
+                  {/* Optional: the gym sends no SMS, so nothing here depends on a
                     number. The desk can still reach a member who leaves one. */}
-                <label htmlFor="reg-mobile">
-                  Mobile number <span style={{ color: 'var(--text-3)' }}>· optional</span>
-                </label>
+                  <label htmlFor="reg-mobile">
+                    Mobile number <span style={{ color: 'var(--text-3)' }}>· optional</span>
+                  </label>
+                  <PhoneInput
+                    id="reg-mobile"
+                    className="input"
+                    placeholder="0917 000 0000"
+                    value={form.mobile}
+                    onChange={(value) => setField('mobile', value)}
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="reg-dob">Date of birth</label>
                 <input
-                  id="reg-mobile"
+                  id="reg-dob"
                   className="input"
-                  type="tel"
-                  placeholder="0917 000 0000"
-                  value={form.mobile}
-                  onChange={(e) => setField('mobile', e.target.value)}
-                  autoComplete="tel"
+                  type="date"
+                  min={BIRTH_DATE_MIN}
+                  max={gymToday(new Date(), GYM_TIMEZONE)}
+                  value={form.dateOfBirth}
+                  onChange={(e) => setField('dateOfBirth', e.target.value)}
+                  required
                 />
               </div>
-            </div>
 
-            <div className="field">
-              <label htmlFor="reg-dob">Date of birth</label>
-              <input
-                id="reg-dob"
-                className="input"
-                type="date"
-                value={form.dateOfBirth}
-                onChange={(e) => setField('dateOfBirth', e.target.value)}
-                required
-              />
-            </div>
-
-            {/* Optional — the account works without them, and they can be
+              {/* Optional — the account works without them, and they can be
                 filled in later from the profile. Not marked required. */}
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="reg-height">
-                  Height (cm) <span style={{ color: 'var(--text-3)' }}>· optional</span>
-                </label>
-                <input
-                  id="reg-height"
-                  className="input"
-                  type="number"
-                  inputMode="decimal"
-                  min={50}
-                  max={260}
-                  step="0.1"
-                  placeholder="170"
-                  value={form.heightCm}
-                  onChange={(e) => setField('heightCm', e.target.value)}
-                />
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="reg-height">
+                    Height (cm) <span style={{ color: 'var(--text-3)' }}>· optional</span>
+                  </label>
+                  <input
+                    id="reg-height"
+                    className="input"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="170"
+                    value={form.heightCm}
+                    onChange={(e) => setField('heightCm', filterDecimalTyping(e.target.value, 1))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="reg-weight">
+                    Weight (kg) <span style={{ color: 'var(--text-3)' }}>· optional</span>
+                  </label>
+                  <input
+                    id="reg-weight"
+                    className="input"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="70"
+                    value={form.weightKg}
+                    onChange={(e) => setField('weightKg', filterDecimalTyping(e.target.value, 1))}
+                  />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="reg-weight">
-                  Weight (kg) <span style={{ color: 'var(--text-3)' }}>· optional</span>
-                </label>
-                <input
-                  id="reg-weight"
-                  className="input"
-                  type="number"
-                  inputMode="decimal"
-                  min={20}
-                  max={400}
-                  step="0.1"
-                  placeholder="70"
-                  value={form.weightKg}
-                  onChange={(e) => setField('weightKg', e.target.value)}
-                />
-              </div>
-            </div>
 
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="reg-password">Password</label>
-                <PasswordInput
-                  id="reg-password"
-                  placeholder="••••••••"
-                  value={form.password}
-                  onChange={(e) => setField('password', e.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="reg-password">Password</label>
+                  <PasswordInput
+                    id="reg-password"
+                    placeholder="••••••••"
+                    value={form.password}
+                    onChange={(e) => setField('password', e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="reg-confirm-password">Confirm password</label>
+                  <PasswordInput
+                    id="reg-confirm-password"
+                    placeholder="••••••••"
+                    value={form.confirmPassword}
+                    onChange={(e) => setField('confirmPassword', e.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="reg-confirm-password">Confirm password</label>
-                <PasswordInput
-                  id="reg-confirm-password"
-                  placeholder="••••••••"
-                  value={form.confirmPassword}
-                  onChange={(e) => setField('confirmPassword', e.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-              </div>
-            </div>
 
-            {/*
+              {/*
               This checkbox used to be theatre. It said "I agree to the gym
               rules and waiver", there were no such documents, it was never
               sent anywhere and there was no column to hold it — so a member
@@ -309,74 +395,74 @@ export default function RegisterPage() {
               acceptance is RECORDED by POST /me/consent below. `required`
               remains an HTML nicety; the enforcement is the portal gate.
             */}
-            <label className="checkbox-row" style={{ marginTop: 2 }}>
-              <input
-                id="reg-waiver"
-                type="checkbox"
-                checked={form.agreedToWaiver}
-                onChange={(e) => setField('agreedToWaiver', e.target.checked)}
-                required
-              />
-              <span>
-                I have read and agree to the{' '}
-                <a href="/waiver" target="_blank" rel="noopener noreferrer">
-                  liability waiver
-                </a>
-                ,{' '}
-                <a href="/terms" target="_blank" rel="noopener noreferrer">
-                  terms of membership
-                </a>{' '}
-                and{' '}
-                <a href="/privacy" target="_blank" rel="noopener noreferrer">
-                  privacy notice
-                </a>
-                .
-              </span>
-            </label>
+              <label className="checkbox-row" style={{ marginTop: 2 }}>
+                <input
+                  id="reg-waiver"
+                  type="checkbox"
+                  checked={form.agreedToWaiver}
+                  onChange={(e) => setField('agreedToWaiver', e.target.checked)}
+                  required
+                />
+                <span>
+                  I have read and agree to the{' '}
+                  <a href="/waiver" target="_blank" rel="noopener noreferrer">
+                    liability waiver
+                  </a>
+                  ,{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer">
+                    terms of membership
+                  </a>{' '}
+                  and{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer">
+                    privacy notice
+                  </a>
+                  .
+                </span>
+              </label>
 
-            {error && (
-              <div
-                role="alert"
-                style={{
-                  padding: '11px 14px',
-                  borderRadius: 7,
-                  border: '1px solid rgba(255,90,70,.4)',
-                  background: 'rgba(255,90,70,.1)',
-                  color: '#ff9d92',
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <button
-              id="reg-submit-btn"
-              type="submit"
-              disabled={submitting}
-              className="btn btn-gold btn-block btn-auth"
-              style={{ marginTop: 4 }}
-            >
-              {submitting ? 'CREATING ACCOUNT…' : 'CONTINUE TO PLAN'}
-              {!submitting && (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <path
-                    d="M5 12h14M13 6l6 6-6 6"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+              {error && (
+                <div
+                  role="alert"
+                  style={{
+                    padding: '11px 14px',
+                    borderRadius: 7,
+                    border: '1px solid rgba(255,90,70,.4)',
+                    background: 'rgba(255,90,70,.1)',
+                    color: '#ff9d92',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {error}
+                </div>
               )}
-            </button>
 
-            <div style={{ fontSize: 13, textAlign: 'center', color: 'var(--text-3)' }}>
-              Already a member?{' '}
-              <Link href={loginHref}>Sign in</Link>
-            </div>
-          </form>
+              <button
+                id="reg-submit-btn"
+                type="submit"
+                disabled={submitting}
+                className="btn btn-gold btn-block btn-auth"
+                style={{ marginTop: 4 }}
+              >
+                {submitting ? 'CREATING ACCOUNT…' : 'CONTINUE TO PLAN'}
+                {!submitting && (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M5 12h14M13 6l6 6-6 6"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+
+              <div style={{ fontSize: 13, textAlign: 'center', color: 'var(--text-3)' }}>
+                Already a member? <Link href={loginHref}>Sign in</Link>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

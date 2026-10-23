@@ -5,10 +5,17 @@ import type { Env } from '../config/env.validation';
 const generateLink = jest.fn();
 const createUser = jest.fn();
 const updateUserById = jest.fn();
+const deleteUser = jest.fn();
+const signInWithPassword = jest.fn();
+const signOut = jest.fn();
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({
-    auth: { admin: { generateLink, createUser, updateUserById } },
+    auth: {
+      admin: { generateLink, createUser, updateUserById, deleteUser },
+      signInWithPassword,
+      signOut,
+    },
   })),
 }));
 
@@ -221,6 +228,75 @@ describe('SupabaseAdminService', () => {
       await expect(service.updateAuthEmail('u', 'new@example.com')).rejects.toMatchObject({
         response: { code: 'MEMBER_CREATE_DISABLED' },
       });
+    });
+  });
+
+  // ── Account deletion (owner, 2026-10-23) ─────────────────────────────────
+  describe('verifyPassword', () => {
+    beforeEach(() => {
+      signInWithPassword.mockReset();
+      signOut.mockReset().mockResolvedValue({ error: null });
+    });
+
+    it('is ok for the right password, and ends the probe session at once', async () => {
+      signInWithPassword.mockResolvedValue({ data: {}, error: null });
+      const service = new SupabaseAdminService(buildConfig());
+      await expect(service.verifyPassword('juan@example.com', 'secret12')).resolves.toBe('ok');
+      expect(signInWithPassword).toHaveBeenCalledWith({
+        email: 'juan@example.com',
+        password: 'secret12',
+      });
+      expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    });
+
+    it('is wrong for a refused credential', async () => {
+      signInWithPassword.mockResolvedValue({
+        data: {},
+        error: { code: 'invalid_credentials', message: 'Invalid login credentials' },
+      });
+      const service = new SupabaseAdminService(buildConfig());
+      await expect(service.verifyPassword('juan@example.com', 'nope')).resolves.toBe('wrong');
+    });
+
+    it('is an error when Supabase could not answer', async () => {
+      signInWithPassword.mockResolvedValue({
+        data: {},
+        error: { code: 'unexpected_failure', message: 'boom' },
+      });
+      const service = new SupabaseAdminService(buildConfig());
+      await expect(service.verifyPassword('juan@example.com', 'x')).resolves.toBe('error');
+    });
+  });
+
+  describe('deleteAccountIdentity', () => {
+    it('deletes the Supabase user', async () => {
+      deleteUser.mockResolvedValue({ data: {}, error: null });
+      const service = new SupabaseAdminService(buildConfig());
+      await service.deleteAccountIdentity('u');
+      expect(deleteUser).toHaveBeenCalledWith('u');
+    });
+
+    it('treats an already-deleted user as done, so a retry is safe', async () => {
+      deleteUser.mockResolvedValue({
+        data: {},
+        error: { status: 404, code: 'user_not_found', message: 'User not found' },
+      });
+      const service = new SupabaseAdminService(buildConfig());
+      await expect(service.deleteAccountIdentity('u')).resolves.toBeUndefined();
+    });
+
+    it('throws 502 ACCOUNT_DELETE_FAILED on any other failure', async () => {
+      deleteUser.mockResolvedValue({ data: {}, error: { status: 500, message: 'down' } });
+      const service = new SupabaseAdminService(buildConfig());
+      await expect(service.deleteAccountIdentity('u')).rejects.toMatchObject({
+        status: 502,
+        response: { code: 'ACCOUNT_DELETE_FAILED' },
+      });
+    });
+
+    it('503s when the service key is unset', async () => {
+      const service = new SupabaseAdminService(buildConfig({ SUPABASE_SERVICE_KEY: undefined }));
+      await expect(service.deleteAccountIdentity('u')).rejects.toMatchObject({ status: 503 });
     });
   });
 });

@@ -1,6 +1,7 @@
 import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, Length, MaxLength } from 'class-validator';
 import { DiscountType, PaymentMethod } from '@got/shared';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsPaymentReference, Trim } from '../../common/validators/text.validators';
 
 /**
  * Route 22. The canonical money DTO for this chunk.
@@ -38,12 +39,14 @@ export class CreateMembershipDto {
 
   /** The OSCA / PWD ID. Falls back to User.seniorPwdIdNo when omitted. */
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 64)
   statutoryIdNo?: string;
 
   /** Required by Payment_discount_shape for PROMO / STAFF / GUEST_PASS / GOODWILL. */
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 200)
   discountReason?: string;
@@ -58,6 +61,7 @@ export class CreateMembershipDto {
    * worth more and is a legal right rather than an offer.
    */
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(2, 24)
   promoCode?: string;
@@ -67,12 +71,12 @@ export class CreateMembershipDto {
 
   /** Required when method is GCASH — an unreferenced GCash row cannot be reconciled. */
   @IsOptional()
-  @IsString()
-  @Length(1, 64)
+  @IsPaymentReference()
   reference?: string;
 
   /** The number staff wrote in the BIR booklet. Free text, never a sequence. */
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(32)
   receiptNo?: string;
@@ -89,6 +93,7 @@ export class CreateMembershipDto {
   gcashVerified?: boolean;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;

@@ -4,15 +4,15 @@ import {
   IsEmail,
   IsEnum,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   MaxLength,
-  Min,
 } from 'class-validator';
 import { DiscountType, PaymentMethod } from '@got/shared';
+import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsPaymentReference, IsPersonName, IsPhPhone, Trim } from '../../common/validators/text.validators';
 
 /**
  * Route 49 — `POST /front-desk/walk-ins`.
@@ -69,20 +69,12 @@ export class SellWalkInDto {
    * with one tap, and that is a real choice rather than a hidden default: an
    * unskippable field at a busy counter gets filled with `09171234567`.
    */
-  @Transform(({ value }: TransformFnParams): unknown =>
-    typeof value === 'string' ? value.trim() : value,
-  )
   @IsOptional()
-  @IsString()
-  @Length(7, 20)
-  guestPhone?: string;
+  @IsPhPhone()
+  guestPhone?: string | null;
 
-  @Transform(({ value }: TransformFnParams): unknown =>
-    typeof value === 'string' ? value.trim() : value,
-  )
   @IsOptional()
-  @IsString()
-  @Length(2, 80)
+  @IsPersonName('guestName', 2)
   guestName?: string;
 
   /**
@@ -144,8 +136,7 @@ export class SellWalkInDto {
 
   /** Required by the payment path when `method` is GCASH. */
   @IsOptional()
-  @IsString()
-  @Length(4, 64)
+  @IsPaymentReference()
   reference?: string;
 
   /**
@@ -165,6 +156,7 @@ export class SellWalkInDto {
    * Bounds match RecordPaymentDto character for character.
    */
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(32)
   receiptNo?: string;
@@ -182,8 +174,9 @@ export class SellWalkInDto {
 
   /** The OSCA or PWD ID number. Required by the payment path for either. */
   @IsOptional()
+  @Trim()
   @IsString()
-  @Length(3, 40)
+  @Length(3, 64)
   statutoryIdNo?: string;
 
   /**
@@ -209,8 +202,7 @@ export class SellWalkInDto {
    * member was quoted.
    */
   @IsOptional()
-  @IsInt()
-  @Min(0)
+  @IsCentavos(0, 10_000_000)
   netCentavos?: number;
 
   @IsOptional()

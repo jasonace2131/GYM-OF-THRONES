@@ -69,22 +69,21 @@ describe('verifyAccessToken — date of birth', () => {
     expect(claims.dateOfBirth).toBe(yearsAgo(30));
   });
 
-  it('accepts somebody exactly at the joining age', async () => {
-    // A year past 16 rather than the boundary itself — the boundary lands on
-    // a leap-year rounding edge that would make this test flaky one day in
-    // four, and asserting the exact day is not what this rule is for.
-    const claims = await verifyAccessToken(await withDob(yearsAgo(17)), keys, ISSUER);
-    expect(claims.dateOfBirth).not.toBeNull();
+  // Owner, 2026-10-23: no minimum age. A child's date is kept.
+  it("keeps a child's birth date — there is no minimum age", async () => {
+    const claims = await verifyAccessToken(await withDob('2020-06-01'), keys, ISSUER);
+    expect(claims.dateOfBirth).toBe('2020-06-01');
   });
 
-  it('does not take a self-declared age below the joining age on trust', async () => {
-    const claims = await verifyAccessToken(await withDob(yearsAgo(12)), keys, ISSUER);
-    expect(claims.dateOfBirth).toBeNull();
+  it('keeps 1900-01-01, the earliest date any form accepts', async () => {
+    const claims = await verifyAccessToken(await withDob('1900-01-01'), keys, ISSUER);
+    expect(claims.dateOfBirth).toBe('1900-01-01');
   });
 
   it.each<[unknown, string]>([
     ['2050-01-01', 'a date in the future'],
-    ['1200-01-01', 'an implausible age'],
+    ['1899-12-31', 'before 1900'],
+    ['2001-02-30', 'not a real date'],
     ['01/01/1990', 'the wrong format'],
     ['', 'empty'],
     [42, 'not a string'],
@@ -125,7 +124,7 @@ describe('verifyAccessToken', () => {
       email: 'juan@example.com',
       firstName: 'Juan',
       lastName: 'Dela Cruz',
-      phone: '0917 000 0000',
+      phone: '+639170000000',
       heightCm: 175,
       weightKg: 72.4,
       dateOfBirth: null,
@@ -146,6 +145,53 @@ describe('verifyAccessToken', () => {
     expect(claims.phone).toBeNull();
     expect(claims.heightCm).toBeNull();
     expect(claims.weightKg).toBeNull();
+  });
+
+  // Anybody can call Supabase signUp with the public anon key, so metadata is
+  // unvalidated input (owner, 2026-10-23): names and phone are sanitised here.
+  it('sanitises sign-up names: strips digits and symbols, collapses, truncates', async () => {
+    const token = await sign({
+      sub: '33333333-3333-3333-3333-333333333333',
+      email: 'x@example.com',
+      user_metadata: {
+        firstName: '  <b>Ju4n</b>   Pablo ',
+        lastName: 'D'.repeat(100),
+        phone: 'call me maybe',
+      },
+    });
+
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.firstName).toBe('Jun Pablo');
+    expect(claims.lastName).toHaveLength(60);
+    expect(claims.phone).toBeNull();
+  });
+
+  it('falls back to a neutral first name when nothing usable is left', async () => {
+    const token = await sign({
+      sub: '44444444-4444-4444-4444-444444444444',
+      email: '12345@example.com',
+      user_metadata: { firstName: '1234', lastName: '!!!' },
+    });
+
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.firstName).toBe('Member');
+    expect(claims.lastName).toBe('');
+  });
+
+  it('stores a sign-up PH mobile as +639XXXXXXXXX and drops a landline', async () => {
+    const mobile = await sign({
+      sub: '55555555-5555-5555-5555-555555555555',
+      email: 'm@example.com',
+      user_metadata: { phone: '+63 917-123-4567' },
+    });
+    expect((await verifyAccessToken(mobile, keys, ISSUER)).phone).toBe('+639171234567');
+
+    const landline = await sign({
+      sub: '55555555-5555-5555-5555-555555555556',
+      email: 'l@example.com',
+      user_metadata: { phone: '(02) 8123 4567' },
+    });
+    expect((await verifyAccessToken(landline, keys, ISSUER)).phone).toBeNull();
   });
 
   it('coerces numeric metadata sent as form strings', async () => {

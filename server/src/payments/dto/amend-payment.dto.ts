@@ -10,6 +10,7 @@ import {
 import { DiscountType, PaymentMethod } from '@got/shared';
 import { ConfirmDto } from '../../common/dto/confirm.dto';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsPaymentReference, Trim } from '../../common/validators/text.validators';
 
 /**
  * "Edit payment" — a VOID-AND-RE-RECORD, not a row rewrite.
@@ -39,6 +40,7 @@ import { IsCentavos } from '../../common/validators/is-centavos.validator';
  */
 export class AmendPaymentDto extends ConfirmDto {
   /** Length matches MembershipEvent_reason_required's btrim(...) >= 3. */
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;
@@ -62,8 +64,7 @@ export class AmendPaymentDto extends ConfirmDto {
   method?: PaymentMethod;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(64)
+  @IsPaymentReference({ allowBlank: true })
   reference?: string;
 
   @IsOptional()
@@ -79,23 +80,27 @@ export class AmendPaymentDto extends ConfirmDto {
   discountCentavos?: number;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(64)
   statutoryIdNo?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(200)
   discountReason?: string;
 
   /** `''` clears it — the BIR booklet number that turned out not to exist. */
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(64)
   receiptNo?: string;
 
   /** `''` clears it. */
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;

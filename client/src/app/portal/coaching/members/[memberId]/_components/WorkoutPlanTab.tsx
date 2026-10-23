@@ -26,6 +26,7 @@ import {
 import { usePermission } from '@/components/rbac/MeProvider';
 import { PlanDays } from '@/components/coaching/PlanDays';
 import { Card, CardHead, EmptyState, Skeleton } from '@/components/portal/ui';
+import { filterIntTyping } from '@/lib/numberInput';
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ok'; view: WorkoutPlanView | null };
 
@@ -330,10 +331,13 @@ export function WorkoutPlanTab({ memberId }: { memberId: string }) {
                   <input
                     className="a-input"
                     inputMode="numeric"
+                    maxLength={String(WORKOUT_PLAN_LIMITS.setsMax).length}
                     value={exercise.sets}
                     onChange={(event) =>
                       setDraft(
-                        updateExercise(draft, day.key, exercise.key, { sets: event.target.value }),
+                        updateExercise(draft, day.key, exercise.key, {
+                          sets: filterIntTyping(event.target.value),
+                        }),
                       )
                     }
                   />

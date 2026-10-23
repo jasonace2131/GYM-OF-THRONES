@@ -1,6 +1,8 @@
 import { jwtVerify } from 'jose';
 import type { JWTVerifyGetKey } from 'jose';
 import type { SupabaseClaims } from './auth.types';
+import { isPlausibleBirthDate, normalisePhPhone, sanitisePersonName } from '@got/shared';
+import { latestToday } from '../common/validators/is-birth-date.validator';
 
 interface RawUserMetadata {
   firstName?: unknown;
@@ -12,40 +14,16 @@ interface RawUserMetadata {
 }
 
 /**
- * The gym's minimum joining age.
+ * `yyyy-mm-dd` from a date input, or null (owner, 2026-10-23: NO minimum age).
  *
- * Here rather than in a CHECK constraint because it is a BUSINESS rule, not
- * an integrity one: the gym may change it, and a policy change should not
- * need a migration. The constraint in SQL only rejects a date that cannot
- * describe a living person.
- *
- * A younger applicant is not rejected outright — the date is simply not
- * accepted from an unverified self-registration, so staff must enter it and
- * take a guardian's consent in person. Silently trusting a self-declared age
- * is how a minor ends up holding a waiver they cannot legally sign.
+ * A real calendar date from 1900-01-01 up to today — never in the future —
+ * the same rule every DOB input and `IsBirthDate` apply. Returned as the
+ * civil-date STRING, not a Date: a birthday is a calendar date, not an
+ * instant. Anything else is dropped rather than stored.
  */
-const MINIMUM_JOIN_AGE = 16;
-
-/**
- * `yyyy-mm-dd` from a date input, or null.
- *
- * Rejects anything in the future, anything implying an implausible age, and
- * anyone below the joining age. Returned as the civil-date STRING, not a
- * Date: a birthday is a calendar date, not an instant, and parsing it into a
- * Date here would reintroduce the timezone bug the CivilDate type exists to
- * prevent.
- */
-export function asJoinableBirthDate(value: unknown): string | null {
+export function asBirthDate(value: unknown, now: number = Date.now()): string | null {
   const raw = typeof value === 'string' ? value.trim() : '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
-
-  const born = Date.parse(`${raw}T00:00:00.000Z`);
-  if (Number.isNaN(born)) return null;
-
-  const years = (Date.now() - born) / (365.2425 * 86_400_000);
-  if (years < MINIMUM_JOIN_AGE || years > 120) return null;
-
-  return raw;
+  return isPlausibleBirthDate(raw, latestToday(now)) ? raw : null;
 }
 
 function asString(value: unknown): string | null {
@@ -128,19 +106,25 @@ export async function verifyAccessToken(
   // Supabase sign-up carries names in user_metadata. A user created another
   // way (dashboard, OAuth) may have none, so fall back to the email
   // local-part rather than failing — provisioning still needs a name.
-  const firstName = asString(metadata.firstName) ?? asString(email.split('@')[0]) ?? 'Member';
+  //
+  // Metadata is UNVALIDATED input: anybody can call Supabase signUp with the
+  // public anon key. Names are sanitised to the shared name rule (an empty
+  // result falls through to the next source), and the phone must be a PH
+  // mobile, stored as +639XXXXXXXXX, or it is dropped.
+  const firstName =
+    sanitisePersonName(metadata.firstName) || sanitisePersonName(email.split('@')[0]) || 'Member';
 
   return {
     sub,
     email,
     firstName,
-    lastName: asString(metadata.lastName) ?? '',
-    phone: asString(metadata.phone),
+    lastName: sanitisePersonName(metadata.lastName),
+    phone: normalisePhPhone(metadata.phone),
     // Bounds cover every real adult with room to spare; anything outside is a
     // typo or a unit mix-up (lbs entered as kg) and is dropped.
     heightCm: asBoundedNumber(metadata.heightCm, 50, 260),
     weightKg: asBoundedNumber(metadata.weightKg, 20, 400),
-    dateOfBirth: asJoinableBirthDate(metadata.dateOfBirth),
+    dateOfBirth: asBirthDate(metadata.dateOfBirth),
     sessionId,
     amr: asAmrMethods(payload['amr']),
   };

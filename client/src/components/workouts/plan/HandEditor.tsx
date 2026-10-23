@@ -9,6 +9,7 @@ import {
 import { dayKicker } from '@/lib/workouts/planView';
 import { IconPlus, IconTrash, IconWarning } from '../icons';
 import { Button, Notice, Panel, PlainButton } from '../ui';
+import { filterIntTyping } from '@/lib/numberInput';
 
 const FIELD =
   'h-10 min-w-0 rounded-lg border-[1.5px] border-[color:var(--p-border-2)] bg-card px-3 text-[14px] text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold';
@@ -105,8 +106,11 @@ export function HandEditor({
                       type="text"
                       inputMode="numeric"
                       value={exercise.sets}
+                      maxLength={String(WORKOUT_LIMITS.setsMax).length}
                       onChange={(e) =>
-                        onChange(updateExercise(form, di, ei, { sets: e.target.value }))
+                        onChange(
+                          updateExercise(form, di, ei, { sets: filterIntTyping(e.target.value) }),
+                        )
                       }
                       className={FIELD}
                       aria-label={`Exercise ${ei + 1} sets`}
@@ -129,8 +133,13 @@ export function HandEditor({
                       type="text"
                       inputMode="numeric"
                       value={exercise.restSeconds}
+                      maxLength={String(WORKOUT_LIMITS.restSecondsMax).length}
                       onChange={(e) =>
-                        onChange(updateExercise(form, di, ei, { restSeconds: e.target.value }))
+                        onChange(
+                          updateExercise(form, di, ei, {
+                            restSeconds: filterIntTyping(e.target.value),
+                          }),
+                        )
                       }
                       className={FIELD}
                       aria-label={`Exercise ${ei + 1} rest in seconds`}

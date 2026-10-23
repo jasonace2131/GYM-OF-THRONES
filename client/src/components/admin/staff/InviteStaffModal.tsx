@@ -13,6 +13,7 @@ import { toRoleName } from '@/lib/staff/staffRules';
 import { useMe } from '@/components/rbac/MeProvider';
 import { Modal, ModalError } from '../Modal';
 import { ConfirmDialog } from '../actions/ConfirmDialog';
+import { EMAIL_MAX } from '@got/shared';
 
 /** What each role is for, in one line — shown under the picker. */
 const ROLE_HINT: Record<InvitableRole, string> = {
@@ -117,6 +118,7 @@ export function InviteStaffModal({
             id="invite-staff-email"
             className="a-input"
             type="email"
+            maxLength={EMAIL_MAX}
             value={email}
             autoComplete="off"
             autoFocus

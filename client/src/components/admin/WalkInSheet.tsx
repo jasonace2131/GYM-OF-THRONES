@@ -5,13 +5,17 @@ import type { CheckInRecord, DeskDenial } from '@got/shared';
 import { ApiError } from '@/lib/api';
 import { adminApi, peso, type DiscountTypeCode } from '@/lib/adminApi';
 import { useAdminQuery } from '@/lib/useAdminQuery';
-import { isPlausibleEmail } from '@/lib/guestEmail';
 import { saleAmounts } from '@/lib/payments/discount';
 import { useVatRegistered } from './DiscountEntry';
 import { Card, CardHead } from '@/components/portal/ui';
 import { GcashFields } from './GcashFields';
 import { ReceiptNoField } from './ReceiptNoField';
 import { ConfirmDialog } from './actions/ConfirmDialog';
+import { EMAIL_MAX, EMERGENCY_CONTACT_MAX } from '@got/shared';
+import { validateWalkInGuest, walkInSaleProblem } from '@/lib/walkInGuest';
+import { saleReference } from '@/lib/paymentReference';
+import { NameInput } from '@/components/inputs/NameInput';
+import { PhoneInput } from '@/components/inputs/PhoneInput';
 
 /**
  * The walk-in sale.
@@ -95,14 +99,35 @@ export function WalkInSheet({
   const money = (centavos: number): string => peso(centavos, { decimals: centavos % 100 !== 0 });
   const dueLabel = due === null ? null : money(due);
 
+  const guest = validateWalkInGuest({
+    name: guestName,
+    phone: guestPhone,
+    emergencyContact: guestEmergencyContact,
+  });
+  const saleProblem = walkInSaleProblem({
+    guest: !forMember,
+    name: guestName,
+    email: guestEmail,
+    phone: guestPhone,
+    emergencyContact: guestEmergencyContact,
+    waiverAccepted,
+    method,
+    reference,
+  });
+
   const submit = async (): Promise<void> => {
+    // The button stays enabled; a click with something missing says what.
+    if (saleProblem !== null) {
+      setError(saleProblem);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const record = await adminApi.sellWalkIn({
         kind: 'WALK_IN',
         method,
-        ...(method === 'GCASH' ? { reference, gcashVerified } : {}),
+        ...(method === 'GCASH' ? { reference: saleReference(method, reference), gcashVerified } : {}),
         ...(receiptNo.trim() === '' ? {} : { receiptNo: receiptNo.trim() }),
         // The console saying what it displayed — the server refuses a
         // mismatch, so a stale sheet cannot ring a number the member was
@@ -112,12 +137,8 @@ export function WalkInSheet({
         ...(forMember
           ? { userId: denial.member.userId ?? undefined, denialId: denial.denialId }
           : {
-              guestName,
+              ...(guest.ok ? guest.fields : { guestName }),
               guestEmail: guestEmail.trim().toLowerCase(),
-              ...(guestPhone === '' ? {} : { guestPhone }),
-              ...(guestEmergencyContact.trim() === ''
-                ? {}
-                : { guestEmergencyContact: guestEmergencyContact.trim() }),
               // Required by the server for anyone without an account — see
               // WalkInModal. A member resolved from a denial already accepted
               // theirs in the portal, so it is not asked for again.
@@ -188,12 +209,12 @@ export function WalkInSheet({
             <>
               <label>
                 <span className="a-person-sub">GUEST NAME</span>
-                <input
+                <NameInput
                   className="a-input"
                   value={guestName}
                   required
                   minLength={2}
-                  onChange={(event) => setGuestName(event.target.value)}
+                  onChange={setGuestName}
                 />
               </label>
               <label>
@@ -202,6 +223,7 @@ export function WalkInSheet({
                   className="a-input"
                   type="email"
                   value={guestEmail}
+                  maxLength={EMAIL_MAX}
                   required
                   autoComplete="off"
                   inputMode="email"
@@ -211,10 +233,10 @@ export function WalkInSheet({
               </label>
               <label>
                 <span className="a-person-sub">PHONE OPTIONAL</span>
-                <input
+                <PhoneInput
                   className="a-input"
                   value={guestPhone}
-                  onChange={(event) => setGuestPhone(event.target.value)}
+                  onChange={setGuestPhone}
                   placeholder="they can decline"
                 />
               </label>
@@ -223,6 +245,7 @@ export function WalkInSheet({
                 <input
                   className="a-input"
                   value={guestEmergencyContact}
+                  maxLength={EMERGENCY_CONTACT_MAX}
                   onChange={(event) => setGuestEmergencyContact(event.target.value)}
                   placeholder="name and number"
                 />
@@ -330,11 +353,7 @@ export function WalkInSheet({
         <button
           type="submit"
           className="p-btn p-btn-gold"
-          disabled={
-            busy ||
-            (!forMember &&
-              (!waiverAccepted || guestName.trim().length < 2 || !isPlausibleEmail(guestEmail)))
-          }
+          disabled={busy}
         >
           {busy ? 'Recording…' : dueLabel === null ? 'Take payment' : `Charge ${dueLabel}`}
         </button>

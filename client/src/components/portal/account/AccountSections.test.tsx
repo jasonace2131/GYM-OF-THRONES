@@ -7,14 +7,26 @@ vi.mock('@/lib/api', () => ({
   ApiError: class ApiError extends Error {},
 }));
 
-import { BodySection, EmailSection, PasswordSection } from './AccountSections';
+import {
+  BodySection,
+  DeleteSection,
+  DetailsSection,
+  EmailSection,
+  PasswordSection,
+} from './AccountSections';
 
 const PROFILE = {
   email: 'juan@example.com',
+  firstName: 'Juan',
+  lastName: 'Dela Cruz',
+  phone: null,
+  memberCode: null,
   heightCm: 175,
   weightKg: 72.4,
   medicalNotes: 'Bad left knee',
   shareMedicalWithPlanner: false,
+  membership: null,
+  canDeleteAccount: true,
 };
 
 const noop = vi.fn();
@@ -76,5 +88,48 @@ describe('PasswordSection', () => {
 
   it('marks the 8-character floor on the new-password fields', () => {
     expect(html.match(/minLength="8"/g)).toHaveLength(2);
+  });
+});
+
+describe('framed={false} — inside a sheet', () => {
+  it('renders the form without its own card heading', () => {
+    const html = renderToStaticMarkup(
+      <EmailSection framed={false} email={PROFILE.email} change={noop} />,
+    );
+    expect(html.startsWith('<form')).toBe(true);
+  });
+});
+
+describe('DetailsSection', () => {
+  const html = renderToStaticMarkup(<DetailsSection profile={PROFILE} save={noop} onSaved={noop} />);
+
+  it('shows the name, an empty phone, and the right autofill hints', () => {
+    expect(html).toContain('value="Juan"');
+    expect(html).toContain('value="Dela Cruz"');
+    expect(html).toContain('autoComplete="given-name"');
+    expect(html).toContain('autoComplete="family-name"');
+    expect(html).toContain('type="tel"');
+  });
+
+  it('caps a name at 60 characters and starts with Save disabled', () => {
+    expect(html.match(/maxLength="60"/g)).toHaveLength(2);
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save details<\/button>/);
+  });
+});
+
+describe('DeleteSection', () => {
+  const html = renderToStaticMarkup(
+    <DeleteSection profile={PROFILE} remove={noop} onDeleted={noop} onCancel={noop} />,
+  );
+
+  it('asks for the current password', () => {
+    expect(html).toContain('autoComplete="current-password"');
+    expect(html).toContain('name="deletePassword"');
+  });
+
+  it('says what is erased and what is kept', () => {
+    expect(html).toContain('Erased now');
+    expect(html).toContain('Consent records');
+    expect(html).toContain('Your chats with your coach and their notes');
   });
 });

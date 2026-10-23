@@ -22,6 +22,7 @@ import {
 import { parseDiscount, saleAmounts } from '@/lib/payments/discount';
 import { ReceiptNoField } from '../ReceiptNoField';
 import { ConfirmDialog } from './ConfirmDialog';
+import { STATUTORY_ID_MAX } from '@got/shared';
 
 /** Exported so `NewMemberDrawer`'s inline "sell a plan now" step (C6) uses the
  *  same vocabulary rather than a second hand-typed copy that could drift. */
@@ -273,6 +274,7 @@ export function SellMembershipModal({
               id="sell-statutory-id"
               className="a-input"
               value={statutoryIdNo}
+              maxLength={STATUTORY_ID_MAX}
               autoComplete="off"
               onChange={(event) => setStatutoryIdNo(event.target.value)}
             />
@@ -297,6 +299,7 @@ export function SellMembershipModal({
                 id="sell-discount-reason"
                 className="a-input"
                 value={discountReason}
+                maxLength={200}
                 autoComplete="off"
                 placeholder="At least 3 characters"
                 onChange={(event) => setDiscountReason(event.target.value)}

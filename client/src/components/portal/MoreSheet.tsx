@@ -8,6 +8,7 @@ import type { NavItem } from './nav';
 import { IconSignOut } from './icons';
 import { NavItemBadge } from '@/components/chat/NavItemBadge';
 import { activeHref } from '@/lib/navActive';
+import { SignOutButton, type SignOutSurface } from '@/components/auth/ConfirmSignOutDialog';
 
 export interface MoreSheetGroup {
   label?: string;
@@ -18,7 +19,10 @@ interface MoreSheetProps {
   open: boolean;
   onClose: () => void;
   groups: MoreSheetGroup[];
-  onSignOut: () => void;
+  /** Runs once the user CONFIRMS — Sign out asks first, over the sheet. */
+  onSignOut: () => void | Promise<void>;
+  /** Which surface's confirm button style the dialog uses. */
+  surface: SignOutSurface;
   /** The SurfaceSwitch, when this caller holds two surfaces. */
   switchTo?: ReactNode;
 }
@@ -40,7 +44,7 @@ interface MoreSheetProps {
  * Members gain from this too: Sign out has never been reachable on a phone.
  * ─────────────────────────────────────────────────────────────────────────
  */
-export function MoreSheet({ open, onClose, groups, onSignOut, switchTo }: MoreSheetProps) {
+export function MoreSheet({ open, onClose, groups, onSignOut, surface, switchTo }: MoreSheetProps) {
   const pathname = usePathname();
 
   // Escape closes, and the body does not scroll behind an open sheet. Both are
@@ -50,7 +54,9 @@ export function MoreSheet({ open, onClose, groups, onSignOut, switchTo }: MoreSh
     if (!open) return;
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      // The sign-out confirmation stacks over this sheet; its Escape (Radix
+      // marks it handled) cancels the dialog only, not the sheet beneath.
+      if (event.key === 'Escape' && !event.defaultPrevented) onClose();
     };
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -111,10 +117,10 @@ export function MoreSheet({ open, onClose, groups, onSignOut, switchTo }: MoreSh
 
         <div className="p-sheet-foot">
           {switchTo}
-          <button type="button" className="p-link" onClick={onSignOut}>
+          <SignOutButton surface={surface} className="p-link" onConfirm={onSignOut}>
             <IconSignOut />
             Sign out
-          </button>
+          </SignOutButton>
         </div>
       </div>
     </div>

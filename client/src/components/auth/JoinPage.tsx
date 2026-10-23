@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { MemberJoinLookup } from '@got/shared';
+import { BIRTH_DATE_MIN, type MemberJoinLookup } from '@got/shared';
 import AuthBrandPanel from './AuthBrandPanel';
 import { PasswordInput } from './PasswordInput';
 import { supabase } from '@/lib/supabase';
@@ -309,6 +309,7 @@ export default function JoinPage({ token }: { token: string }) {
                     className="input"
                     type="date"
                     value={dateOfBirth}
+                    min={BIRTH_DATE_MIN}
                     max={dayBefore(localToday())}
                     onChange={(event) => setDateOfBirth(event.target.value)}
                     required

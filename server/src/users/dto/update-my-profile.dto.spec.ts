@@ -99,4 +99,60 @@ describe('UpdateMyProfileDto', () => {
   it('refuses any other unknown field', () => {
     expect(parse({ role: 'ADMIN' }).constraints).toEqual(['whitelistValidation']);
   });
+
+  describe('name and phone (owner, 2026-10-23)', () => {
+    it('accepts and trims a first and last name', () => {
+      const { dto, constraints } = parse({ firstName: '  Juan ', lastName: ' Dela Cruz ' });
+      expect(constraints).toEqual([]);
+      expect(dto.firstName).toBe('Juan');
+      expect(dto.lastName).toBe('Dela Cruz');
+    });
+
+    it('accepts letters with accents, apostrophes, hyphens and dots', () => {
+      expect(parse({ firstName: 'Ma. Niña', lastName: "O'Brien-Santos" }).constraints).toEqual([]);
+    });
+
+    it('holds a name to 1–60 characters after the trim', () => {
+      expect(parse({ firstName: 'a'.repeat(60) }).constraints).toEqual([]);
+      expect(parse({ firstName: 'a'.repeat(61) }).constraints).toContain('isLength');
+      expect(parse({ firstName: '   ' }).constraints).toContain('isLength');
+      expect(parse({ lastName: '' }).constraints).toContain('isLength');
+    });
+
+    it('refuses digits and symbols in a name', () => {
+      expect(parse({ firstName: 'Juan2' }).constraints).toContain('matches');
+      expect(parse({ lastName: '<script>' }).constraints).toContain('matches');
+    });
+
+    it('refuses null for a name — a name cannot be cleared', () => {
+      expect(parse({ firstName: null }).constraints.length).toBeGreaterThan(0);
+      expect(parse({ lastName: null }).constraints.length).toBeGreaterThan(0);
+    });
+
+    it('accepts a PH mobile and stores it as +639XXXXXXXXX', () => {
+      const { dto, constraints } = parse({ phone: '  +63 917   555-0142 ' });
+      expect(constraints).toEqual([]);
+      expect(dto.phone).toBe('+639175550142');
+      expect(parse({ phone: '0917-555-0142' }).dto.phone).toBe('+639175550142');
+    });
+
+    it('collapses the spaces inside a name', () => {
+      expect(parse({ lastName: '  Dela    Cruz ' }).dto.lastName).toBe('Dela Cruz');
+    });
+
+    it('turns a blank or null phone into null, which clears it', () => {
+      expect(parse({ phone: '   ' }).dto.phone).toBeNull();
+      expect(parse({ phone: '' }).constraints).toEqual([]);
+      expect(parse({ phone: null }).dto.phone).toBeNull();
+      expect(parse({ phone: null }).constraints).toEqual([]);
+    });
+
+    it('refuses anything but a PH mobile — the shared rule', () => {
+      expect(parse({ phone: 'call me' }).constraints).toEqual(['matches']);
+      expect(parse({ phone: '(02) 8123 4567' }).constraints).toEqual(['matches']);
+      expect(parse({ phone: '0917abc0142' }).constraints).toEqual(['matches']);
+      expect(parse({ phone: '12345' }).constraints).toEqual(['matches']);
+      expect(parse({ phone: '0917 555 0142 0000 0000' }).constraints).toEqual(['matches']);
+    });
+  });
 });

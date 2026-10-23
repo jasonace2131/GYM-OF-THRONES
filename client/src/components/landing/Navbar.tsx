@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
+import { type HeldPermission, destinationFor, isStaff } from '@/lib/safeNext';
 
 const LINKS = [
   { label: 'Services', href: '#services' },
@@ -12,9 +15,57 @@ const LINKS = [
   { label: 'Visit', href: '#contact' },
 ] as const;
 
+/**
+ * The header's account button. `null` = no session: "Log in".
+ *
+ * A signed-in visitor used to see "Log in" here too, and the login page asked
+ * them for their password AND a new emailed code (owner bug, 2026-10-23). With
+ * a session, the button leads back in instead: labelled from `/me` and routed
+ * by the same `destinationFor` the login page uses. Until `/me` answers — or
+ * when it cannot, e.g. a sign-in still owed its code — it is "Continue" to
+ * /login, which routes a verified session onward and shows the code step for
+ * an unverified one. (`/` is exempt from apiFetch's code redirect, so a
+ * half-finished sign-in is never pulled off the homepage by this call.)
+ */
+interface AccountLink {
+  href: string;
+  label: 'My portal' | 'Staff console' | 'Continue';
+}
+
+const CONTINUE: AccountLink = { href: '/login', label: 'Continue' };
+
+function useAccountLink(): AccountLink | null {
+  const [account, setAccount] = useState<AccountLink | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled || !data.session) return;
+        setAccount(CONTINUE);
+        const me = await apiFetch<{ permissions: HeldPermission[] }>('/me');
+        if (cancelled) return;
+        setAccount({
+          href: destinationFor(null, me.permissions),
+          label: isStaff(me.permissions) ? 'Staff console' : 'My portal',
+        });
+      } catch {
+        // Keep whatever is showing: "Continue" to /login sorts it out there.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return account;
+}
+
 export default function Navbar() {
   const headerRef = useRef<HTMLElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const account = useAccountLink();
 
   useEffect(() => {
     const header = headerRef.current;
@@ -136,11 +187,11 @@ export default function Navbar() {
 
         <div style={{ display: 'flex', gap: 10, flex: 'none', alignItems: 'center' }}>
           <Link
-            href="/login"
+            href={account?.href ?? '/login'}
             className="btn btn-ghost nav-login"
             style={{ fontSize: 12.5, letterSpacing: '0.1em', padding: '9px 20px' }}
           >
-            LOGIN
+            {account === null ? 'LOGIN' : account.label.toUpperCase()}
           </Link>
           <Link
             href="/register"
@@ -180,8 +231,12 @@ export default function Navbar() {
             {link.label}
           </a>
         ))}
-        <Link href="/login" className="nav-menu-login" onClick={() => setMenuOpen(false)}>
-          Log in
+        <Link
+          href={account?.href ?? '/login'}
+          className="nav-menu-login"
+          onClick={() => setMenuOpen(false)}
+        >
+          {account === null ? 'Log in' : account.label}
         </Link>
       </div>
     </header>

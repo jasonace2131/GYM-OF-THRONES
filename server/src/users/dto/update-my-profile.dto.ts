@@ -10,12 +10,15 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { PROFILE_LIMITS } from '@got/shared';
+import { IsPersonName, IsPhPhone } from '../../common/validators/text.validators';
 
 /**
- * `PATCH /me/profile` — the caller's own body metrics and medical notes.
+ * `PATCH /me/profile` — the caller's own name, phone, body metrics and medical
+ * notes.
  *
  * Every field optional, and an absent field is left alone: only what was sent
- * changes. `null` clears a value (`@IsOptional` skips validation for it).
+ * changes. `null` clears a value (`@IsOptional` skips validation for it) —
+ * except a name, which cannot be cleared.
  *
  * Deliberately absent: email. It changes through Supabase's confirmed email
  * change, and `UserProvisioningService` copies it from the verified token —
@@ -31,6 +34,25 @@ const trimmedOrNull = ({ value }: { value: unknown }): unknown => {
 const L = PROFILE_LIMITS;
 
 export class UpdateMyProfileDto {
+  /**
+   * The member's own name (owner, 2026-10-23). Not clearable: `ValidateIf`
+   * runs the checks on `null` instead of skipping it the way `@IsOptional`
+   * would. `UserProvisioningService` writes names on FIRST SIGHT ONLY, so the
+   * next token's (stale) sign-up metadata never overwrites an edit made here.
+   */
+  @ValidateIf((dto: UpdateMyProfileDto) => dto.firstName !== undefined)
+  @IsPersonName('firstName')
+  firstName?: string;
+
+  @ValidateIf((dto: UpdateMyProfileDto) => dto.lastName !== undefined)
+  @IsPersonName('lastName')
+  lastName?: string;
+
+  /** A PH mobile, stored as +639XXXXXXXXX (the shared rule). Blank or null clears it. */
+  @IsOptional()
+  @IsPhPhone()
+  phone?: string | null;
+
   @IsOptional()
   @IsNumber({ allowNaN: false, allowInfinity: false, maxDecimalPlaces: 1 })
   @Min(L.heightCmMin)

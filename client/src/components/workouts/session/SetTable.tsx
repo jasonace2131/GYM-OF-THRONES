@@ -6,9 +6,23 @@ import { cn } from '@/lib/utils';
 import { IconCheck } from '../icons';
 import { Stepper } from './Stepper';
 
-/** SET · KG · REPS · DONE — one grid for the header and every row. */
+/**
+ * SET · KG · REPS · DONE — one grid for the header and every row.
+ *
+ * Two 44px-stepper cells need ~140px each to show "102.5", so a card under
+ * 380px (every phone up to ~430px wide) stacks them: KG on the first line,
+ * REPS under it, the set number and the tick spanning both. The header then
+ * keeps only SET and DONE on screen; each stepper carries its own unit.
+ */
 const GRID =
-  'grid grid-cols-[30px_minmax(0,1fr)_minmax(0,1fr)_48px] gap-2 @max-[310px]:grid-cols-[26px_minmax(0,1fr)_minmax(0,1fr)_48px] @max-[310px]:gap-1.5';
+  'grid grid-cols-[30px_minmax(0,1fr)_minmax(0,1fr)_48px] gap-2 @max-[379px]:grid-cols-[30px_minmax(0,1fr)_48px] @max-[379px]:gap-x-2 @max-[379px]:gap-y-1.5';
+/** Narrow-card placement of each cell (see GRID). */
+const AT = {
+  set: '@max-[379px]:col-start-1 @max-[379px]:row-span-2 @max-[379px]:row-start-1',
+  kg: '@max-[379px]:col-start-2 @max-[379px]:row-start-1',
+  reps: '@max-[379px]:col-start-2 @max-[379px]:row-start-2',
+  done: '@max-[379px]:col-start-3 @max-[379px]:row-span-2 @max-[379px]:row-start-1',
+} as const;
 
 export interface SetTableHandlers {
   onStepWeight: (setIndex: number, direction: 1 | -1) => void;
@@ -29,16 +43,16 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
     <div role="table" aria-label="Sets" className="flex flex-col gap-1.5">
       <div
         role="row"
-        className={cn(GRID, 'px-0.5 text-[10.5px] font-bold tracking-[0.12em] text-ink-3')}
+        className={cn(GRID, 'px-0.5 text-[11px] font-bold tracking-[0.12em] text-ink-3')}
       >
         <span role="columnheader">SET</span>
-        <span role="columnheader" className="text-center">
+        <span role="columnheader" className="text-center @max-[379px]:sr-only">
           KG
         </span>
-        <span role="columnheader" className="text-center">
+        <span role="columnheader" className="text-center @max-[379px]:sr-only">
           REPS
         </span>
-        <span role="columnheader" className="text-center">
+        <span role="columnheader" className="text-center @max-[379px]:col-start-3">
           DONE
         </span>
       </div>
@@ -61,7 +75,8 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
             <span
               role="cell"
               className={cn(
-                'flex h-7 w-7 items-center justify-center rounded-full text-[12.5px] font-bold',
+                'flex h-7 w-7 items-center justify-center self-center rounded-full text-[12.5px] font-bold',
+                AT.set,
                 row.done ? 'bg-ok text-white' : 'bg-[#f2f0ec] text-[color:var(--p-ink)]',
               )}
             >
@@ -70,6 +85,8 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
             <Stepper
               display={row.weightKg === null ? '' : formatKg(row.weightKg)}
               placeholder="BW"
+              unit="KG"
+              className={AT.kg}
               inputMode="decimal"
               inputLabel={`Weight in kg, set ${n}. Blank is bodyweight.`}
               downLabel={`Less weight, set ${n}`}
@@ -79,6 +96,8 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
             />
             <Stepper
               display={String(row.reps)}
+              unit="REPS"
+              className={AT.reps}
               inputMode="numeric"
               inputLabel={`Reps, set ${n}`}
               downLabel={`Fewer reps, set ${n}`}
@@ -86,7 +105,7 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
               onStep={(direction) => handlers.onStepReps(j, direction)}
               onCommit={(text) => handlers.onTypeReps(j, text)}
             />
-            <div role="cell" className="flex justify-center">
+            <div role="cell" className={cn('flex items-center justify-center', AT.done)}>
               <button
                 type="button"
                 aria-pressed={row.done}

@@ -54,6 +54,13 @@ export function OpeningHoursCard({ canManage }: { canManage: boolean }) {
   const ask = (): void => {
     if (draft === null) return;
 
+    // A cleared time picker gives '' — an open day needs both times.
+    const blank = draft.find((day) => !day.isClosed && (day.opensAt === '' || day.closesAt === ''));
+    if (blank !== undefined) {
+      setError(`${DAYS[blank.dayOfWeek]} needs an opening and a closing time.`);
+      return;
+    }
+
     // Mirrors `GymHours_ordered`. Caught here so the counter sees which day
     // is wrong rather than a constraint violation naming none of them.
     const broken = draft.find((day) => !day.isClosed && day.closesAt <= day.opensAt);

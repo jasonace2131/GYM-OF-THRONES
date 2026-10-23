@@ -164,14 +164,16 @@ export function SessionCard({
   return (
     <article
       className={cn(
-        'grid grid-cols-[4rem_minmax(0,1fr)] gap-3 rounded-xl border bg-card p-4 shadow-sm',
+        // Phones: the time sits on its own line above the title, so the title
+        // gets the card's full width. From `sm` it is a 4rem column again.
+        'grid grid-cols-1 gap-2 rounded-xl border bg-card p-4 shadow-sm sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-3',
         mine ? 'border-gold' : 'border-transparent',
         dim && 'opacity-65',
       )}
     >
-      <div className="font-display text-[15px] font-semibold leading-tight">
+      <div className="flex items-baseline gap-2 whitespace-nowrap font-display text-[15px] font-semibold leading-tight sm:block">
         {gymClock12(session.startsAt)}
-        <span className="block font-sans text-xs font-normal text-ink-3">
+        <span className="font-sans text-xs font-normal text-ink-3 sm:block">
           {classLength(session.startsAt, session.endsAt)}
         </span>
       </div>

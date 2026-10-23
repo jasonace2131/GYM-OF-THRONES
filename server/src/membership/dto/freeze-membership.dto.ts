@@ -2,6 +2,7 @@ import { IsBoolean, IsEnum, IsOptional, IsString, Length, MaxLength } from 'clas
 import { PaymentMethod } from '@got/shared';
 import type { CivilDate } from '../../common/time/gym-time';
 import { IsGymDate } from '../../common/validators/is-gym-date.validator';
+import { IsPaymentReference, Trim } from '../../common/validators/text.validators';
 
 /**
  * `endsOn` is MANDATORY (§5.6): an open-ended freeze is a cancellation the
@@ -19,6 +20,7 @@ export class FreezeMembershipDto {
   endsOn!: CivilDate;
 
   /** Matches MembershipEvent_reason_required's `length(btrim(...)) >= 3`. */
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;
@@ -33,11 +35,11 @@ export class FreezeMembershipDto {
   method?: PaymentMethod;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(64)
+  @IsPaymentReference({ allowBlank: true })
   reference?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(32)
   receiptNo?: string;
@@ -56,6 +58,7 @@ export class FreezeMembershipDto {
 
 export class UnfreezeMembershipDto {
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason?: string;

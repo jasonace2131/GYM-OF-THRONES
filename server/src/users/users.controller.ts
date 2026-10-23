@@ -1,4 +1,8 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
+import { AccountDeletionService } from './account-deletion.service';
+import { DeleteMyAccountDto } from './dto/delete-my-account.dto';
 import type { MemberAccess, MyProfile } from '@got/shared';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PermissionsService } from '../rbac/permissions.service';
@@ -32,6 +36,7 @@ export class UsersController {
     private readonly permissions: PermissionsService,
     private readonly profiles: MyProfileService,
     private readonly memberships: MembershipService,
+    private readonly deletion: AccountDeletionService,
   ) {}
 
   /**
@@ -85,5 +90,25 @@ export class UsersController {
     @Body() dto: UpdateMyProfileDto,
   ): Promise<MyProfile> {
     return this.profiles.update(user.id, dto);
+  }
+
+  /**
+   * The member deletes their own account, at once (owner, 2026-10-23):
+   * personal data anonymised, payments and attendance kept — see
+   * `AccountDeletionService`. `membership.self` is the member's own key (no
+   * staff role holds it), and the service refuses any non-CLIENT on top.
+   * Tight throttle: the body carries a password that is checked against
+   * Supabase, so this must not become a password-guessing oracle.
+   */
+  @Post('delete-account')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('membership.self')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async deleteAccount(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: DeleteMyAccountDto,
+  ): Promise<{ deleted: true }> {
+    await this.deletion.deleteOwnAccount(user, dto.password);
+    return { deleted: true };
   }
 }

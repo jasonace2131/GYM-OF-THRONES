@@ -1,6 +1,7 @@
 import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { IsGymDate } from '../../common/validators/is-gym-date.validator';
 import type { CivilDate } from '../../common/time/gym-time';
+import { Trim } from '../../common/validators/text.validators';
 
 /**
  * Bounds match the `BodyMeasurement_*_sane` CHECKs in the migration exactly, so
@@ -39,6 +40,7 @@ export class RecordMeasurementDto {
   bodyFatPermille?: number;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;
@@ -77,6 +79,7 @@ export class UpdateMeasurementDto {
   bodyFatPermille?: number | null;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string | null;

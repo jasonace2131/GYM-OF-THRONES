@@ -131,6 +131,7 @@ export function MemberPicker({
           ref={inputRef}
           className="a-input"
           type="search"
+          maxLength={64}
           role="combobox"
           aria-expanded={open && results.length > 0}
           aria-controls="member-picker-list"

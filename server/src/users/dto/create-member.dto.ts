@@ -7,15 +7,12 @@ import {
   IsUUID,
   Length,
   MaxLength,
-  Matches,
   ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { DiscountType, PaymentMethod } from '@got/shared';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
-
-const trimmed = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim() : value;
+import { IsPaymentReference, IsPersonName, IsPhPhone, Trim, TrimOrNull } from '../../common/validators/text.validators';
 
 /** Trims AND lower-cases: `User.email` is a plain (case-sensitive) unique
  *  column, so "Jon@x.com" and "jon@x.com" would otherwise slip past both the
@@ -31,6 +28,7 @@ const normalizedEmail = ({ value }: { value: unknown }): unknown =>
  * in by `MembersService.create` after the `User` row exists.
  */
 export class AssignPlanDto {
+  @Trim()
   @IsString()
   @MaxLength(32)
   planCode!: string;
@@ -44,11 +42,13 @@ export class AssignPlanDto {
   discountCentavos?: number;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 64)
   statutoryIdNo?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 200)
   discountReason?: string;
@@ -57,11 +57,11 @@ export class AssignPlanDto {
   method!: PaymentMethod;
 
   @IsOptional()
-  @IsString()
-  @Length(1, 64)
+  @IsPaymentReference()
   reference?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(32)
   receiptNo?: string;
@@ -78,6 +78,7 @@ export class AssignPlanDto {
   gcashVerified?: boolean;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;
@@ -90,14 +91,10 @@ export class AssignPlanDto {
  * email/role/status off the profile edit.
  */
 export class CreateMemberDto {
-  @IsString()
-  @Transform(trimmed)
-  @Length(1, 80)
+  @IsPersonName('firstName')
   firstName!: string;
 
-  @IsString()
-  @Transform(trimmed)
-  @Length(1, 80)
+  @IsPersonName('lastName')
   lastName!: string;
 
   @IsEmail()
@@ -107,16 +104,14 @@ export class CreateMemberDto {
 
   /** Same shape as `UpdateMemberDto.phone` / `ImportMemberRowDto.phone`. */
   @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  @Matches(/^[0-9+][0-9\s-]{6,19}$/, { message: 'phone must be a plausible PH number' })
-  phone?: string;
+  @IsPhPhone()
+  phone?: string | null;
 
   @IsOptional()
-  @Transform(trimmed)
+  @TrimOrNull()
   @IsString()
-  @Length(0, 200)
-  emergencyContact?: string;
+  @Length(1, 200)
+  emergencyContact?: string | null;
 
   /** Optional — see `AssignPlanDto`'s doc comment. */
   @IsOptional()

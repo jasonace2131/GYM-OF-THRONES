@@ -72,7 +72,7 @@ export function PlanHeader({
 
       <div className="flex shrink-0 flex-col gap-2.5 @3xl:items-end">
         {canWrite ? (
-          <div className="grid grid-cols-2 gap-2 @3xl:flex @3xl:gap-2.5">
+          <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 @3xl:flex @3xl:gap-2.5">
             <Link href={regenerateHref} className={buttonClass('ghost', 'sm', 'text-[13px]')}>
               <IconSparkle size={16} />
               Regenerate

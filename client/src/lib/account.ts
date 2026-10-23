@@ -1,5 +1,14 @@
-import { PROFILE_LIMITS, type MyProfile, type MyProfilePatch } from '@got/shared';
+import {
+  PERSON_NAME_PATTERN,
+  PH_PHONE_MESSAGE,
+  PROFILE_LIMITS,
+  collapseSpaces,
+  normalisePhPhone,
+  type MyProfile,
+  type MyProfilePatch,
+} from '@got/shared';
 import { ApiError, apiFetch } from '@/lib/api';
+import { ACCOUNT_DELETED_NOTICE } from '@/lib/accountDeleted';
 import { normaliseIdentifier, normalisePassword } from '@/lib/credentials';
 import { isPlausibleEmail } from '@/lib/guestEmail';
 
@@ -115,6 +124,83 @@ export function bodyPatch(
     : { patch: {}, problems, problem: first };
 }
 
+// ── Name and phone (owner, 2026-10-23) ─────────────────────────────────────
+
+export interface DetailsForm {
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
+
+export type DetailsField = keyof DetailsForm;
+
+export function detailsForm(profile: MyProfile): DetailsForm {
+  return {
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    phone: profile.phone ?? '',
+  };
+}
+
+function nameProblem(value: string, which: 'first' | 'last'): string | null {
+  if (value === '') return `Enter your ${which} name.`;
+  if (value.length > L.nameMax) {
+    return `Your ${which} name can be at most ${L.nameMax} characters.`;
+  }
+  if (!PERSON_NAME_PATTERN.test(value)) {
+    return "Use letters, spaces, apostrophes ('), hyphens (-) and dots only.";
+  }
+  return null;
+}
+
+/**
+ * Only what changed, like `bodyPatch`, and only a CHANGED field is checked —
+ * an empty last name left by an old sign-up must not block saving a phone.
+ * Names are trimmed with inner spaces collapsed; the phone is normalised to
+ * +639XXXXXXXXX, exactly as the server does, and an emptied phone is `null`.
+ */
+export function detailsPatch(
+  profile: MyProfile,
+  form: DetailsForm,
+): {
+  patch: MyProfilePatch;
+  problems: Partial<Record<DetailsField, string>>;
+  problem: string | null;
+} {
+  const patch: MyProfilePatch = {};
+  const problems: Partial<Record<DetailsField, string>> = {};
+
+  const first = collapseSpaces(form.firstName);
+  if (first !== profile.firstName) {
+    const problem = nameProblem(first, 'first');
+    if (problem === null) patch.firstName = first;
+    else problems.firstName = problem;
+  }
+  const last = collapseSpaces(form.lastName);
+  if (last !== profile.lastName) {
+    const problem = nameProblem(last, 'last');
+    if (problem === null) patch.lastName = last;
+    else problems.lastName = problem;
+  }
+  // A PH mobile, sent as +639XXXXXXXXX. A legacy number left untouched is
+  // not re-checked; an emptied one is `null` (clear it).
+  const typed = form.phone.trim();
+  if (typed !== (profile.phone ?? '')) {
+    if (typed === '') {
+      if (profile.phone !== null) patch.phone = null;
+    } else {
+      const phone = normalisePhPhone(typed);
+      if (phone === null) problems.phone = `${PH_PHONE_MESSAGE}.`;
+      else if (phone !== profile.phone) patch.phone = phone;
+    }
+  }
+
+  const firstProblem = problems.firstName ?? problems.lastName ?? problems.phone ?? null;
+  return firstProblem === null
+    ? { patch, problems, problem: null }
+    : { patch: {}, problems, problem: firstProblem };
+}
+
 /**
  * The line after a save — true to what happens next: the member's height and
  * weight are their current numbers for their coach and the planner (owner,
@@ -212,6 +298,48 @@ export async function changePassword(
     return { ok: true, message: ACCOUNT_COPY.passwordChanged };
   } catch {
     return { ok: false, message: ACCOUNT_COPY.saveFailed };
+  }
+}
+
+// ── Delete account (owner, 2026-10-23) ─────────────────────────────────────
+
+/** The one line the home page shows after a deletion (kept import-free there). */
+export { ACCOUNT_DELETED_NOTICE };
+
+/** The confirm sheet's warning — only for a plan that is still ACTIVE. */
+export function deletePlanWarning(profile: MyProfile): string | null {
+  const plan = profile.membership;
+  if (plan === null || plan.status !== 'ACTIVE') return null;
+  return plan.daysLeft === 1
+    ? `Your ${plan.planName} plan has 1 day left. It'll be lost.`
+    : `Your ${plan.planName} plan has ${plan.daysLeft} days left. They'll be lost.`;
+}
+
+export interface DeleteDeps {
+  verify: (email: string, password: string) => Promise<PasswordCheck>;
+}
+
+/**
+ * Check the password on the throwaway client (as the password change does —
+ * the member's own session stays verified), then ask the API, which checks it
+ * again against Supabase before it changes anything.
+ */
+export async function deleteAccount(
+  deps: DeleteDeps,
+  input: { email: string; password: string },
+): Promise<Outcome> {
+  const password = normalisePassword(input.password);
+  try {
+    const check = await deps.verify(input.email, password);
+    if (check === 'wrong') return { ok: false, message: ACCOUNT_COPY.wrongPassword };
+    if (check === 'error') return { ok: false, message: ACCOUNT_COPY.saveFailed };
+    await apiFetch<{ deleted: true }>('/me/delete-account', {
+      method: 'POST',
+      body: JSON.stringify({ confirm: true, password }),
+    });
+    return { ok: true, message: ACCOUNT_DELETED_NOTICE };
+  } catch (caught) {
+    return { ok: false, message: describeSaveFailure(caught) };
   }
 }
 

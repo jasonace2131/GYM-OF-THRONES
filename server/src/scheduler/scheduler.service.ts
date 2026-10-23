@@ -6,6 +6,7 @@ import { PruneEphemeraJob } from './jobs/prune-ephemera.job';
 import { AutoCloseVisitsJob } from './jobs/auto-close-visits.job';
 import { MembershipNightlyJob } from '../membership/membership-nightly.job';
 import { PruneAnnouncementImagesJob } from './jobs/prune-announcement-images.job';
+import { EraseDeletedAuthJob } from './jobs/erase-deleted-auth.job';
 
 /** One scheduled unit of work. Jobs own their schedule; the service owns the
  *  timezone and the registration. */
@@ -35,6 +36,7 @@ export class SchedulerService implements OnModuleInit {
     private readonly membershipNightly: MembershipNightlyJob,
     private readonly autoCloseVisits: AutoCloseVisitsJob,
     private readonly pruneAnnouncementImages: PruneAnnouncementImagesJob,
+    private readonly eraseDeletedAuth: EraseDeletedAuthJob,
   ) {}
 
   onModuleInit(): void {
@@ -53,6 +55,9 @@ export class SchedulerService implements OnModuleInit {
     // Announcement images nothing references once they are a day old —
     // abandoned uploads, images edited out, and those of deleted notices.
     this.register(this.pruneAnnouncementImages);
+    // Supabase identities of self-deleted members whose erasure failed at
+    // the time (POST /me/delete-account erases locally first, Supabase last).
+    this.register(this.eraseDeletedAuth);
   }
 
   register(job: ScheduledJob): void {

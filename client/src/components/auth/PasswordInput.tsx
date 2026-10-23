@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ComponentPropsWithoutRef } from 'react';
+import { PASSWORD_MAX } from '@got/shared';
 
 /**
  * A password field with the industry-standard reveal toggle.
@@ -43,6 +44,8 @@ export function PasswordInput({ className, ...inputProps }: PasswordInputProps) 
   return (
     <div className="input-reveal">
       <input
+        // Supabase Auth (bcrypt) reads at most 72 characters; overridable.
+        maxLength={PASSWORD_MAX}
         {...inputProps}
         type={revealed ? 'text' : 'password'}
         className={className === undefined ? 'input' : `input ${className}`}

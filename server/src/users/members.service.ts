@@ -35,6 +35,7 @@ import type { UpdateMemberDto } from './dto/update-member.dto';
 import type { SuspendMemberDto } from './dto/suspend-member.dto';
 import type { ChangeRoleDto } from './dto/change-role.dto';
 import type { CreateMemberDto } from './dto/create-member.dto';
+import { isSelfDeleted } from './auth-erasure';
 
 /**
  * The filter fields `list()` and `counts()` have in common, named so the one
@@ -609,10 +610,20 @@ export class MembersService {
     const actorId = actor.id;
     const row = await this.prisma.user.findFirst({
       where: { AND: [{ id }, reachWithoutDeletedGuard(scope)] },
-      select: { id: true, deletedAt: true, role: true, status: true },
+      select: { id: true, email: true, deletedAt: true, role: true, status: true },
     });
     if (row === null) {
       throw new DomainException('MEMBER_NOT_FOUND', 'Member not found', HttpStatus.NOT_FOUND);
+    }
+    // A member's OWN deletion (POST /me/delete-account) anonymised the row and
+    // erased their sign-in — there is no person left to put back (owner,
+    // 2026-10-23). Only a staff soft-delete is restorable.
+    if (isSelfDeleted(row)) {
+      throw new DomainException(
+        'MEMBER_SELF_DELETED',
+        'This member deleted their own account. It cannot be restored.',
+        HttpStatus.CONFLICT,
+      );
     }
     if (row.deletedAt === null) {
       throw new DomainException(
@@ -1178,15 +1189,32 @@ function memberOrderBy(sort: MemberSort | undefined): Prisma.UserOrderByWithRela
  * them. `phone` is included because "somebody is on the phone asking about
  * their plan" is the most common real use of this list.
  */
-function searchClauses(search: string): Prisma.UserWhereInput[] {
+export function searchClauses(search: string): Prisma.UserWhereInput[] {
   const mode = 'insensitive' as const;
-  return [
+  const clauses: Prisma.UserWhereInput[] = [
     { firstName: { contains: search, mode } },
     { lastName: { contains: search, mode } },
     { memberCode: { contains: search, mode } },
     { email: { contains: search, mode } },
+    // The raw text still finds legacy rows stored as typed ("0917 123 4567").
     { phone: { contains: search, mode } },
   ];
+  const digits = phoneSearchDigits(search);
+  if (digits !== null && digits !== search) clauses.push({ phone: { contains: digits } });
+  return clauses;
+}
+
+/**
+ * New phones are stored as +639XXXXXXXXX, so "0917 123 4567" typed at the desk
+ * must search as "639171234567": digits only, a leading 0 becomes 63, a
+ * leading 63 stays, anything else is matched as a substring. Null when the
+ * search has too few digits to be a phone fragment.
+ */
+export function phoneSearchDigits(search: string): string | null {
+  if (/[A-Za-z@]/.test(search)) return null;
+  const digits = search.replace(/\D/g, '');
+  if (digits.length < 4) return null;
+  return digits.startsWith('0') ? `63${digits.slice(1)}` : digits;
 }
 
 /**

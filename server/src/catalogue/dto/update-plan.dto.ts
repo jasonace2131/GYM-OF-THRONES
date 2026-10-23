@@ -10,9 +10,11 @@ import {
   IsString,
   Max,
   MaxLength,
+  MinLength,
   Min,
 } from 'class-validator';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { Trim, TrimOrNull } from '../../common/validators/text.validators';
 
 /**
  * Every CreatePlanDto field except `code`.
@@ -31,14 +33,17 @@ import { IsCentavos } from '../../common/validators/is-centavos.validator';
  */
 export class UpdatePlanDto {
   @IsOptional()
+  @Trim()
   @IsString()
+  @MinLength(1)
   @MaxLength(60)
   name?: string;
 
   @IsOptional()
+  @TrimOrNull()
   @IsString()
   @MaxLength(300)
-  description?: string;
+  description?: string | null;
 
   @IsOptional()
   @IsEnum(PlanKind)

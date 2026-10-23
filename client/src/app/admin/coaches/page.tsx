@@ -464,7 +464,7 @@ function AssignForm({
           <input
             className="a-input"
             value={notes}
-            maxLength={200}
+            maxLength={500}
             placeholder="Why this pairing read by staff, not the member"
             onChange={(event) => setNotes(event.target.value)}
           />

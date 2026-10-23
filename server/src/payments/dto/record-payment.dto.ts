@@ -2,6 +2,7 @@ import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, Length, MaxLength } fr
 import { IsISO8601 } from 'class-validator';
 import { DiscountType, PaymentMethod, PaymentPurpose } from '@got/shared';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsPaymentReference, Trim } from '../../common/validators/text.validators';
 
 /**
  * The canonical money DTO for a counter sale.
@@ -59,12 +60,14 @@ export class RecordPaymentDto {
 
   /** Required for SENIOR / PWD. BIR keeps this register separately. */
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 64)
   statutoryIdNo?: string;
 
   /** Required for the discretionary types; ≥ 3 chars, matching the CHECK. */
   @IsOptional()
+  @Trim()
   @IsString()
   @Length(3, 200)
   discountReason?: string;
@@ -74,12 +77,12 @@ export class RecordPaymentDto {
 
   /** Required for GCASH — the reference the member showed on their screen. */
   @IsOptional()
-  @IsString()
-  @Length(3, 64)
+  @IsPaymentReference()
   reference?: string;
 
   /** The number staff wrote in the BIR booklet. Free text, never a sequence. */
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(32)
   receiptNo?: string;
@@ -105,6 +108,7 @@ export class RecordPaymentDto {
   receivedAt?: string;
 
   @IsOptional()
+  @Trim()
   @IsString()
   @MaxLength(500)
   notes?: string;

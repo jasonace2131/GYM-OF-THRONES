@@ -3,6 +3,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUrl,
   Length,
   MaxLength,
   ValidateIf,
@@ -48,6 +49,9 @@ export class UpdateAnnouncementDto {
   @ValidateIf((dto: UpdateAnnouncementDto) => dto.coverImageUrl != null)
   @IsString()
   @MaxLength(2048)
+  // The shape here; WHICH host (our Supabase bucket only) is the service's
+  // `resolveCover` check, which knows the configured storage URL.
+  @IsUrl({ protocols: ['https'], require_protocol: true })
   coverImageUrl?: string | null;
 
   @IsOptional()

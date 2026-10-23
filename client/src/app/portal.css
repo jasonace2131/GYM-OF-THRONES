@@ -43,6 +43,22 @@
   --p-shadow-lift: 0 2px 4px rgba(26, 26, 26, 0.05), 0 14px 34px rgba(26, 26, 26, 0.1);
 
   --p-sidebar-w: 244px;
+  /* Height of the phone tab bar (below 900px), NOT counting the safe-area
+     inset it adds under itself. Sticky bars that sit on top of the tab bar
+     use calc(var(--p-tabbar-h) + env(safe-area-inset-bottom, 0px)). */
+  --p-tabbar-h: 60px;
+
+  /* Style A (owner, 2026-10-23): on MEMBER surfaces a primary action is
+     flat ink with light text, and gold is only a flat accent — the active
+     day, the active nav item's indicator, badges, the focus ring. No gold
+     gradients, no gold glow. The Admin CRM (.portal-root.admin-root) keeps
+     its gold buttons; the overrides at the end of this file exclude it.
+     --p-night is the warm near-black that sits ON gold (the selected-day
+     ink, the `night` Tailwind colour). */
+  --p-night: #14100a;
+  --p-primary: var(--p-ink);
+  --p-primary-hover: #000;
+  --p-on-primary: #fff;
 
   min-height: 100vh;
   background: var(--p-paper2);
@@ -97,6 +113,10 @@ html:has(.portal-root) {
   max-width: 1680px;
   margin: 0;
   padding: clamp(20px, 3vw, 34px) clamp(16px, 3vw, 40px) 64px;
+  /* The portal's viewport is `viewport-fit: cover` (app/portal/layout.tsx):
+     in landscape on a notched phone the gutter must clear the notch. */
+  padding-left: max(clamp(16px, 3vw, 40px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(16px, 3vw, 40px), env(safe-area-inset-right, 0px));
 }
 
 /* ── Sidebar ───────────────────────────────────────────── */
@@ -218,7 +238,11 @@ html:has(.portal-root) {
   align-items: center;
   gap: 14px;
   padding: 0 clamp(16px, 3vw, 34px);
-  height: 64px;
+  /* Safe areas: `viewport-fit: cover` (app/portal/layout.tsx). */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: max(clamp(16px, 3vw, 34px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(16px, 3vw, 34px), env(safe-area-inset-right, 0px));
+  height: calc(64px + env(safe-area-inset-top, 0px));
   background: rgba(245, 244, 242, 0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -245,6 +269,15 @@ html:has(.portal-root) {
   font-weight: 700;
   font-size: 14px;
   flex: none;
+  position: relative;
+}
+
+/* The avatar is the account link on a phone (the name beside it is hidden):
+   34px to look at, 44px to tap. */
+.p-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
 }
 
 /*
@@ -698,7 +731,16 @@ html:has(.portal-root) {
   }
 
   .p-content {
-    padding-bottom: 96px; /* clears the tab bar */
+    /* Clears the tab bar and the home-indicator inset under it. */
+    padding-bottom: calc(var(--p-tabbar-h) + env(safe-area-inset-bottom, 0px) + 36px);
+  }
+
+  /* A page with a sticky action bar (intake footer, save bar) ends flush on
+     the tab bar: a sticky element can never sit below its natural position,
+     so any padding here became a gap between the bar and the tab bar at the
+     end of the scroll. The bar itself is in flow, so nothing is hidden. */
+  .p-content:has([data-sticky-bar]) {
+    padding-bottom: calc(var(--p-tabbar-h) + env(safe-area-inset-bottom, 0px));
   }
 
   /* ── More sheet ──────────────────────────────────────
@@ -780,21 +822,36 @@ html:has(.portal-root) {
     background: var(--p-sidebar);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 
   .p-tab {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 4px;
-    padding: 11px 4px 10px;
+    height: var(--p-tabbar-h);
+    padding: 8px 4px;
     font-family: var(--font-heading);
-    font-size: 9.5px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgba(244, 242, 238, 0.5);
     transition: color 0.16s;
+  }
+
+  /* No text under 11px on a phone. These labels are 10-10.5px on desktop,
+     where they sit at arm's length on a large screen. */
+  .p-card-title,
+  .p-stat-label,
+  .p-badge,
+  .p-nav-badge,
+  .p-table th,
+  .p-table[data-stack] td::before {
+    font-size: 11px;
   }
 
   .p-tab[data-active='true'] {
@@ -1158,9 +1215,14 @@ html:has(.portal-root) {
   }
 
   /* Nothing in the portal may push the page sideways. A single overflowing
-     child is enough to make every screen scroll horizontally. */
+     child is enough to make every screen scroll horizontally.
+     `clip`, not `hidden`: `overflow-x: hidden` forces overflow-y to `auto`,
+     which made .p-content the scroll container of everything in it — so no
+     `position: sticky` bar inside could ever pin to the screen. `clip`
+     clips the same way without creating a scroll container. */
   .p-content {
-    overflow-x: hidden;
+    overflow-x: hidden; /* fallback: Safari < 16 has no clip */
+    overflow-x: clip;
   }
 
   .p-card-pad {
@@ -1261,7 +1323,7 @@ html:has(.portal-root) {
     content: attr(data-label);
     flex: 0 0 auto;
     font-family: var(--font-heading);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -2193,4 +2255,61 @@ html:has(.portal-root) {
   .p-plan-ex > :nth-child(4) {
     grid-column: 1 / -1;
   }
+}
+
+/* ══════════════════════════════════════════════════════════
+   Style A — member surfaces only (owner, 2026-10-23).
+
+   Every rule is scoped `.portal-root:not(.admin-root)`: the CRM shell
+   carries both classes on one element, so this never reaches it. Colours
+   come from the tokens on .portal-root; nothing here has its own hex.
+   ══════════════════════════════════════════════════════════ */
+
+.portal-root:not(.admin-root) .p-btn-gold {
+  background: var(--p-primary);
+  color: var(--p-on-primary);
+  box-shadow: none;
+}
+
+.portal-root:not(.admin-root) .p-btn-gold:hover {
+  background: var(--p-primary-hover);
+  box-shadow: none;
+}
+
+/* The shine sweep was a gold-button effect; an ink button does not shine. */
+.portal-root:not(.admin-root) .p-btn-gold::after {
+  display: none;
+}
+
+/* Active nav item: the sidebar is already ink, so it is a lighter flat fill
+   with a thin gold indicator and gold-lit text (~10:1 on the sidebar). */
+.portal-root:not(.admin-root) .p-link[data-active='true'] {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--gold-lit);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+.portal-root:not(.admin-root) .p-link[data-active='true'] .p-nav-badge {
+  background: var(--p-danger);
+  color: #fff;
+}
+
+/* Phone tab bar: a thin gold bar over the active tab. */
+.portal-root:not(.admin-root) .p-tab[data-active='true'] {
+  box-shadow: inset 0 2px 0 var(--gold);
+}
+
+.portal-root:not(.admin-root) .p-avatar {
+  background: var(--gold);
+  color: var(--p-night);
+}
+
+.portal-root:not(.admin-root) .p-msg[data-mine='true'] .p-bubble {
+  background: var(--p-primary);
+  color: var(--p-on-primary);
+}
+
+.portal-root:not(.admin-root) .p-chat-send {
+  background: var(--p-primary);
+  color: var(--p-on-primary);
 }

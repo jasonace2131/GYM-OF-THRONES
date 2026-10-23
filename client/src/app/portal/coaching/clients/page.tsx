@@ -111,6 +111,7 @@ function ClientsHub() {
               <input
                 className="a-input"
                 value={query}
+                maxLength={100}
                 placeholder="Name or member code"
                 onChange={(event) => setQuery(event.target.value)}
               />

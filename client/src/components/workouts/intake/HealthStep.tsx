@@ -35,7 +35,8 @@ export function HealthStep({
             <li
               key={id}
               className={cn(
-                'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[rgba(26,26,26,0.07)] px-3 py-2.5 last:border-b-0 @2xl:grid-cols-[26px_minmax(0,1fr)_auto] @2xl:gap-3 @2xl:px-3.5',
+                // Phones: Yes/No under the question, so the question keeps the full width.
+                'grid grid-cols-1 items-center gap-2 border-b @md:grid-cols-[minmax(0,1fr)_auto] @md:gap-2.5 border-[rgba(26,26,26,0.07)] px-3 py-2.5 last:border-b-0 @2xl:grid-cols-[26px_minmax(0,1fr)_auto] @2xl:gap-3 @2xl:px-3.5',
                 yes ? 'bg-[#fffaf0]' : 'bg-card',
               )}
             >
@@ -46,6 +47,7 @@ export function HealthStep({
                 {question}
               </span>
               <YesNo
+                className="justify-self-start @md:justify-self-auto"
                 value={yes}
                 labelledBy={id}
                 onChange={(value) => dispatch({ type: 'parq', index: i, value })}
@@ -64,7 +66,7 @@ export function HealthStep({
               key={area}
               pressed={state.easyOn.includes(area)}
               onClick={() => dispatch({ type: 'toggleEasyOn', area })}
-              className="h-10"
+              className="h-10 pointer-coarse:h-11"
             >
               {EASY_ON_LABEL[area]}
             </ToggleChip>

@@ -1,6 +1,8 @@
 import { Transform, type TransformFnParams } from 'class-transformer';
-import { IsIn, IsInt, IsString, Length, Matches, Max, Min } from 'class-validator';
+import { IsIn, IsString, Length, Matches } from 'class-validator';
 import { ALLOWED_PROOF_TYPES } from '../../storage/proof-storage.service';
+import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsPaymentReference } from '../../common/validators/text.validators';
 
 const trimmed = ({ value }: TransformFnParams): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -32,14 +34,10 @@ export class CreateGcashSubmissionDto {
    * The ceiling is a typo guard: ₱1,000,000 is far above any plan this gym
    * sells, and it stops a mis-keyed amount reaching the review queue.
    */
-  @IsInt()
-  @Min(1)
-  @Max(100_000_000)
+  @IsCentavos(1, 10_000_000)
   amountCentavos!: number;
 
-  @Transform(trimmed)
-  @IsString()
-  @Length(6, 40)
+  @IsPaymentReference()
   reference!: string;
 
   /**

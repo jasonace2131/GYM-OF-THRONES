@@ -8,9 +8,11 @@ import { visibleNav, type NavItem } from './nav';
 import { IconMenu, IconSignOut } from './icons';
 import { NavItemBadge } from '@/components/chat/NavItemBadge';
 import { activeHref } from '@/lib/navActive';
+import { SignOutButton } from '@/components/auth/ConfirmSignOutDialog';
 
 interface SidebarProps {
-  onSignOut: () => void;
+  /** Runs once the member CONFIRMS — the button asks first. */
+  onSignOut: () => void | Promise<void>;
   /**
    * The caller's own permissions, from the `/me` the shell already fetches.
    *
@@ -94,10 +96,15 @@ export function Sidebar({ onSignOut, permissions = null }: SidebarProps) {
             inline minHeight was propping up a spacer that could not grow. */}
         <div className="p-nav-spacer" />
 
-        <button type="button" className="p-link" onClick={onSignOut} style={{ cursor: 'pointer' }}>
+        <SignOutButton
+          surface="member"
+          className="p-link"
+          style={{ cursor: 'pointer' }}
+          onConfirm={onSignOut}
+        >
           <IconSignOut />
           Sign Out
-        </button>
+        </SignOutButton>
       </nav>
     </aside>
   );

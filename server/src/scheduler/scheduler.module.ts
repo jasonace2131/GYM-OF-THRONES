@@ -4,6 +4,8 @@ import { PruneEphemeraJob } from './jobs/prune-ephemera.job';
 import { AutoCloseVisitsJob } from './jobs/auto-close-visits.job';
 import { PruneAnnouncementImagesJob } from './jobs/prune-announcement-images.job';
 import { MembershipModule } from '../membership/membership.module';
+import { AuthModule } from '../auth/auth.module';
+import { EraseDeletedAuthJob } from './jobs/erase-deleted-auth.job';
 
 /**
  * Hosts the registry-driven jobs. AppModule imports this alongside
@@ -21,10 +23,17 @@ import { MembershipModule } from '../membership/membership.module';
  * global for the same reason.
  */
 @Module({
-  imports: [MembershipModule],
+  // AuthModule for EraseDeletedAuthJob's SupabaseAdminService.
+  imports: [MembershipModule, AuthModule],
   // PruneAnnouncementImagesJob's storage dependency comes from the global
   // StorageModule, like PrismaService from PrismaModule.
-  providers: [SchedulerService, PruneEphemeraJob, AutoCloseVisitsJob, PruneAnnouncementImagesJob],
+  providers: [
+    SchedulerService,
+    PruneEphemeraJob,
+    AutoCloseVisitsJob,
+    PruneAnnouncementImagesJob,
+    EraseDeletedAuthJob,
+  ],
   exports: [SchedulerService],
 })
 export class SchedulerModule {}

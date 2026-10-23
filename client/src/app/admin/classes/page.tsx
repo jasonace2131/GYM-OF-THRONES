@@ -45,6 +45,7 @@ import {
   windowContaining,
   type ClassPatch,
 } from './classesView';
+import { blockIntJunk, wholeOrNaN } from '@/lib/numberInput';
 
 /**
  * The timetable, from the staff side.
@@ -1014,7 +1015,18 @@ function Composer({
     }
   };
 
-  const ready = title.trim() !== '' && coachId !== '' && date !== '';
+  // Whole minutes 10–300 and places 1–500; a cleared field is NaN, not 0.
+  const minPlaces = session === null ? 1 : Math.max(1, session.bookedCount);
+  const ready =
+    title.trim() !== '' &&
+    coachId !== '' &&
+    date !== '' &&
+    Number.isInteger(minutes) &&
+    minutes >= 10 &&
+    minutes <= 300 &&
+    Number.isInteger(capacity) &&
+    capacity >= minPlaces &&
+    capacity <= 500;
 
   // What the confirmation says the save will do — worked out from the actual
   // changes, so "they get a notice" appears only when one is sent.
@@ -1122,8 +1134,10 @@ function Composer({
                 type="number"
                 min={10}
                 max={300}
-                value={minutes}
-                onChange={(event) => setMinutes(Number(event.target.value))}
+                step={1}
+                onKeyDown={blockIntJunk}
+                value={Number.isNaN(minutes) ? '' : minutes}
+                onChange={(event) => setMinutes(wholeOrNaN(event.target.value))}
               />
             </label>
             <label>
@@ -1135,8 +1149,10 @@ function Composer({
                 type="number"
                 min={session === null ? 1 : Math.max(1, session.bookedCount)}
                 max={500}
-                value={capacity}
-                onChange={(event) => setCapacity(Number(event.target.value))}
+                step={1}
+                onKeyDown={blockIntJunk}
+                value={Number.isNaN(capacity) ? '' : capacity}
+                onChange={(event) => setCapacity(wholeOrNaN(event.target.value))}
               />
             </label>
           </div>

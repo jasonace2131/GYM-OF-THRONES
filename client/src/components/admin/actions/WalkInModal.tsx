@@ -3,11 +3,15 @@
 import { useState } from 'react';
 import { adminApi } from '@/lib/adminApi';
 import { ApiError } from '@/lib/api';
-import { isPlausibleEmail } from '@/lib/guestEmail';
 import { Modal, ModalError } from '../Modal';
 import { GcashFields } from '../GcashFields';
 import { ReceiptNoField } from '../ReceiptNoField';
 import { ConfirmDialog } from './ConfirmDialog';
+import { EMAIL_MAX, EMERGENCY_CONTACT_MAX } from '@got/shared';
+import { validateWalkInGuest, walkInSaleProblem } from '@/lib/walkInGuest';
+import { saleReference } from '@/lib/paymentReference';
+import { NameInput } from '@/components/inputs/NameInput';
+import { PhoneInput } from '@/components/inputs/PhoneInput';
 
 /**
  * Sell a day pass at the counter.
@@ -63,24 +67,37 @@ export function WalkInModal({
     onClose();
   };
 
+  const guest = validateWalkInGuest({ name: guestName, phone: guestPhone, emergencyContact });
+  const saleProblem = walkInSaleProblem({
+    guest: true,
+    name: guestName,
+    email: guestEmail,
+    phone: guestPhone,
+    emergencyContact,
+    waiverAccepted,
+    method,
+    reference,
+  });
+
   const submit = async (): Promise<void> => {
+    if (!guest.ok) {
+      setError(guest.problem);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       await adminApi.sellWalkIn({
         kind: 'WALK_IN',
-        guestName: guestName.trim(),
+        ...guest.fields,
         guestEmail: guestEmail.trim().toLowerCase(),
-        guestPhone: guestPhone.trim() === '' ? undefined : guestPhone.trim(),
         method,
-        reference: method === 'GCASH' && reference.trim() !== '' ? reference.trim() : undefined,
+        reference: saleReference(method, reference),
         gcashVerified: method === 'GCASH' ? gcashVerified : undefined,
         receiptNo: receiptNo.trim() === '' ? undefined : receiptNo.trim(),
         // The server refuses an account-less walk-in without this — the guest
         // is the one person in the building with no waiver on file otherwise.
         guestWaiverAccepted: waiverAccepted,
-        guestEmergencyContact:
-          emergencyContact.trim() === '' ? undefined : emergencyContact.trim(),
       });
       onSold();
       close();
@@ -108,13 +125,17 @@ export function WalkInModal({
             <button
               type="button"
               className="p-btn p-btn-gold"
-              onClick={() => setConfirming(true)}
-              disabled={
-                busy ||
-                !waiverAccepted ||
-                guestName.trim().length < 2 ||
-                !isPlausibleEmail(guestEmail)
-              }
+              // Enabled: a click says what is missing (ModalError below)
+              // rather than a disabled button that never explains itself.
+              onClick={() => {
+                if (saleProblem !== null) {
+                  setError(saleProblem);
+                  return;
+                }
+                setError(null);
+                setConfirming(true);
+              }}
+              disabled={busy}
             >
               Take payment
             </button>
@@ -125,13 +146,13 @@ export function WalkInModal({
           <label className="a-field-label" htmlFor="walkin-name">
             Guest name
           </label>
-          <input
+          <NameInput
             id="walkin-name"
             className="a-input"
             value={guestName}
             autoComplete="off"
             placeholder="Who is paying?"
-            onChange={(event) => setGuestName(event.target.value)}
+            onChange={setGuestName}
           />
         </div>
 
@@ -144,6 +165,7 @@ export function WalkInModal({
             className="a-input"
             type="email"
             value={guestEmail}
+            maxLength={EMAIL_MAX}
             inputMode="email"
             autoComplete="off"
             placeholder="Where their member link goes if they join"
@@ -155,13 +177,12 @@ export function WalkInModal({
           <label className="a-field-label" htmlFor="walkin-phone">
             Phone <span className="a-field-opt">optional</span>
           </label>
-          <input
+          <PhoneInput
             id="walkin-phone"
             className="a-input"
             value={guestPhone}
-            inputMode="tel"
             autoComplete="off"
-            onChange={(event) => setGuestPhone(event.target.value)}
+            onChange={setGuestPhone}
           />
         </div>
 
@@ -174,6 +195,7 @@ export function WalkInModal({
             className="a-input"
             value={emergencyContact}
             autoComplete="off"
+            maxLength={EMERGENCY_CONTACT_MAX}
             placeholder="Name and number, e.g. Maria 0917 000 0000"
             onChange={(event) => setEmergencyContact(event.target.value)}
           />

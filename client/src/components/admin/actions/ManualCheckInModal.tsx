@@ -7,6 +7,8 @@ import { ApiError } from '@/lib/api';
 import { Modal, ModalError } from '../Modal';
 import { MemberPicker } from '../MemberPicker';
 import { ConfirmDialog } from './ConfirmDialog';
+import { MEMBER_CODE_LENGTH } from '@got/shared';
+import { CODE_HINT, filterCodeTyping } from '@/lib/codeInput';
 
 /**
  * Record a check-in for somebody who cannot self-scan — a flat battery, a
@@ -73,7 +75,8 @@ export function ManualCheckInModal({
     }
   };
 
-  const canSubmit = member !== null || memberCode.trim().length > 0;
+  // A member code is exactly MEMBER_CODE_LENGTH characters from the code alphabet.
+  const canSubmit = member !== null || memberCode.trim().length === MEMBER_CODE_LENGTH;
 
   return (
     <>
@@ -125,10 +128,17 @@ export function ManualCheckInModal({
                     id="manual-member-code"
                     className="a-input"
                     value={memberCode}
+                    maxLength={MEMBER_CODE_LENGTH}
                     placeholder="e.g. 65EDYM"
                     autoComplete="off"
-                    onChange={(event) => setMemberCode(event.target.value.toUpperCase())}
+                    aria-describedby="manual-member-code-hint"
+                    onChange={(event) =>
+                      setMemberCode(filterCodeTyping(event.target.value, MEMBER_CODE_LENGTH))
+                    }
                   />
+                  <p id="manual-member-code-hint" className="a-field-hint">
+                    {memberCode.length}/{MEMBER_CODE_LENGTH} · {CODE_HINT}
+                  </p>
                 </div>
               </>
             )}

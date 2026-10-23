@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { EMERGENCY_CONTACT_MAX } from '@got/shared';
+import { memberEditPatch } from '@/lib/memberEdit';
 import { adminApi, type MemberListItem } from '@/lib/adminApi';
+import { CharCounter } from '@/components/inputs/CharCounter';
+import { NameInput } from '@/components/inputs/NameInput';
+import { PhoneInput } from '@/components/inputs/PhoneInput';
 import { ApiError } from '@/lib/api';
 import { Modal, ModalError } from '../Modal';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -39,24 +44,24 @@ export function EditMemberModal({
     onClose();
   };
 
-  const valid = firstName.trim().length > 0 && lastName.trim().length > 0;
+  // Only a CHANGED field is checked and sent (like the member's own account
+  // page): a legacy name with a digit or an old landline never blocks editing
+  // something else. A changed phone goes as +639XXXXXXXXX; blank clears.
+  const { patch, problem } = memberEditPatch(member, {
+    firstName,
+    lastName,
+    phone,
+    emergencyContact,
+  });
+  const phoneChanged = phone.trim() !== (member.phone ?? '');
+  const valid = problem === null && Object.keys(patch).length > 0;
 
   const submit = async (): Promise<void> => {
     if (!valid) return;
     setBusy(true);
     setError(null);
     try {
-      const updated = await adminApi.updateMember(member.userId, {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        phone: phone.trim() === '' ? undefined : phone.trim(),
-        // NOT the same undefined-when-empty treatment as phone: `emergencyContact`
-        // is `@Length(0, 200)` server-side specifically so an empty string CLEARS
-        // a previously-set contact (`UpdateMemberDto`'s own comment). Sending
-        // `undefined` here would leave a stale contact in place with no way for
-        // this form to clear it.
-        emergencyContact: emergencyContact.trim(),
-      });
+      const updated = await adminApi.updateMember(member.userId, patch);
       onSaved(updated);
       setBusy(false);
       setConfirming(false);
@@ -94,13 +99,13 @@ export function EditMemberModal({
           <label className="a-field-label" htmlFor="edit-member-first">
             First name
           </label>
-          <input
+          <NameInput
             id="edit-member-first"
             className="a-input"
             value={firstName}
             autoComplete="off"
             autoFocus
-            onChange={(event) => setFirstName(event.target.value)}
+            onChange={setFirstName}
           />
         </div>
 
@@ -108,12 +113,12 @@ export function EditMemberModal({
           <label className="a-field-label" htmlFor="edit-member-last">
             Last name
           </label>
-          <input
+          <NameInput
             id="edit-member-last"
             className="a-input"
             value={lastName}
             autoComplete="off"
-            onChange={(event) => setLastName(event.target.value)}
+            onChange={setLastName}
           />
         </div>
 
@@ -121,13 +126,13 @@ export function EditMemberModal({
           <label className="a-field-label" htmlFor="edit-member-phone">
             Phone <span className="a-field-opt">optional</span>
           </label>
-          <input
+          <PhoneInput
             id="edit-member-phone"
             className="a-input"
             value={phone}
-            inputMode="tel"
             autoComplete="off"
-            onChange={(event) => setPhone(event.target.value)}
+            onChange={setPhone}
+            error={phoneChanged ? undefined : null}
           />
         </div>
 
@@ -140,12 +145,19 @@ export function EditMemberModal({
             className="a-input"
             value={emergencyContact}
             autoComplete="off"
+            maxLength={EMERGENCY_CONTACT_MAX}
+            aria-describedby="edit-member-emergency-count"
             placeholder="Name, relation, phone — free text"
             onChange={(event) => setEmergencyContact(event.target.value)}
           />
+          <CharCounter
+            id="edit-member-emergency-count"
+            value={emergencyContact}
+            max={EMERGENCY_CONTACT_MAX}
+          />
         </div>
 
-        <ModalError message={error} />
+        <ModalError message={error ?? problem} />
       </Modal>
 
       <ConfirmDialog

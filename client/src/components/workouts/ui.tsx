@@ -93,10 +93,12 @@ export type ButtonVariant = 'gold' | 'ghost' | 'dark' | 'muted';
 export type ButtonSize = 'md' | 'sm' | 'xs';
 
 const BTN_BASE =
-  'inline-flex items-center justify-center gap-2 rounded-[10px] font-display font-bold tracking-[0.08em] uppercase whitespace-nowrap no-underline transition-[background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100';
+  'inline-flex items-center justify-center gap-2 rounded-[10px] font-display font-bold tracking-[0.08em] uppercase whitespace-nowrap no-underline pointer-coarse:min-h-11 transition-[background-color,border-color,box-shadow,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100';
 
 const BTN_VARIANT: Record<ButtonVariant, string> = {
-  gold: 'bg-[linear-gradient(180deg,var(--gold-lit),var(--gold))] text-night shadow-[0_4px_14px_rgba(201,146,42,0.3)] hover:shadow-[0_6px_18px_rgba(201,146,42,0.42)]',
+  // The primary action. Named `gold` for history; Style A (owner,
+  // 2026-10-23) made it flat ink with light text — see portal.css tokens.
+  gold: 'bg-primary text-primary-foreground hover:bg-[var(--p-primary-hover)]',
   ghost:
     'border-[1.5px] border-[color:var(--p-border-2)] bg-card text-foreground hover:border-gold',
   dark: 'bg-night text-gold-lit hover:bg-black',
@@ -143,12 +145,15 @@ export function PlainButton({
       'h-9 rounded-lg border-[1.5px] border-[rgba(26,77,46,0.35)] bg-transparent px-3.5 text-[13px] font-semibold text-ok',
     link: 'h-auto bg-transparent p-0 text-[12.5px] font-semibold text-gold-deep underline',
   } as const;
+  // 44px on a touch screen for every tone but the inline text link.
+  const touch = tone === 'link' ? '' : 'pointer-coarse:min-h-11';
   return (
     <button
       type={type}
       className={cn(
         'inline-flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-60',
         TONE[tone],
+        touch,
         className,
       )}
       {...props}
@@ -225,7 +230,7 @@ export function RadioCard({
       role="radio"
       aria-checked={checked}
       className={cn(
-        'flex min-h-24 cursor-pointer flex-col items-start gap-1.5 rounded-xl border-2 p-4 text-left transition-[border-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
+        'flex min-h-24 min-w-0 cursor-pointer flex-col items-start gap-1.5 rounded-xl border-2 p-3 text-left transition-[border-color,box-shadow] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
         checked
           ? 'border-gold bg-[#fffaf0] shadow-[0_0_0_3px_rgba(201,146,42,0.15)]'
           : 'border-[#e4e1dc] bg-card hover:border-[color:var(--p-border-2)]',
@@ -259,7 +264,8 @@ export function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative h-7 w-[46px] shrink-0 cursor-pointer rounded-full border-0 p-0 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold',
+        // The ::after widens the hit area to 44px tall without changing the look.
+        "relative h-7 w-[46px] shrink-0 cursor-pointer rounded-full border-0 p-0 transition-colors after:absolute after:-inset-x-1 after:-inset-y-2 after:content-[''] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold",
         checked ? 'bg-ok' : 'bg-[#bdb8b0]',
         className,
       )}
@@ -280,18 +286,20 @@ export function YesNo({
   value,
   labelledBy,
   onChange,
+  className,
 }: {
   value: boolean;
   labelledBy: string;
   onChange: (next: boolean) => void;
+  className?: string;
 }) {
   const seg =
-    'h-9 min-w-[52px] cursor-pointer rounded-[7px] border-0 px-3 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold';
+    'h-9 min-w-[52px] pointer-coarse:h-11 cursor-pointer rounded-[7px] border-0 px-3 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold';
   return (
     <div
       role="radiogroup"
       aria-labelledby={labelledBy}
-      className="flex gap-1 rounded-[9px] bg-paper-3 p-[3px]"
+      className={cn('flex gap-1 rounded-[9px] bg-paper-3 p-[3px]', className)}
     >
       <button
         type="button"

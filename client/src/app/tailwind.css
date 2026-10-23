@@ -64,9 +64,11 @@
   --color-ring: var(--ring);
 
   /* The gym's own vocabulary, for schedule components. */
-  /* `night` is the near-black ink the gold button text uses — the selected
-     date chip and a booked week-grid block are filled with it. */
-  --color-night: var(--primary-foreground);
+  /* `night` is the warm near-black that sits on gold — a booked week-grid
+     block is filled with it, the selected date chip's text uses it. Its own
+     token (portal.css), no longer --primary-foreground: on member surfaces
+     that is now the LIGHT text of an ink button. */
+  --color-night: var(--p-night);
   --color-gold: var(--gold);
   --color-gold-lit: var(--gold-lit);
   --color-gold-deep: var(--gold-deep);
@@ -171,4 +173,12 @@
   --input: var(--p-border-2);
   --ring: var(--gold);
   --radius: var(--p-radius);
+}
+
+/* Style A (owner, 2026-10-23): on member surfaces shadcn's primary is the
+   ink button, not gold (portal.css tokens). The CRM shell is
+   `.portal-root.admin-root` on one element and keeps gold. */
+.portal-root:not(.admin-root) {
+  --primary: var(--p-primary);
+  --primary-foreground: var(--p-on-primary);
 }

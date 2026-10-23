@@ -61,10 +61,10 @@ export default function SchedulePage() {
 
 function ScheduleSkeleton() {
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <Skeleton className="h-6 w-56" />
       <Skeleton className="h-[72px] w-full" />
-      <Skeleton className="h-9 w-80" />
+      <Skeleton className="h-9 w-full max-w-80" />
       <Skeleton className="h-[120px] w-full" />
       <Skeleton className="h-[120px] w-full" />
     </div>
@@ -313,7 +313,7 @@ function Schedule() {
   const coverage = canBook ? windowCoverageNote(ahead, today) : null;
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       {banner === null ? null : (
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-warn/30 bg-warn-bg px-4 py-3">
           <p className="m-0 max-w-[62ch] text-sm text-foreground">{banner.message}</p>
@@ -351,7 +351,7 @@ function Schedule() {
         )}
       </div>
 
-      <div className="grid gap-1">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1">
         <DateStrip
           days={days}
           today={today}
@@ -391,7 +391,7 @@ function Schedule() {
           ) : null}
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
           {visible.map((item) => (
             <SessionCard
               key={item.id}

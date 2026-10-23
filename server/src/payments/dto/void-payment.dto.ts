@@ -1,6 +1,7 @@
 import { IsEnum, IsString, Length } from 'class-validator';
 import { PaymentVoidKind } from '@prisma/client';
 import { ConfirmDto } from '../../common/dto/confirm.dto';
+import { Trim } from '../../common/validators/text.validators';
 
 /**
  * A void is the only mutation a Payment ever accepts. There is no PATCH, no
@@ -14,6 +15,7 @@ import { ConfirmDto } from '../../common/dto/confirm.dto';
  */
 export class VoidPaymentDto extends ConfirmDto {
   /** Length matches MembershipEvent_reason_required's btrim(...) >= 3. */
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;

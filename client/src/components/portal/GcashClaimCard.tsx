@@ -6,6 +6,8 @@ import { ApiError } from '@/lib/api';
 import { gcashApi, MAX_PROOF_BYTES, type MyGcashSubmission } from '@/lib/gcashApi';
 import { readGcashReference } from '@/lib/gcashReceiptRef';
 import { formatGymTime } from '@/lib/gymTime';
+import { PAYMENT_REFERENCE_MAX } from '@got/shared';
+import { isPaymentReference } from '@/lib/paymentReference';
 
 /**
  * "I have sent the money" — the member's half of a GCash payment.
@@ -141,7 +143,7 @@ export function GcashClaimCard({
   }, [file]);
 
   const chosen = plans.find((plan) => plan.code === planCode) ?? null;
-  const ready = chosen !== null && reference.trim().length >= 6 && file !== null;
+  const ready = chosen !== null && isPaymentReference(reference) && file !== null;
 
   const submit = async (): Promise<void> => {
     if (!ready || chosen === null || file === null) return;
@@ -250,6 +252,7 @@ export function GcashClaimCard({
                 className="a-input"
                 value={reference}
                 required
+                maxLength={PAYMENT_REFERENCE_MAX}
                 inputMode="numeric"
                 placeholder="e.g. 6041 342 312154"
                 aria-describedby={refStatus === null ? refHelperId : refStatusId}

@@ -3,17 +3,22 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 /**
- * The account page driven end to end in jsdom: load, type, leave the field,
- * press Save — with the network mocked at `apiFetch` and Supabase mocked at
- * `accountAuth`, so what is asserted is exactly what would go on the wire.
+ * The account page driven end to end in jsdom: load, open a sheet, type,
+ * leave the field, press Save — with the network mocked at `apiFetch` and
+ * Supabase mocked at `accountAuth`, so what is asserted is exactly what would
+ * go on the wire. Sheets portal into `document.body`, so queries look there.
  */
 
-const { apiFetch, verifyCurrentPassword, updatePassword, updateEmail } = vi.hoisted(() => ({
-  apiFetch: vi.fn(),
-  verifyCurrentPassword: vi.fn(),
-  updatePassword: vi.fn(),
-  updateEmail: vi.fn(),
-}));
+const { apiFetch, verifyCurrentPassword, updatePassword, updateEmail, signOutMember, replace, reload } =
+  vi.hoisted(() => ({
+    apiFetch: vi.fn(),
+    verifyCurrentPassword: vi.fn(),
+    updatePassword: vi.fn(),
+    updateEmail: vi.fn(),
+    signOutMember: vi.fn(),
+    replace: vi.fn(),
+    reload: vi.fn(),
+  }));
 
 vi.mock('@/lib/api', () => ({
   apiFetch,
@@ -28,6 +33,9 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 vi.mock('@/lib/accountAuth', () => ({ verifyCurrentPassword, updatePassword, updateEmail }));
+vi.mock('@/lib/memberSignOut', () => ({ signOutMember }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+vi.mock('@/components/rbac/MeProvider', () => ({ useMe: () => ({ reload }) }));
 
 import AccountPage from './page';
 
@@ -35,10 +43,21 @@ import AccountPage from './page';
 
 const PROFILE = {
   email: 'juan@example.com',
+  firstName: 'Juan',
+  lastName: 'Dela Cruz',
+  phone: '+63 917 555 0142' as string | null,
+  memberCode: 'K7Q2MX' as string | null,
   heightCm: 175,
   weightKg: 72.4,
-  medicalNotes: 'Bad left knee',
+  medicalNotes: 'Bad left knee' as string | null,
   shareMedicalWithPlanner: false,
+  membership: { planName: 'Quarterly', status: 'ACTIVE', endsOn: '2027-01-11', daysLeft: 80 } as {
+    planName: string;
+    status: string;
+    endsOn: string;
+    daysLeft: number;
+  } | null,
+  canDeleteAccount: true,
 };
 
 let container: HTMLDivElement;
@@ -50,23 +69,36 @@ const flush = async (): Promise<void> => {
   });
 };
 
-async function renderPage(): Promise<void> {
-  apiFetch.mockResolvedValueOnce(PROFILE);
+async function renderPage(profile: typeof PROFILE = PROFILE): Promise<void> {
+  apiFetch.mockResolvedValueOnce(profile);
   await act(async () => {
     root.render(<AccountPage />);
   });
   await flush();
 }
 
+const page = (): string => document.body.textContent ?? '';
+
 const byName = <T extends HTMLElement>(name: string): T => {
-  const el = container.querySelector<T>(`[name="${name}"]`);
+  const el = document.body.querySelector<T>(`[name="${name}"]`);
   if (el === null) throw new Error(`no field ${name}`);
   return el;
 };
 
 const button = (label: string): HTMLButtonElement => {
-  const found = [...container.querySelectorAll('button')].find((b) => b.textContent === label);
+  const found = [...document.body.querySelectorAll('button')].find(
+    (b) => b.textContent?.trim() === label,
+  );
   if (found === undefined) throw new Error(`no button ${label}`);
+  return found;
+};
+
+/** A list row's button, by the bold label inside it. */
+const row = (label: string): HTMLElement => {
+  const found = [...document.body.querySelectorAll<HTMLElement>('.acct-li')].find(
+    (el) => el.querySelector('b')?.textContent === label,
+  );
+  if (found === undefined) throw new Error(`no row ${label}`);
   return found;
 };
 
@@ -96,6 +128,12 @@ async function click(el: HTMLElement): Promise<void> {
 describe('My account page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    window.sessionStorage.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -104,6 +142,7 @@ describe('My account page', () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    document.body.innerHTML = '';
   });
 
   async function renderFailing(error: unknown): Promise<void> {
@@ -116,161 +155,286 @@ describe('My account page', () => {
 
   it('blames the connection only when the request never got an answer', async () => {
     await renderFailing(new TypeError('Failed to fetch'));
-    expect(container.textContent).toContain("Couldn't load your account.");
-    expect(container.textContent).toContain('Check your connection and try again.');
+    expect(page()).toContain("Couldn't load your account.");
+    expect(page()).toContain('Check your connection and try again.');
     expect(button('Try again')).toBeTruthy();
   });
 
   it('says "try again in a moment" for an HTTP error, not "check your connection"', async () => {
     const { ApiError } = await import('@/lib/api');
     await renderFailing(new ApiError('Not found', 404, 'NOT_FOUND'));
-    expect(container.textContent).toContain("Couldn't load your account.");
-    expect(container.textContent).toContain('Try again in a moment.');
-    expect(container.textContent).not.toContain('Check your connection');
-    expect(button('Try again')).toBeTruthy();
+    expect(page()).toContain('Try again in a moment.');
+    expect(page()).not.toContain('Check your connection');
   });
 
-  it('loads the profile and shows the current values', async () => {
-    await renderPage();
-    expect(apiFetch).toHaveBeenCalledWith('/me/profile');
-    expect(byName<HTMLInputElement>('heightCm').value).toBe('175');
-    expect(byName<HTMLInputElement>('weightKg').value).toBe('72.4');
-    expect(byName<HTMLTextAreaElement>('medicalNotes').value).toBe('Bad left knee');
-    expect(byName<HTMLInputElement>('shareMedicalWithPlanner').checked).toBe(false);
-    expect(container.textContent).toContain('juan@example.com');
-  });
-
-  it('saves only the changed field and says what happens next', async () => {
-    await renderPage();
-    await type(byName('weightKg'), '70.5');
-    apiFetch.mockResolvedValueOnce({ ...PROFILE, weightKg: 70.5 });
-
-    await click(button('Save body & health'));
-
-    expect(apiFetch).toHaveBeenLastCalledWith('/me/profile', {
-      method: 'PATCH',
-      body: JSON.stringify({ weightKg: 70.5 }),
+  describe('the summary', () => {
+    it('greets the member and shows the profile card', async () => {
+      await renderPage();
+      expect(apiFetch).toHaveBeenCalledWith('/me/profile');
+      expect(container.querySelector('h1')?.textContent).toBe('Juan Dela Cruz');
+      expect(page()).toContain('Welcome back');
+      expect(page()).toContain('YOUR PROFILE');
+      expect(container.querySelector('.acct-badge')?.textContent).toBe('Quarterly · ACTIVE');
+      expect(page()).toContain('juan@example.com');
+      expect(page()).toContain('+63 917 555 0142');
+      expect(page()).toContain('K7Q2MX');
     });
-    expect(container.querySelector('[role="status"]')?.textContent).toBe(
-      'Saved. Your coach and your next workout plan use your height and weight.',
-    );
-  });
 
-  it('sends the medical-notes opt-in when ticked', async () => {
-    await renderPage();
-    await click(byName('shareMedicalWithPlanner'));
-    apiFetch.mockResolvedValueOnce({ ...PROFILE, shareMedicalWithPlanner: true });
-
-    await click(button('Save body & health'));
-
-    expect(apiFetch).toHaveBeenLastCalledWith('/me/profile', {
-      method: 'PATCH',
-      body: JSON.stringify({ shareMedicalWithPlanner: true }),
+    it('says NO PLAN, and what is missing, when there is nothing on file', async () => {
+      await renderPage({ ...PROFILE, membership: null, phone: null, memberCode: null });
+      expect(container.querySelector('.acct-badge')?.textContent).toBe('No plan');
+      expect(page()).toContain('Not added');
+      expect(page()).toContain('Not issued yet');
+      expect(page()).toContain('No plan yet — see the plans');
     });
-    expect(container.textContent).toContain('Let the workout planner use my medical notes');
+
+    it('shows height, weight, BMI and the notes — no chip at a healthy BMI', async () => {
+      await renderPage();
+      const stats = [...container.querySelectorAll('.acct-stat dd')].map((dd) => dd.textContent);
+      expect(stats).toEqual(['175', '72.4', '23.6']);
+      expect(page()).toContain('Bad left knee');
+      expect(container.querySelector('.acct-chip')).toBeNull();
+    });
+
+    it('shows the under-18.5 chip and "No notes"', async () => {
+      await renderPage({ ...PROFILE, heightCm: 185, weightKg: 62, medicalNotes: null });
+      expect(container.querySelector('.acct-chip')?.textContent).toBe(
+        'Under 18.5 · "Lose fat" is hidden in the planner',
+      );
+      expect(page()).toContain('No notes');
+    });
+
+    it('links the tiles and the policy row', async () => {
+      await renderPage();
+      const hrefs = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
+      expect(hrefs).toEqual(['/portal/subscription', '/portal/pay', '/terms']);
+      expect(page()).toContain('Quarterly · 80 days left · until 11 Jan');
+      expect(page()).toContain('→ Manage');
+      expect(page()).toContain('→ View');
+    });
+
+    it('the planner switch saves at once', async () => {
+      await renderPage();
+      const toggle = container.querySelector<HTMLButtonElement>('[role="switch"]');
+      expect(toggle?.getAttribute('aria-checked')).toBe('false');
+      apiFetch.mockResolvedValueOnce({ ...PROFILE, shareMedicalWithPlanner: true });
+
+      await click(toggle!);
+
+      expect(apiFetch).toHaveBeenLastCalledWith('/me/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ shareMedicalWithPlanner: true }),
+      });
+      expect(toggle?.getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('signs out through the shared sign-out', async () => {
+      await renderPage();
+      await click(row('Sign out'));
+      // Asks first: nothing has happened yet.
+      expect(signOutMember).not.toHaveBeenCalled();
+      const dialog = document.querySelector('[role="alertdialog"]');
+      expect(dialog?.textContent).toContain('Sign out?');
+      const confirm = [...dialog!.querySelectorAll('button')].find(
+        (b) => b.textContent === 'Sign out',
+      )!;
+      await click(confirm);
+      expect(signOutMember).toHaveBeenCalledWith();
+      expect(replace).toHaveBeenCalledWith('/login');
+    });
   });
 
-  it('shows a field problem only after the field is left, and marks the field', async () => {
-    await renderPage();
-    const weight = byName<HTMLInputElement>('weightKg');
-    await type(weight, '19');
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(weight.getAttribute('aria-invalid')).toBeNull();
+  describe('Body & health sheet', () => {
+    async function open(): Promise<void> {
+      await renderPage();
+      await click(button('Edit body & health'));
+    }
 
-    await blur(weight);
+    it('opens on the current values', async () => {
+      await open();
+      expect(byName<HTMLInputElement>('heightCm').value).toBe('175');
+      expect(byName<HTMLInputElement>('weightKg').value).toBe('72.4');
+      expect(byName<HTMLTextAreaElement>('medicalNotes').value).toBe('Bad left knee');
+      expect(byName<HTMLInputElement>('shareMedicalWithPlanner').checked).toBe(false);
+    });
 
-    const alert = container.querySelector('[role="alert"]');
-    expect(alert?.textContent).toBe('Weight must be between 20 and 400 kg.');
-    expect(weight.getAttribute('aria-invalid')).toBe('true');
-    expect(weight.getAttribute('aria-describedby')).toBe(alert?.id);
+    it('saves only the changed field and says what happens next', async () => {
+      await open();
+      await type(byName('weightKg'), '70.5');
+      apiFetch.mockResolvedValueOnce({ ...PROFILE, weightKg: 70.5 });
+
+      await click(button('Save body & health'));
+
+      expect(apiFetch).toHaveBeenLastCalledWith('/me/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ weightKg: 70.5 }),
+      });
+      expect(document.body.querySelector('[role="status"]')?.textContent).toBe(
+        'Saved. Your coach and your next workout plan use your height and weight.',
+      );
+    });
+
+    it('shows a field problem only after the field is left, and marks the field', async () => {
+      await open();
+      const weight = byName<HTMLInputElement>('weightKg');
+      await type(weight, '19');
+      expect(weight.getAttribute('aria-invalid')).toBeNull();
+
+      await blur(weight);
+
+      const alert = document.getElementById(weight.getAttribute('aria-describedby') ?? '');
+      expect(alert?.textContent).toBe('Weight must be between 20 and 400 kg.');
+      expect(weight.getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('does not send an invalid save', async () => {
+      await open();
+      await type(byName('heightCm'), '300');
+      apiFetch.mockClear();
+      await click(button('Save body & health'));
+      expect(apiFetch).not.toHaveBeenCalled();
+      expect(page()).toContain('Height must be between 50 and 260 cm.');
+    });
   });
 
-  it('does not send an invalid save, and shows why on Save', async () => {
-    await renderPage();
-    await type(byName('heightCm'), '300');
-    apiFetch.mockClear();
+  describe('Edit details sheet', () => {
+    async function open(): Promise<void> {
+      await renderPage();
+      await click(document.body.querySelector<HTMLButtonElement>('.acct-pill')!);
+    }
 
-    await click(button('Save body & health'));
+    it('saves a new name and phone, then refreshes /me for the topbar', async () => {
+      await open();
+      expect(byName<HTMLInputElement>('firstName').value).toBe('Juan');
+      await type(byName('firstName'), ' Juanito ');
+      await type(byName('phone'), '0917 555 0199');
+      apiFetch.mockResolvedValueOnce({ ...PROFILE, firstName: 'Juanito', phone: '+639175550199' });
 
-    expect(apiFetch).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      'Height must be between 50 and 260 cm.',
-    );
+      await click(button('Save details'));
+
+      expect(apiFetch).toHaveBeenLastCalledWith('/me/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({ firstName: 'Juanito', phone: '+639175550199' }),
+      });
+      expect(reload).toHaveBeenCalled();
+      expect(container.querySelector('h1')?.textContent).toBe('Juanito Dela Cruz');
+    });
+
+    it('refuses an empty first name on that field', async () => {
+      await open();
+      const first = byName<HTMLInputElement>('firstName');
+      await type(first, '');
+      await blur(first);
+      expect(first.getAttribute('aria-invalid')).toBe('true');
+      expect(page()).toContain('Enter your first name.');
+      apiFetch.mockClear();
+      await click(button('Save details'));
+      expect(apiFetch).not.toHaveBeenCalled();
+    });
   });
 
-  it("shows the server's 4xx message, and the generic line otherwise", async () => {
-    await renderPage();
-    await type(byName('weightKg'), '70');
-    const { ApiError } = await import('@/lib/api');
-    apiFetch.mockRejectedValueOnce(new ApiError('weightKg must be a number', 400, 'X'));
-    await click(button('Save body & health'));
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      'weightKg must be a number',
-    );
+  describe('password and email sheets', () => {
+    it('marks the current password wrong without changing anything', async () => {
+      await renderPage();
+      await click(row('Change password'));
+      verifyCurrentPassword.mockResolvedValue('wrong');
+      await type(byName('currentPassword'), 'not-it');
+      await type(byName('newPassword'), 'new-password');
+      await type(byName('confirmPassword'), 'new-password');
 
-    apiFetch.mockRejectedValueOnce(new Error('offline'));
-    await click(button('Save body & health'));
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Couldn't save. Try again.",
-    );
+      await click(button('Change password'));
+
+      expect(verifyCurrentPassword).toHaveBeenCalledWith('juan@example.com', 'not-it');
+      expect(updatePassword).not.toHaveBeenCalled();
+      expect(page()).toContain("That's not your current password.");
+      expect(byName('currentPassword').getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('changes the password and says so', async () => {
+      await renderPage();
+      await click(row('Change password'));
+      verifyCurrentPassword.mockResolvedValue('ok');
+      updatePassword.mockResolvedValue({ error: null });
+      await type(byName('currentPassword'), 'old-password');
+      await type(byName('newPassword'), 'new-password');
+      await type(byName('confirmPassword'), 'new-password');
+
+      await click(button('Change password'));
+
+      expect(updatePassword).toHaveBeenCalledWith('new-password');
+      expect(page()).toContain('Password changed.');
+    });
+
+    it('asks for the email change and says to check both inboxes', async () => {
+      await renderPage();
+      await click(button('Change email'));
+      updateEmail.mockResolvedValue({ error: null });
+      await type(byName('email'), 'juan.new@example.com');
+
+      const submit = [...document.body.querySelectorAll('button[type="submit"]')].find(
+        (b) => b.textContent === 'Change email',
+      ) as HTMLButtonElement;
+      await click(submit);
+
+      expect(updateEmail).toHaveBeenCalledWith('juan.new@example.com');
+      expect(page()).toContain(
+        'Check both inboxes — we sent a confirmation link. Your email changes once you open it.',
+      );
+    });
   });
 
-  it('marks the current password wrong without changing anything', async () => {
-    await renderPage();
-    verifyCurrentPassword.mockResolvedValue('wrong');
-    await type(byName('currentPassword'), 'not-it');
-    await type(byName('newPassword'), 'new-password');
-    await type(byName('confirmPassword'), 'new-password');
+  describe('Delete account', () => {
+    it('is not offered to an account that may not delete itself', async () => {
+      await renderPage({ ...PROFILE, canDeleteAccount: false });
+      expect(() => row('Delete account')).toThrow();
+    });
 
-    await click(button('Change password'));
+    it('lists what is erased and kept, and warns about the days left', async () => {
+      await renderPage();
+      await click(row('Delete account'));
+      expect(page()).toContain('Erased now');
+      expect(page()).toContain('Kept, without your name');
+      expect(page()).toContain("Your Quarterly plan has 80 days left. They'll be lost.");
+      expect(button('Delete my account')).toBeTruthy();
+      expect(button('Cancel')).toBeTruthy();
+    });
 
-    expect(verifyCurrentPassword).toHaveBeenCalledWith('juan@example.com', 'not-it');
-    expect(updatePassword).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("That's not your current password.");
-    expect(byName('currentPassword').getAttribute('aria-invalid')).toBe('true');
-  });
+    it('does not warn without an active plan', async () => {
+      await renderPage({ ...PROFILE, membership: null });
+      await click(row('Delete account'));
+      expect(page()).not.toContain("They'll be lost");
+    });
 
-  it('refuses a short or mismatched new password before calling Supabase', async () => {
-    await renderPage();
-    await type(byName('currentPassword'), 'old-password');
-    await type(byName('newPassword'), 'short');
-    await type(byName('confirmPassword'), 'short');
-    await click(button('Change password'));
-    expect(container.textContent).toContain('Use at least 8 characters.');
-    expect(byName('newPassword').getAttribute('aria-invalid')).toBe('true');
+    it('stops at a wrong password without calling the API', async () => {
+      await renderPage();
+      await click(row('Delete account'));
+      verifyCurrentPassword.mockResolvedValue('wrong');
+      apiFetch.mockClear();
+      await type(byName('deletePassword'), 'not-it');
 
-    await type(byName('newPassword'), 'long-enough');
-    await type(byName('confirmPassword'), 'long-enougH');
-    await click(button('Change password'));
-    expect(container.textContent).toContain('The two passwords do not match.');
-    expect(byName('confirmPassword').getAttribute('aria-invalid')).toBe('true');
-    expect(verifyCurrentPassword).not.toHaveBeenCalled();
-  });
+      await click(button('Delete my account'));
 
-  it('changes the password and says so', async () => {
-    await renderPage();
-    verifyCurrentPassword.mockResolvedValue('ok');
-    updatePassword.mockResolvedValue({ error: null });
-    await type(byName('currentPassword'), 'old-password');
-    await type(byName('newPassword'), 'new-password');
-    await type(byName('confirmPassword'), 'new-password');
+      expect(apiFetch).not.toHaveBeenCalled();
+      expect(page()).toContain("That's not your current password.");
+      expect(byName('deletePassword').getAttribute('aria-invalid')).toBe('true');
+    });
 
-    await click(button('Change password'));
+    it('deletes, signs out locally and goes home with the notice', async () => {
+      await renderPage();
+      await click(row('Delete account'));
+      verifyCurrentPassword.mockResolvedValue('ok');
+      apiFetch.mockResolvedValueOnce({ deleted: true });
+      await type(byName('deletePassword'), 'secret12');
 
-    expect(updatePassword).toHaveBeenCalledWith('new-password');
-    expect(container.textContent).toContain('Password changed.');
-  });
+      await click(button('Delete my account'));
 
-  it('asks for the email change and says to check both inboxes', async () => {
-    await renderPage();
-    updateEmail.mockResolvedValue({ error: null });
-    await type(byName('email'), 'juan.new@example.com');
-
-    await click(button('Change email'));
-
-    expect(updateEmail).toHaveBeenCalledWith('juan.new@example.com');
-    expect(container.textContent).toContain(
-      'Check both inboxes — we sent a confirmation link. Your email changes once you open it.',
-    );
+      expect(apiFetch).toHaveBeenLastCalledWith('/me/delete-account', {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true, password: 'secret12' }),
+      });
+      expect(signOutMember).toHaveBeenCalledWith('local');
+      expect(window.sessionStorage.getItem('got.accountDeleted')).toBe('1');
+      expect(replace).toHaveBeenCalledWith('/');
+    });
   });
 });

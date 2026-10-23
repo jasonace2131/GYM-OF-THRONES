@@ -185,6 +185,7 @@ export function RecordPaymentModal({
             id="record-pay-notes"
             className="a-input"
             value={notes}
+            maxLength={500}
             autoComplete="off"
             onChange={(event) => setNotes(event.target.value)}
           />

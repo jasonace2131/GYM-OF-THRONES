@@ -116,6 +116,7 @@ function Inbox() {
                 className="p-inbox-search"
                 type="search"
                 value={query}
+                maxLength={100}
                 placeholder="Search clients"
                 onChange={(event) => setQuery(event.target.value)}
               />

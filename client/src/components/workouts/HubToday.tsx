@@ -24,7 +24,7 @@ function StateBadge({ kind }: { kind: 'open' | 'done' }) {
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-[9px] py-[3px] text-[10.5px] font-bold tracking-[0.1em] uppercase',
+        'inline-flex shrink-0 items-center gap-1.5 rounded-full px-[9px] py-[3px] text-[11px] font-bold tracking-[0.1em] uppercase',
         kind === 'open' ? 'bg-warn-bg text-[#6e4c0e]' : 'bg-ok-bg text-ok',
       )}
     >
@@ -184,7 +184,7 @@ export function HubToday({
                     <span className="text-[12.5px] text-ink-3">{day.count}</span>
                     <span
                       aria-hidden
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-[linear-gradient(180deg,var(--gold-lit),var(--gold))] text-night"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground"
                     >
                       {starting(day.key) ? (
                         <IconSpinner size={16} className="motion-safe:animate-spin" />

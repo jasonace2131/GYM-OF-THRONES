@@ -1,7 +1,17 @@
 'use client';
 
 import { useId, useState, type CSSProperties, type ReactNode } from 'react';
-import { PROFILE_LIMITS, type MyProfile, type MyProfilePatch } from '@got/shared';
+import {
+  EMAIL_MAX,
+  PH_PHONE_MAX_INPUT,
+  PROFILE_LIMITS,
+  filterNameTyping,
+  filterPhoneTyping,
+  type MyProfile,
+  type MyProfilePatch,
+} from '@got/shared';
+import { filterDecimalTyping } from '@/lib/numberInput';
+import { CharCounter } from '@/components/inputs/CharCounter';
 import {
   ACCOUNT_COPY,
   PASSWORD_MIN,
@@ -15,6 +25,11 @@ import {
   type BodyForm,
   type Outcome,
   type PasswordField,
+  detailsForm,
+  detailsPatch,
+  deletePlanWarning,
+  type DetailsField,
+  type DetailsForm,
 } from '@/lib/account';
 import { EMAIL_INPUT_PROPS } from '@/lib/credentials';
 import { Card, CardHead } from '@/components/portal/ui';
@@ -70,7 +85,20 @@ function invalidProps(message: string | undefined, id: string) {
   return message === undefined ? {} : { 'aria-invalid': true, 'aria-describedby': id };
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * A card with its own heading — or, `framed={false}`, just the form: inside a
+ * sheet the sheet's title is the heading (My account redesign, 2026-10-23).
+ */
+function Section({
+  title,
+  framed = true,
+  children,
+}: {
+  title: string;
+  framed?: boolean;
+  children: ReactNode;
+}) {
+  if (!framed) return <>{children}</>;
   return (
     <Card padded={false}>
       <CardHead title={title} as="h2" />
@@ -85,10 +113,12 @@ export function BodySection({
   profile,
   save,
   onSaved,
+  framed = true,
 }: {
   profile: MyProfile;
   save: (patch: MyProfilePatch) => Promise<MyProfile>;
   onSaved: (profile: MyProfile) => void;
+  framed?: boolean;
 }) {
   const uid = useId();
   const [values, setValues] = useState<BodyForm>(() => bodyForm(profile));
@@ -109,7 +139,9 @@ export function BodySection({
   const errorId = (key: BodyField): string => `${uid}-${key}-error`;
 
   const set = (key: 'height' | 'weight' | 'notes') => (event: { target: { value: string } }) => {
-    setValues({ ...values, [key]: event.target.value });
+    // Height and weight: digits and one decimal place — no e, + or -.
+    const raw = event.target.value;
+    setValues({ ...values, [key]: key === 'notes' ? raw : filterDecimalTyping(raw, 1) });
     setOutcome(null);
   };
   const leave = (key: BodyField) => () => setTouched(new Set(touched).add(key));
@@ -134,7 +166,7 @@ export function BodySection({
   };
 
   return (
-    <Section title="Body & health">
+    <Section title="Body & health" framed={framed}>
       <form
         style={form}
         noValidate
@@ -196,7 +228,13 @@ export function BodySection({
             onChange={set('notes')}
             onBlur={leave('notes')}
             style={{ resize: 'vertical' }}
+            aria-describedby={`${uid}-notes-count`}
             {...invalidProps(shown('notes'), errorId('notes'))}
+          />
+          <CharCounter
+            id={`${uid}-notes-count`}
+            value={values.notes}
+            max={PROFILE_LIMITS.medicalNotesMax}
           />
           <FieldError id={errorId('notes')} message={shown('notes')} />
         </label>
@@ -236,9 +274,11 @@ export function BodySection({
 export function EmailSection({
   email,
   change,
+  framed = true,
 }: {
   email: string;
   change: (next: string) => Promise<Outcome>;
+  framed?: boolean;
 }) {
   const uid = useId();
   const [next, setNext] = useState('');
@@ -261,7 +301,7 @@ export function EmailSection({
   };
 
   return (
-    <Section title="Email">
+    <Section title="Email" framed={framed}>
       <form
         style={form}
         noValidate
@@ -282,6 +322,7 @@ export function EmailSection({
             type="email"
             autoComplete="email"
             {...EMAIL_INPUT_PROPS}
+            maxLength={EMAIL_MAX}
             value={next}
             disabled={busy}
             onChange={(event) => {
@@ -310,9 +351,11 @@ export function EmailSection({
 export function PasswordSection({
   email,
   change,
+  framed = true,
 }: {
   email: string;
   change: (input: { email: string; current: string; next: string }) => Promise<Outcome>;
+  framed?: boolean;
 }) {
   const uid = useId();
   const [current, setCurrent] = useState('');
@@ -354,7 +397,7 @@ export function PasswordSection({
   };
 
   return (
-    <Section title="Password">
+    <Section title="Password" framed={framed}>
       <form
         style={form}
         noValidate
@@ -423,5 +466,264 @@ export function PasswordSection({
         </div>
       </form>
     </Section>
+  );
+}
+
+// ── Name and phone (owner, 2026-10-23) ─────────────────────────────────────
+
+export function DetailsSection({
+  profile,
+  save,
+  onSaved,
+}: {
+  profile: MyProfile;
+  save: (patch: MyProfilePatch) => Promise<MyProfile>;
+  onSaved: (profile: MyProfile) => void;
+}) {
+  const uid = useId();
+  const [values, setValues] = useState<DetailsForm>(() => detailsForm(profile));
+  const [touched, setTouched] = useState<ReadonlySet<DetailsField>>(new Set());
+  const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+
+  const { patch, problems, problem } = detailsPatch(profile, values);
+  const original = detailsForm(profile);
+  const dirty =
+    values.firstName !== original.firstName ||
+    values.lastName !== original.lastName ||
+    values.phone !== original.phone;
+  const shown = (key: DetailsField): string | undefined =>
+    submitted || touched.has(key) ? problems[key] : undefined;
+  const errorId = (key: DetailsField): string => `${uid}-${key}-error`;
+
+  // Letters cannot be typed into the phone, nor digits into a name.
+  const set = (key: DetailsField) => (event: { target: { value: string } }) => {
+    const raw = event.target.value;
+    setValues({
+      ...values,
+      [key]: key === 'phone' ? filterPhoneTyping(raw) : filterNameTyping(raw),
+    });
+    setOutcome(null);
+  };
+  const leave = (key: DetailsField) => () => setTouched(new Set(touched).add(key));
+
+  const submit = async (): Promise<void> => {
+    setSubmitted(true);
+    if (problem !== null || Object.keys(patch).length === 0) return;
+    setBusy(true);
+    setOutcome(null);
+    try {
+      const saved = await save(patch);
+      onSaved(saved);
+      setValues(detailsForm(saved));
+      setTouched(new Set());
+      setSubmitted(false);
+      setOutcome({ ok: true, message: 'Saved.' });
+    } catch (caught) {
+      setOutcome({ ok: false, message: describeSaveFailure(caught) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input = (key: DetailsField, label: string, extra: Record<string, unknown>) => (
+    <label style={key === 'phone' ? field : half}>
+      <Label>{label}</Label>
+      <input
+        className="a-input"
+        name={key}
+        type="text"
+        value={values[key]}
+        disabled={busy}
+        onChange={set(key)}
+        onBlur={leave(key)}
+        {...extra}
+        {...invalidProps(shown(key), errorId(key))}
+      />
+      <FieldError id={errorId(key)} message={shown(key)} />
+    </label>
+  );
+
+  return (
+    <form
+      style={form}
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <div style={pair}>
+        {input('firstName', 'FIRST NAME', {
+          autoComplete: 'given-name',
+          maxLength: PROFILE_LIMITS.nameMax,
+        })}
+        {input('lastName', 'LAST NAME', {
+          autoComplete: 'family-name',
+          maxLength: PROFILE_LIMITS.nameMax,
+        })}
+      </div>
+      {input('phone', 'PHONE — OPTIONAL', {
+        type: 'tel',
+        inputMode: 'tel',
+        autoComplete: 'tel',
+        maxLength: PH_PHONE_MAX_INPUT,
+        placeholder: '0917 555 0142',
+      })}
+      <p className="p-muted" style={{ margin: 0, fontSize: 12.5 }}>
+        The front desk uses your phone to reach you about your membership and classes.
+      </p>
+      <Result outcome={outcome} />
+      <div>
+        <button type="submit" className="p-btn p-btn-dark" disabled={busy || !dirty}>
+          {busy ? 'Saving…' : 'Save details'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ── Delete account (owner, 2026-10-23) ─────────────────────────────────────
+
+const list: CSSProperties = { margin: '4px 0 0', paddingLeft: 18, display: 'grid', gap: 4 };
+
+/**
+ * What is erased and what is kept, the active-plan warning, and the password.
+ * The decision and the wire are `deleteAccount` in lib/account.ts; this only
+ * holds the password and shows the answer.
+ */
+export function DeleteSection({
+  profile,
+  remove,
+  onDeleted,
+  onCancel,
+}: {
+  profile: MyProfile;
+  remove: (password: string) => Promise<Outcome>;
+  onDeleted: () => void;
+  onCancel: () => void;
+}) {
+  const uid = useId();
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const resultId = `${uid}-result`;
+  const warning = deletePlanWarning(profile);
+
+  const submit = async (): Promise<void> => {
+    if (password === '') {
+      setOutcome({ ok: false, message: 'Enter your current password.' });
+      return;
+    }
+    setBusy(true);
+    setOutcome(null);
+    const result = await remove(password);
+    if (result.ok) {
+      onDeleted();
+      return;
+    }
+    setBusy(false);
+    setOutcome(result);
+  };
+
+  return (
+    <form
+      style={form}
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        void submit();
+      }}
+    >
+      <div>
+        <strong style={{ fontSize: 14 }}>Erased now</strong>
+        <ul style={list}>
+          <li>Your name, email, phone, photo, birthday and member code</li>
+          <li>Your emergency contact and medical notes</li>
+          <li>Your body measurements, goals and workout plans</li>
+          <li>Your chats with the gym&apos;s AI assistant</li>
+          <li>Your upcoming class bookings — the seats go to the waitlist</li>
+        </ul>
+      </div>
+      <div>
+        <strong style={{ fontSize: 14 }}>Kept, without your name</strong>
+        <ul style={list}>
+          <li>
+            Payments and memberships (receipt images may still show your GCash name and number)
+          </li>
+          <li>Visits and class history</li>
+          <li>Your chats with your coach and their notes</li>
+          <li>Consent records</li>
+        </ul>
+      </div>
+      {warning === null ? null : (
+        <p
+          role="note"
+          style={{
+            margin: 0,
+            padding: '10px 12px',
+            borderRadius: 10,
+            background: 'var(--p-danger-bg)',
+            color: 'var(--p-danger)',
+            fontSize: 13.5,
+            fontWeight: 600,
+          }}
+        >
+          {warning}
+        </p>
+      )}
+      {/* Lets a password manager fill the right account's password. */}
+      <input
+        type="text"
+        name="username"
+        autoComplete="username"
+        value={profile.email}
+        readOnly
+        hidden
+      />
+      <label style={field}>
+        <Label>CURRENT PASSWORD</Label>
+        <input
+          className="a-input"
+          name="deletePassword"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          disabled={busy}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            setOutcome(null);
+          }}
+          {...invalidProps(
+            outcome !== null && !outcome.ok ? outcome.message : undefined,
+            resultId,
+          )}
+        />
+      </label>
+      <p className="p-muted" style={{ margin: 0, fontSize: 12.5 }}>
+        This cannot be undone. You will be signed out straight away.
+      </p>
+      <Result outcome={outcome} id={resultId} />
+      <div style={pair}>
+        <button
+          type="button"
+          className="p-btn p-btn-ghost"
+          style={{ flex: '1 1 130px', minHeight: 44 }}
+          disabled={busy}
+          onClick={onCancel}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="p-btn acct-danger-btn"
+          style={{ flex: '1 1 130px', minHeight: 44 }}
+          disabled={busy}
+        >
+          {busy ? 'Deleting…' : 'Delete my account'}
+        </button>
+      </div>
+    </form>
   );
 }

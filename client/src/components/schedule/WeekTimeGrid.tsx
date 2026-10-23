@@ -81,7 +81,7 @@ export function WeekTimeGrid<T extends GridEvent>({
         {days.map((day) => (
           <div
             key={day}
-            className="py-2 text-center font-display text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-3"
+            className="py-2 text-center font-display text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3"
           >
             {shortWeekday(day)}
             <span
@@ -96,13 +96,15 @@ export function WeekTimeGrid<T extends GridEvent>({
         ))}
       </div>
 
-      <div ref={scrollRef} className="max-h-[520px] overflow-y-auto">
+      {/* One scroller per screen on a phone: the page. A 520px box scrolling
+          inside a scrolling page trapped the thumb; from `sm` it returns. */}
+      <div ref={scrollRef} className="sm:max-h-[520px] sm:overflow-y-auto">
         <div className="relative grid" style={{ gridTemplateColumns: columns, height: hours * hourHeight }}>
           <div className="relative">
             {Array.from({ length: hours - 1 }, (_, i) => layout.startHour + i + 1).map((hour) => (
               <span
                 key={hour}
-                className="absolute right-1.5 -translate-y-1/2 whitespace-nowrap text-[10px] text-ink-3"
+                className="absolute right-1.5 -translate-y-1/2 whitespace-nowrap text-[11px] text-ink-3"
                 style={{ top: px((hour - layout.startHour) * 60) }}
               >
                 {hhmmTo12h(`${String(hour).padStart(2, '0')}:00`).replace(':00', '')}
@@ -140,10 +142,10 @@ export function WeekTimeGrid<T extends GridEvent>({
                       width: `calc(${100 / item.lanes}% - 4px)`,
                     }}
                   >
-                    <span className="truncate font-display text-[11.5px] font-semibold leading-tight">
+                    <span className="truncate font-display text-[12px] font-semibold leading-tight">
                       {block.title}
                     </span>
-                    <span className="truncate text-[10.5px] leading-tight opacity-85">{block.detail}</span>
+                    <span className="truncate text-[11px] leading-tight opacity-85">{block.detail}</span>
                   </button>
                 );
               })}

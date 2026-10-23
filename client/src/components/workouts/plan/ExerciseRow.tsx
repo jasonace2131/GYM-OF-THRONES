@@ -48,10 +48,12 @@ export function ExerciseRow({
   onUndoSwap: () => void;
 }) {
   const btn =
-    'inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border-0 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-60 @2xl:h-[38px] @2xl:w-auto @2xl:rounded-lg @2xl:border-[1.5px] @2xl:px-3';
+    'inline-flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-[10px] border-0 px-3 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-60 @2xl:h-[38px] @2xl:w-auto @2xl:rounded-lg @2xl:border-[1.5px] @2xl:px-3';
 
   return (
-    <div className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2.5 px-4 py-3 @2xl:grid-cols-[30px_minmax(0,1fr)_118px_78px_196px] @2xl:gap-3.5 @2xl:px-[22px] @2xl:py-3.5">
+    // Phones: number + name on the first line, How to / Swap under the name —
+    // beside it, two 44px buttons squeezed the name to ~167px and 2-3 lines.
+    <div className="grid grid-cols-[28px_minmax(0,1fr)] items-center gap-x-2.5 gap-y-2 px-4 py-3 @2xl:grid-cols-[30px_minmax(0,1fr)_118px_78px_196px] @2xl:gap-3.5 @2xl:px-[22px] @2xl:py-3.5">
       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-paper-3 text-[12.5px] font-bold text-[color:var(--p-ink)]">
         {index + 1}
       </span>
@@ -60,7 +62,7 @@ export function ExerciseRow({
           <span className="text-[14.5px] font-semibold @2xl:text-[15.5px]">{exercise.name}</span>
           {swapped ? (
             <>
-              <Tag tone="info" className="px-2 py-0.5 text-[10.5px] tracking-[0.08em]">
+              <Tag tone="info" className="px-2 py-0.5 text-[11px] tracking-[0.08em]">
                 Swapped
               </Tag>
               <PlainButton tone="link" onClick={onUndoSwap} disabled={busy}>
@@ -91,7 +93,7 @@ export function ExerciseRow({
       <span className="hidden text-right text-[12.5px] text-ink-3 @2xl:block">
         {exercise.restSeconds === null ? '' : restLabel(exercise.restSeconds)}
       </span>
-      <div className="flex justify-end gap-1.5">
+      <div className="col-start-2 flex justify-start gap-1.5 @2xl:col-start-auto @2xl:justify-end">
         <button
           type="button"
           aria-expanded={howOpen}
@@ -106,7 +108,7 @@ export function ExerciseRow({
         >
           <IconInfo size={18} className="@2xl:hidden" />
           <IconInfo size={15} className="hidden @2xl:block" />
-          <span className="hidden @2xl:inline">How to</span>
+          <span>How to</span>
         </button>
         {toolbelt === 'full' ? (
           <button
@@ -124,7 +126,7 @@ export function ExerciseRow({
           >
             <IconSwap size={18} className="@2xl:hidden" />
             <IconSwap size={15} className="hidden @2xl:block" />
-            <span className="hidden @2xl:inline">Swap</span>
+            <span>Swap</span>
           </button>
         ) : null}
       </div>

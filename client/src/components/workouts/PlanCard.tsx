@@ -20,7 +20,7 @@ function daysLabel(weekdays: readonly number[]): string {
 }
 
 /** The badges of PhoneHubCoach.dc.html: 3px × 9px, 10.5px, wide tracking. */
-const BADGE = 'gap-[5px] px-[9px] py-[3px] text-[10.5px]';
+const BADGE = 'gap-[5px] px-[9px] py-[3px] text-[11px]';
 
 /** Open and Use this plan: 40px on a phone (44px to the touch), 36px from @md. */
 const HIT = "relative after:absolute after:inset-x-0 after:-inset-y-0.5 after:content-['']";

@@ -251,6 +251,7 @@ export function MembersRoster() {
             className="a-input"
             type="search"
             value={search}
+            maxLength={64}
             placeholder="Search name, member code, email or phone…"
             aria-label="Search members"
             onChange={(event) => onFilter(() => setSearch(event.target.value))}

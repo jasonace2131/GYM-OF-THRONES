@@ -33,11 +33,11 @@ export function DraftDayCard({ card, expected }: { card: DraftDayCardView; expec
             {kicker}
           </span>
           {card.state === 'ready' ? (
-            <Tag tone="ok" className="text-[10.5px]">
+            <Tag tone="ok" className="text-[11px]">
               Ready
             </Tag>
           ) : card.state === 'writing' ? (
-            <Tag tone="warn" className="text-[10.5px]">
+            <Tag tone="warn" className="text-[11px]">
               Writing
             </Tag>
           ) : null}

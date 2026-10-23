@@ -9,6 +9,7 @@ import AnnouncementsSection from '@/components/landing/AnnouncementsSection';
 import ContactSection from '@/components/landing/ContactSection';
 import Footer from '@/components/landing/Footer';
 import MobileCta from '@/components/landing/MobileCta';
+import { AccountDeletedNotice } from '@/components/landing/AccountDeletedNotice';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { usePointerGlow } from '@/hooks/usePointerGlow';
 import type { LandingPlan } from '@/lib/landingData';
@@ -45,6 +46,7 @@ export default function LandingPage({
       style={{ background: 'var(--ground)', minHeight: '100vh', overflowX: 'hidden' }}
     >
       <Navbar />
+      <AccountDeletedNotice />
       <main>
         <HeroSection />
         <ServicesSection />

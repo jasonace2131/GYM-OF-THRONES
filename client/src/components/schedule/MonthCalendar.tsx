@@ -71,7 +71,9 @@ export function MonthCalendar({
     [...marks].filter(([, value]) => value === dot).map(([day]) => toDate(day));
 
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    // The selected day stays a flat gold accent (Style A): shadcn's calendar
+    // fills it with --primary, which is ink on member surfaces.
+    <div className="rounded-xl border border-border bg-card p-3 [--primary:var(--gold)] [--primary-foreground:var(--p-night)]">
       <Calendar
         mode="single"
         required
@@ -118,7 +120,9 @@ export function MonthCalendar({
             );
           },
         }}
-        className="w-full p-0 [--cell-size:2.5rem]"
+        // 44px cells (a full touch target) wherever seven of them fit —
+        // 370px and up; 36px below, where 7 x 44 overflows the page gutter.
+        className="w-full p-0 [--cell-size:2.25rem] min-[370px]:[--cell-size:2.75rem]"
       />
       <div className="flex flex-wrap gap-3 px-1.5 pt-3 text-[11.5px] text-ink-3">
         {LEGEND.map(([key, label]) => (

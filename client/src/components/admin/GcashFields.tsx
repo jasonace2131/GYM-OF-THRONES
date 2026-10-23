@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { PAYMENT_REFERENCE_MAX } from '@got/shared';
+import { PAYMENT_REFERENCE_HINT, isPaymentReference } from '@/lib/paymentReference';
 
 /**
  * The GCash half of every sale form, extracted from six hand-rolled copies.
@@ -46,6 +48,7 @@ export function GcashFields({
           className="a-input"
           value={reference}
           required
+          maxLength={PAYMENT_REFERENCE_MAX}
           placeholder="from the member’s screen"
           onChange={(event) => {
             setTouched(true);
@@ -56,6 +59,15 @@ export function GcashFields({
           <span style={{ display: 'block', fontSize: 12, marginTop: 4, color: 'var(--p-ink3)' }}>
             {normalized.length} characters{tail === null ? '' : ` · read back “…${tail}”`}
             {looksUsual ? '' : ' — not the usual 13-digit shape, check the screen'}
+          </span>
+        ) : null}
+        {/* The rule that gates Save, said out loud — never a silent disabled button. */}
+        {touched && reference.trim() !== '' && !isPaymentReference(reference) ? (
+          <span
+            role="alert"
+            style={{ display: 'block', fontSize: 12.5, marginTop: 4, color: 'var(--p-danger)' }}
+          >
+            {PAYMENT_REFERENCE_HINT}
           </span>
         ) : null}
       </label>

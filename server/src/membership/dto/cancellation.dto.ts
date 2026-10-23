@@ -1,5 +1,6 @@
 import { IsString, Length } from 'class-validator';
 import { ConfirmDto } from '../../common/dto/confirm.dto';
+import { Trim } from '../../common/validators/text.validators';
 
 /**
  * Route 24 — notice, not termination. `cancelRequestedOn` goes on an otherwise
@@ -16,6 +17,7 @@ import { ConfirmDto } from '../../common/dto/confirm.dto';
  * `forbidNonWhitelisted` means a DELETE with a body would 400 anyway.
  */
 export class RequestCancellationDto {
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;
@@ -31,6 +33,7 @@ export class RequestCancellationDto {
  * rejected by the database.
  */
 export class CancelMembershipDto extends ConfirmDto {
+  @Trim()
   @IsString()
   @Length(3, 200)
   reason!: string;

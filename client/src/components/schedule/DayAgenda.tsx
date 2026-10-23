@@ -35,7 +35,7 @@ export function DayAgenda({
 }: DayAgendaProps) {
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card">
-      <h3 className="border-b border-border px-4 py-3 font-display text-[10.5px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+      <h3 className="border-b border-border px-4 py-3 font-display text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
         {title}
       </h3>
 
@@ -53,16 +53,16 @@ export function DayAgenda({
             return (
               <li
                 key={item.bookingId}
-                className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-3 px-4 py-3"
+                className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-[4.5rem_minmax(0,1fr)] sm:gap-3"
               >
-                <div className="font-display text-[15px] font-semibold leading-tight">
+                <div className="flex flex-wrap items-baseline gap-x-2 whitespace-nowrap font-display text-[15px] font-semibold leading-tight sm:block">
                   {showDate ? (
-                    <span className="block text-[10px] uppercase tracking-[0.08em] text-ink-3">
+                    <span className="text-[11px] uppercase tracking-[0.08em] text-ink-3 sm:block">
                       {shortDay(session.businessDate)}
                     </span>
                   ) : null}
                   {gymClock12(session.startsAt)}
-                  <span className="block font-sans text-xs font-normal text-ink-3">
+                  <span className="font-sans text-xs font-normal text-ink-3 sm:block">
                     {classLength(session.startsAt, session.endsAt)}
                   </span>
                 </div>

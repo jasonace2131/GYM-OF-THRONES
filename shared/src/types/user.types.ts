@@ -1,3 +1,5 @@
+import { NAME_MAX } from '../validation/inputs';
+
 // User domain types shared between client and server.
 //
 // UserRole and UserStatus are mirrored by the Prisma enums in
@@ -69,20 +71,63 @@ export type PublicUser = Pick<User, 'id' | 'firstName' | 'lastName' | 'avatarUrl
  */
 export interface MyProfile {
   email: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  /** The check-in lookup handle; null until the first membership or day pass. */
+  memberCode: string | null;
   heightCm: number | null;
   weightKg: number | null;
   medicalNotes: string | null;
   /** The member's opt-in: medical notes reach the AI planner only when true. */
   shareMedicalWithPlanner: boolean;
+  /** The account page's badge and tile. Null when there is no plan on file. */
+  membership: MyProfileMembership | null;
+  /**
+   * Whether `POST /me/delete-account` is open to this caller — a member
+   * (CLIENT) account only. Staff accounts are closed by an admin, not here.
+   */
+  canDeleteAccount: boolean;
+}
+
+export interface MyProfileMembership {
+  planName: string;
+  /** `ACTIVE | EXPIRED | FROZEN | CANCELLED`. */
+  status: string;
+  /** Civil date, `yyyy-mm-dd`. */
+  endsOn: string;
+  /** Whole days from the gym's today to `endsOn`, never below 0. */
+  daysLeft: number;
 }
 
 /** The `PATCH /me/profile` body. Every field optional; `null` clears it. */
 export interface MyProfilePatch {
+  /** 1–60 characters after the trim; letters, spaces and ' - . only. Not clearable. */
+  firstName?: string;
+  lastName?: string;
+  /** `null` or blank clears it. */
+  phone?: string | null;
   heightCm?: number | null;
   weightKg?: number | null;
   medicalNotes?: string | null;
   shareMedicalWithPlanner?: boolean;
 }
+
+/** `POST /me/delete-account` — the member's own, instant, anonymising delete. */
+export interface DeleteMyAccountRequest {
+  confirm: true;
+  /** Checked again on the server against Supabase before anything changes. */
+  password: string;
+}
+
+/**
+ * A person's name as the member may type it: letters (any script, with their
+ * accents), spaces, apostrophes, hyphens and dots — "Ma. Niña O'Brien-Santos".
+ */
+// Built from a string: the client compiles with target ES2017, and TypeScript
+// refuses a `\p{…}` regex LITERAL below ES2018 although every browser we
+// support runs it.
+export const PERSON_NAME_PATTERN = new RegExp("^[\\p{L}\\p{M}][\\p{L}\\p{M} '’.-]*$", 'u');
 
 /**
  * Bounds the API enforces and the account page checks before Save. One copy,
@@ -95,4 +140,5 @@ export const PROFILE_LIMITS = {
   weightKgMin: 20,
   weightKgMax: 400,
   medicalNotesMax: 2000,
+  nameMax: NAME_MAX,
 } as const;

@@ -141,6 +141,7 @@ export function ManualCheckIn({ onRecorded }: { onRecorded: () => void }) {
           className="a-input"
           type="search"
           value={query}
+          maxLength={64}
           disabled={busy}
           placeholder="Name, member code, email or phone…"
           aria-label="Find the member"

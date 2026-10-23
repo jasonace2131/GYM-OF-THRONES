@@ -56,7 +56,7 @@ export function AdjustBar({
             pressed={activePreset === preset}
             disabled={blocked}
             onClick={() => onPreset(preset)}
-            className="h-[38px] px-3.5 text-[13px] disabled:cursor-not-allowed disabled:opacity-60"
+            className="h-[38px] px-3.5 text-[13px] pointer-coarse:h-11 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {PRESET_LABEL[preset]}
           </ToggleChip>

@@ -1,5 +1,6 @@
 import { Transform, type TransformFnParams } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Length, ValidateIf } from 'class-validator';
+import { IsPersonName, IsPhPhone } from '../../common/validators/text.validators';
 
 const trimmed = ({ value }: TransformFnParams): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -21,9 +22,7 @@ const trimmed = ({ value }: TransformFnParams): unknown =>
  * ═══════════════════════════════════════════════════════════════════════════
  */
 export class SubmitLeadDto {
-  @Transform(trimmed)
-  @IsString()
-  @Length(1, 120)
+  @IsPersonName('name')
   name!: string;
 
   /**
@@ -31,8 +30,11 @@ export class SubmitLeadDto {
    * by the pair of `ValidateIf`s below so the caller gets a readable message
    * rather than a constraint violation.
    */
-  @ValidateIf((dto: SubmitLeadDto) => !dto.phone || dto.email !== undefined)
-  @IsOptional()
+  // Without a usable phone the email is REQUIRED (Lead_contact CHECK: one of
+  // the two must be present) — no @IsOptional, or a body with neither 500s.
+  @ValidateIf(
+    (dto: SubmitLeadDto) => !dto.phone || (dto.email !== undefined && dto.email !== null),
+  )
   @Transform(trimmed)
   @IsEmail({}, { message: 'That email address does not look right.' })
   @Length(5, 254)
@@ -40,10 +42,8 @@ export class SubmitLeadDto {
 
   @ValidateIf((dto: SubmitLeadDto) => !dto.email || dto.phone !== undefined)
   @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  @Length(7, 20)
-  phone?: string;
+  @IsPhPhone()
+  phone?: string | null;
 
   @IsOptional()
   @Transform(trimmed)

@@ -49,7 +49,7 @@ export function RestBar({
         <div role="timer" aria-live="polite" aria-atomic="true" className="flex flex-col gap-px">
           <span
             aria-hidden
-            className="text-[10.5px] font-bold tracking-[0.16em] text-[#a9a39a] uppercase"
+            className="text-[11px] font-bold tracking-[0.16em] text-[#a9a39a] uppercase"
           >
             Rest · Next set {rest.nextSet}
           </span>

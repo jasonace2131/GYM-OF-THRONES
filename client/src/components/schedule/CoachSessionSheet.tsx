@@ -120,7 +120,7 @@ export function CoachSessionSheet({
               ) : null}
             </div>
 
-            <SheetFooter className="flex-row gap-2">
+            <SheetFooter className="flex-row gap-2 pb-[calc(16px+env(safe-area-inset-bottom,0px))]">
               {session.cancelledAt === null && !registerOpen ? (
                 <Button disabled={!markable} onClick={() => setRegisterFor(session.id)}>
                   {markable ? 'Open register' : registerOpensLabel(session.startsAt, now)}

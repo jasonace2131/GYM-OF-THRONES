@@ -46,7 +46,7 @@ export function ScheduleFilters({ time, coach, coaches, onTime, onCoach }: Sched
       </ToggleGroup>
 
       <Select value={coach} onValueChange={onCoach}>
-        <SelectTrigger size="sm" className="w-[170px] bg-card" aria-label="Coach">
+        <SelectTrigger size="sm" className="w-full bg-card sm:w-[170px]" aria-label="Coach">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

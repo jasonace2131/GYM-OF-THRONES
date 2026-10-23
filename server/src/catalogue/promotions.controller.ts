@@ -19,7 +19,7 @@ import { GymConfigService } from '../config/gym.config';
 import { gymToday, toDateColumn } from '../common/time/gym-time';
 import { PlansService } from './plans.service';
 import { PromotionsService, type PromotionQuote } from './promotions.service';
-import { CreatePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
+import { CreatePromotionDto, QuotePromotionDto, UpdatePromotionDto } from './dto/promotion.dto';
 
 /** Dates leave as civil-date strings, money as integer centavos. */
 interface PromotionView {
@@ -140,7 +140,7 @@ export class PromotionsController {
   @HttpCode(HttpStatus.OK)
   @RequirePermission('membership.sell')
   async quote(
-    @Body() body: { code: string; planCode: string },
+    @Body() body: QuotePromotionDto,
   ): Promise<PromotionQuote & { netCentavos: number }> {
     const plan = await this.plans.requireSellable(this.prisma, body.planCode);
     const quote = await this.promotions.quote(

@@ -205,7 +205,9 @@ export function DraftScreen() {
             regenerateHref="/portal/workouts/new?from=draft"
             save={saveBar}
           />
-          <div className="@3xl:hidden">{saveBar}</div>
+          {/* `contents`: a wrapper the size of the bar gave the sticky bar no
+              room to move, so it never stuck. Now its parent is the page grid. */}
+          <div className="contents @3xl:hidden">{saveBar}</div>
         </div>
       </div>
     );

@@ -74,7 +74,7 @@ export function DayCard(props: DayCardProps) {
       </header>
 
       <div className="flex items-baseline gap-3.5 border-b border-[rgba(26,26,26,0.06)] px-4 py-3 text-[13.5px] text-[color:var(--p-ink)] @2xl:px-[22px]">
-        <span className="w-[72px] shrink-0 text-[11px] font-bold tracking-[0.12em] text-ink-3 uppercase @2xl:w-20">
+        <span className="min-w-[4.5rem] shrink-0 whitespace-nowrap text-[11px] font-bold tracking-[0.12em] text-ink-3 uppercase @2xl:min-w-20">
           Warm-up
         </span>
         <span>{day.warmUp}</span>
@@ -133,7 +133,7 @@ export function DayCard(props: DayCardProps) {
       </ol>
 
       <div className="flex items-baseline gap-3.5 border-b border-[rgba(26,26,26,0.06)] px-4 py-3 text-[13.5px] text-[color:var(--p-ink)] @2xl:px-[22px]">
-        <span className="w-[72px] shrink-0 text-[11px] font-bold tracking-[0.12em] text-ink-3 uppercase @2xl:w-20">
+        <span className="min-w-[4.5rem] shrink-0 whitespace-nowrap text-[11px] font-bold tracking-[0.12em] text-ink-3 uppercase @2xl:min-w-20">
           Cool-down
         </span>
         <span>{day.coolDown}</span>

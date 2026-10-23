@@ -1,5 +1,5 @@
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsOptional, IsString, Length } from 'class-validator';
+import { IsPersonName, IsPhPhone, TrimOrNull } from '../../common/validators/text.validators';
 
 /**
  * `PATCH /members/:id` — name, phone, emergency contact. Every field
@@ -12,28 +12,19 @@ import { Transform } from 'class-transformer';
  * `/suspend`, `/reactivate`) precisely so a name-and-phone edit can never
  * smuggle a privilege change through the same request.
  */
-const trimmed = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim() : value;
-
 export class UpdateMemberDto {
   @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  @Length(1, 80)
+  @IsPersonName('firstName')
   firstName?: string;
 
   @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  @Length(1, 80)
+  @IsPersonName('lastName')
   lastName?: string;
 
   /** Same shape as `ImportMemberRowDto.phone` — kept identical on purpose. */
   @IsOptional()
-  @Transform(trimmed)
-  @IsString()
-  @Matches(/^[0-9+][0-9\s-]{6,19}$/, { message: 'phone must be a plausible PH number' })
-  phone?: string;
+  @IsPhPhone()
+  phone?: string | null;
 
   /**
    * Free text, single column — no structured name/phone/relation fields.
@@ -41,8 +32,8 @@ export class UpdateMemberDto {
    * client clears a previously-set contact.
    */
   @IsOptional()
-  @Transform(trimmed)
+  @TrimOrNull()
   @IsString()
-  @Length(0, 200)
-  emergencyContact?: string;
+  @Length(1, 200)
+  emergencyContact?: string | null;
 }

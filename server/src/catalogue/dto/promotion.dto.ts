@@ -67,6 +67,7 @@ export class CreatePromotionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100_000)
   maxRedemptions?: number;
 
   /** Empty or omitted means every TERM plan. Walk-ins are never eligible. */
@@ -86,6 +87,25 @@ export class CreatePromotionDto {
  * The kind decides how `value` is read, so changing one without the other
  * silently reinterprets 2000 from "20%" to "₱20".
  */
+/**
+ * `POST /promotions/quote` — price a code against a plan before the sale.
+ * A class, not an inline type: an inline `@Body()` type is never validated.
+ */
+export class QuotePromotionDto {
+  @Transform(upper)
+  @IsString()
+  @Matches(/^[A-Z][A-Z0-9_]{1,23}$/, {
+    message: 'A code is 2–24 characters: capitals, digits and underscores, starting with a letter.',
+  })
+  code!: string;
+
+  /** Same bounds as every other sale DTO's `planCode`. */
+  @Transform(trimmed)
+  @IsString()
+  @Length(2, 32)
+  planCode!: string;
+}
+
 export class UpdatePromotionDto {
   @IsOptional()
   @Transform(trimmed)
@@ -110,6 +130,7 @@ export class UpdatePromotionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(100_000)
   maxRedemptions?: number;
 
   @IsOptional()

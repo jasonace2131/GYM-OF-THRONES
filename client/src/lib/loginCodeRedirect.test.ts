@@ -18,12 +18,19 @@ describe('loginCodeRedirectFor', () => {
     ['/login', '?next=%2Fadmin'],
     ['/join/abc123', ''],
     ['/reset-password', ''],
+    ['/register', ''],
+    ['/', ''],
+    ['/', '?ref=ig'],
   ])('leaves %s%s alone — that page handles the code itself', (pathname, search) => {
     expect(loginCodeRedirectFor(pathname, search)).toBeNull();
   });
 
   it('sends a staff invitation to /login and back — /invite is an allowed next', () => {
     expect(loginCodeRedirectFor('/invite/xyz', '')).toBe('/login?next=%2Finvite%2Fxyz');
+  });
+
+  it('the landing page is exact — its sections are not exempt by accident', () => {
+    expect(loginCodeRedirectFor('/portal', '')).toBe('/login?next=%2Fportal');
   });
 
   it('matches whole path segments, not prefixes', () => {

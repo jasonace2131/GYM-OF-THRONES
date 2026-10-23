@@ -138,7 +138,9 @@ export function WhatYouDid({ summary }: { summary: WorkoutSessionSummary }) {
             <span className="min-w-0 font-semibold">{exercise.name}</span>
             <span
               className={cn(
-                'shrink-0 text-right whitespace-nowrap',
+                // May wrap: ~190px of unbreakable text squeezed the name to
+                // a word per line on a phone.
+                'max-w-[55%] text-right',
                 exercise.setsDone === 0 ? 'text-ink-3' : 'text-ink-2',
               )}
             >

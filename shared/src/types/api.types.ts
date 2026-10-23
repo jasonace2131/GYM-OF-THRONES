@@ -422,4 +422,15 @@ export type DomainErrorCode =
   // 409. Another item already has this name (case-insensitive).
   | 'GYM_EQUIPMENT_DUPLICATE'
   // 400. A reorder must list every item exactly once.
-  | 'GYM_EQUIPMENT_ORDER_MISMATCH';
+  | 'GYM_EQUIPMENT_ORDER_MISMATCH'
+
+  // ── A member deleting their own account (owner, 2026-10-23) ─────────────
+  // 403. `POST /me/delete-account` by a staff account (non-CLIENT).
+  | 'ACCOUNT_DELETE_NOT_ALLOWED'
+  // 422. The confirming password is not the account's current password.
+  | 'WRONG_PASSWORD'
+  // 502. Supabase could not check the password; nothing was changed.
+  | 'ACCOUNT_DELETE_FAILED'
+  // 409. `POST /members/:id/restore` against an account its owner deleted:
+  // its personal data is gone, so there is nothing to restore.
+  | 'MEMBER_SELF_DELETED';

@@ -171,4 +171,24 @@ describe('UserProvisioningService', () => {
       select: expect.objectContaining({ deletedAt: true }),
     });
   });
+
+  // My account (owner, 2026-10-23): a member edits their own name and phone,
+  // but their token keeps carrying the SIGN-UP metadata. Provisioning must
+  // never copy that back over the edit.
+  it("never overwrites a member's own name or phone edit with the token's sign-up values", async () => {
+    findUnique.mockResolvedValue(
+      existingRow({ firstName: 'Juanito', lastName: 'Cruz', lastSeenAt: STALE_LAST_SEEN }),
+    );
+    update.mockResolvedValue(
+      existingRow({ firstName: 'Juanito', lastName: 'Cruz', lastSeenAt: NOW }),
+    );
+
+    const resolved = await service.resolve(CLAIMS);
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { email: CLAIMS.email, lastSeenAt: NOW } }),
+    );
+    expect(upsert).not.toHaveBeenCalled();
+    expect(resolved).toMatchObject({ firstName: 'Juanito', lastName: 'Cruz' });
+  });
 });

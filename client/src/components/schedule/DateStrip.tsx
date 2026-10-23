@@ -25,8 +25,18 @@ interface DateStripProps {
 export function DateStrip({ days, today, selected, markedDays, onSelect }: DateStripProps) {
   const selectedRef = useRef<HTMLButtonElement>(null);
 
+  // Centre the selected day by scrolling the strip's OWN viewport. Not
+  // `scrollIntoView`: that scrolls every scrollable ancestor too, and on a
+  // phone it dragged the whole page sideways (and down, on first paint).
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const chip = selectedRef.current;
+    const viewport = chip?.closest<HTMLElement>('[data-slot="scroll-area-viewport"]');
+    if (!chip || !viewport) return;
+    const chipBox = chip.getBoundingClientRect();
+    const viewBox = viewport.getBoundingClientRect();
+    const left =
+      viewport.scrollLeft + (chipBox.left - viewBox.left) - (viewport.clientWidth - chipBox.width) / 2;
+    viewport.scrollTo?.({ left: Math.max(0, left), behavior: 'smooth' });
   }, [selected]);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
@@ -43,7 +53,10 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
   };
 
   return (
-    <ScrollArea className="w-full whitespace-nowrap">
+    // `min-w-0`: inside a grid track the strip's 14-21 chips would otherwise set
+    // the track's minimum width, and every card on the page grew to ~830px.
+    // See dateStripContainment.test.ts.
+    <ScrollArea className="w-full min-w-0 whitespace-nowrap">
       <div role="radiogroup" aria-label="Day" className="flex gap-2 pb-3" onKeyDown={onKeyDown}>
         {days.map((day) => {
           const isSelected = day === selected;
@@ -61,8 +74,9 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
               className={cn(
                 'flex w-[52px] shrink-0 flex-col items-center gap-0.5 rounded-xl border py-2 font-display transition-colors',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                // Style A: the selected day is the strip's one flat gold accent.
                 isSelected
-                  ? 'border-night bg-night text-white'
+                  ? 'border-gold bg-gold text-night'
                   : cn(
                       'bg-card text-foreground hover:bg-accent',
                       day === today ? 'border-gold' : 'border-border',
@@ -71,8 +85,8 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
             >
               <span
                 className={cn(
-                  'text-[9.5px] font-semibold uppercase tracking-[0.1em]',
-                  isSelected ? 'text-gold-lit' : 'text-ink-3',
+                  'text-[11px] font-semibold uppercase tracking-[0.1em]',
+                  isSelected ? 'text-night' : 'text-ink-3',
                 )}
               >
                 {day === today ? 'Today' : shortWeekday(day)}
@@ -82,7 +96,7 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
                 aria-hidden
                 className={cn(
                   'size-[5px] rounded-full',
-                  marked ? (isSelected ? 'bg-gold-lit' : 'bg-gold') : 'bg-transparent',
+                  marked ? (isSelected ? 'bg-night' : 'bg-gold') : 'bg-transparent',
                 )}
               />
             </button>

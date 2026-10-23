@@ -5,6 +5,7 @@ import { currentValuePatch, formatHundredths, provenanceLabel } from '@/lib/prog
 import type { Goal, GoalPatch } from '@/lib/progress/types';
 import { Badge } from '@/components/portal/ui';
 import { ConfirmDelete } from './ConfirmDelete';
+import { GOAL_VALUE_LIMIT, blockExponentKeys } from '@/lib/numberInput';
 
 /**
  * Percent-done ring for a goal.
@@ -151,6 +152,9 @@ export function GoalRow({
                   type="number"
                   inputMode="decimal"
                   step="0.1"
+                  min={-GOAL_VALUE_LIMIT}
+                  max={GOAL_VALUE_LIMIT}
+                  onKeyDown={blockExponentKeys}
                   defaultValue={goal.currentHundredths / 100}
                   disabled={busy}
                   aria-label={`Current value for ${goal.name}, in ${goal.unit}`}

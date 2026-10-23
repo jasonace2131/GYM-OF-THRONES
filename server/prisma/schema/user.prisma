@@ -55,6 +55,12 @@ model User {
   updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
   deletedAt  DateTime? @db.Timestamptz(3)
 
+  // A member's self-deletion (POST /me/delete-account): when their Supabase
+  // identity was confirmed gone (deleted, or already not found). NULL on a
+  // self-deleted row means the erasure is still owed, and the scheduler's
+  // eraseDeletedAuth job retries it. Never set for any other account.
+  authErasedAt DateTime? @db.Timestamptz(3)
+
   // ── Emergency contact ──────────────────────────────────────────────────
   // WAS one free-text column. Split, because the single field was read in a
   // context where parsing costs time nobody has: a member is on the floor and

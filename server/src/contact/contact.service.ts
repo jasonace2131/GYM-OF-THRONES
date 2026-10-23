@@ -169,7 +169,7 @@ export class ContactService {
    */
   async update(
     id: string,
-    patch: { status?: LeadStatus; assignedToId?: string | null; notes?: string },
+    patch: { status?: LeadStatus; assignedToId?: string | null; notes?: string | null },
     now: Date = new Date(),
   ): Promise<LeadView> {
     const data: Prisma.LeadUpdateInput = {

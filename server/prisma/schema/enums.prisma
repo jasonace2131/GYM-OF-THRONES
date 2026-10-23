@@ -373,6 +373,11 @@ enum AuditAction {
   // ── Gym equipment list (owner, 2026-10-23) ──
   // An admin added, edited, removed or reordered equipment ({ change, before?, after? }).
   GYM_EQUIPMENT_CHANGED
+  // ── Account deletion (owner, 2026-10-23) ──
+  // A member deleted their own account: personal data anonymised (RA 10173),
+  // payments, memberships and attendance kept. `details` holds COUNTS only —
+  // never a name, email, phone or health value.
+  MEMBER_SELF_DELETED
 }
 
 // ── GCash proof submissions ──────────────────────────────────────────────

@@ -139,6 +139,7 @@ export function DiscountAmountField({
             inputMode="decimal"
             autoComplete="off"
             placeholder={value.mode === 'PERCENT' ? '0' : '0.00'}
+            maxLength={value.mode === 'PERCENT' ? 6 : 10}
             value={value.input}
             aria-invalid={parsed.kind === 'invalid' || undefined}
             aria-describedby={hintId}

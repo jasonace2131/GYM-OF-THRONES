@@ -32,12 +32,7 @@ export function WeekStrip({ cells, compact = false }: { cells: WeekCell[]; compa
     <ol className={cn('m-0 grid list-none grid-cols-7 p-0', compact ? 'gap-1' : 'gap-1.5')}>
       {cells.map((cell) => (
         <li key={cell.civil} className="flex flex-col items-center gap-1.5">
-          <span
-            className={cn(
-              'font-bold tracking-[0.08em] text-ink-3',
-              compact ? 'text-[10px]' : 'text-[11px]',
-            )}
-          >
+          <span className="text-[11px] font-bold tracking-[0.08em] text-ink-3">
             {compact ? cell.letter : cell.dow}
           </span>
           <span

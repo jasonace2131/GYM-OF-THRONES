@@ -86,7 +86,7 @@ export function BookingDetailSheet({
               ) : null}
             </div>
 
-            <SheetFooter className="flex-row gap-2">
+            <SheetFooter className="flex-row gap-2 pb-[calc(16px+env(safe-area-inset-bottom,0px))]">
               {view.canCancel ? (
                 <Button variant="outline" onClick={() => onCancel(booking)}>
                   {waitlisted ? 'Leave waitlist' : 'Cancel booking'}

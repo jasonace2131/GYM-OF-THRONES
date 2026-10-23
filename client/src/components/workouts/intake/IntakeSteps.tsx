@@ -14,6 +14,11 @@ export function IntakeSteps({
 }) {
   return (
     <>
+      {/* Phones: say which step this is in words — the bar alone was only a
+          4px stripe, and it is hidden from screen readers. */}
+      <p className="m-0 text-[13px] font-semibold text-ink-2 @2xl:hidden">
+        Step {state.step} of 4 · {STEP_LABELS[state.step - 1]}
+      </p>
       <div aria-hidden className="grid grid-cols-4 gap-1 @2xl:hidden">
         {STEP_LABELS.map((label, i) => {
           const n = (i + 1) as IntakeStep;

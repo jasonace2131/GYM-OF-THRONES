@@ -77,7 +77,7 @@ export function StepBar({
             className={cn(
               PRIMARY,
               FOCUS,
-              'bg-[linear-gradient(180deg,var(--gold-lit),var(--gold))] text-night hover:brightness-105',
+              'bg-primary text-primary-foreground hover:bg-[var(--p-primary-hover)]',
             )}
             onClick={onNext}
           >

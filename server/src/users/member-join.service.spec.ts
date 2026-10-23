@@ -416,11 +416,21 @@ describe('MemberJoinService', () => {
       expect(prisma.memberJoinLink.updateMany).not.toHaveBeenCalled();
     });
 
-    it('does not store a date below the joining age, and still finishes', async () => {
+    it("stores a child's birth date — there is no minimum age (owner, 2026-10-23)", async () => {
+      prisma.memberJoinLink.findUnique.mockResolvedValue(link());
+      prisma.memberJoinLink.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.accept(MEMBER_ID, TOKEN, '2015-01-01', NOW)).resolves.toEqual({
+        dateOfBirthSaved: true,
+      });
+    });
+
+    it('does not store a date in the future, and still finishes', async () => {
       prisma.memberJoinLink.findUnique.mockResolvedValue(link());
       prisma.memberJoinLink.updateMany.mockResolvedValue({ count: 1 });
 
-      await expect(service.accept(MEMBER_ID, TOKEN, '2015-01-01', NOW)).resolves.toEqual({
+      await expect(service.accept(MEMBER_ID, TOKEN, '2027-01-01', NOW)).resolves.toEqual({
         dateOfBirthSaved: false,
       });
       expect(prisma.user.updateMany).not.toHaveBeenCalled();

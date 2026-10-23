@@ -55,14 +55,14 @@ describe('clearMemberDeviceCache', () => {
    * this fails just as loudly if someone deletes the call, and costs nothing.
    */
   it('is wired into the portal sign-out path', async () => {
-    // `pathToFileURL` rather than `new URL('../app/portal/layout.tsx',
+    // `pathToFileURL` rather than `new URL('../app/portal/PortalClientLayout.tsx',
     // import.meta.url)`: under the jsdom test environment on Windows, the
     // WHATWG URL implementation mis-resolves a `file:///E:/...` base with a
     // drive letter and silently falls back to the jsdom document's location
     // (`http://localhost:3000/...`), which then 404s. `pathToFileURL` builds
     // the URL from a plain filesystem path instead, sidestepping that base
     // resolution entirely.
-    const layoutPath = path.join(__dirname, '..', 'app', 'portal', 'layout.tsx');
+    const layoutPath = path.join(__dirname, '..', 'app', 'portal', 'PortalClientLayout.tsx');
     const source = await readFile(pathToFileURL(layoutPath), 'utf8');
     expect(source).toContain('clearMemberDeviceCache()');
   });

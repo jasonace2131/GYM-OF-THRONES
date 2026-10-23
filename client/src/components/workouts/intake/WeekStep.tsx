@@ -34,7 +34,9 @@ export function WeekStep({
           Which days can you train?
         </span>
         <div
-          className="grid grid-cols-7 gap-1.5 @md:gap-2"
+          // Seven 44px chips: 7 columns from a 24rem (384px) container, ~416px of
+          // screen; anything narrower wraps them 4 + 3.
+          className="grid grid-cols-4 gap-1.5 @min-[24rem]:grid-cols-7 @md:gap-2"
           role="group"
           aria-labelledby="wk-days-l"
         >

@@ -24,10 +24,14 @@ import type { Env } from '../config/env.validation';
 export class SupabaseAdminService {
   private readonly logger = new Logger(SupabaseAdminService.name);
   private readonly client: SupabaseClient | null;
+  private readonly url: string;
+  private readonly key: string | undefined;
 
   constructor(config: ConfigService<Env, true>) {
     const url = config.get('SUPABASE_URL', { infer: true });
     const key = config.get('SUPABASE_SERVICE_KEY', { infer: true });
+    this.url = url;
+    this.key = key;
 
     this.client =
       key === undefined
@@ -187,6 +191,46 @@ export class SupabaseAdminService {
     if (error) throw toMemberAuthError(error);
   }
 
+  // ── A member deleting their own account (owner, 2026-10-23) ──────────────
+
+  /**
+   * The server-side half of "confirm with your current password".
+   *
+   * Supabase has no "check this password" call, so this signs in on a
+   * THROWAWAY client (nothing persisted, no refresh) and ends that session at
+   * once. The member's own browser session is never involved. The account is
+   * deleted a moment later anyway, which revokes every session it had.
+   */
+  async verifyPassword(email: string, password: string): Promise<'ok' | 'wrong' | 'error'> {
+    this.requireClient();
+    const probe = createClient(this.url, this.key ?? '', {
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    });
+    const { error } = await probe.auth.signInWithPassword({ email, password });
+    if (error) {
+      if (error.code === 'invalid_credentials') return 'wrong';
+      this.logger.warn(`Password check refused by Supabase: ${error.message}`);
+      return 'error';
+    }
+    try {
+      await probe.auth.signOut({ scope: 'local' });
+    } catch {
+      // A stray probe session dies with the account in the next step.
+    }
+    return 'ok';
+  }
+
+  /**
+   * Deletes the member's Supabase identity: sign-in becomes impossible, every
+   * session is revoked and the email is free again. Already gone counts as
+   * done, so a retry after a half-finished deletion is safe.
+   */
+  async deleteAccountIdentity(supabaseId: string): Promise<void> {
+    const client = this.requireClient();
+    const { error } = await client.auth.admin.deleteUser(supabaseId);
+    if (error && !isNotFound(error)) throw accountDeleteFailed(error);
+  }
+
   private requireClient(): SupabaseClient {
     if (this.client === null) {
       throw new DomainException(
@@ -210,6 +254,21 @@ export class SupabaseAdminService {
  */
 function isAlreadyRegistered(error: { message: string }): boolean {
   return error.message.toLowerCase().includes('already been registered');
+}
+
+/** GoTrue's "no such user": a 404 status, or the `user_not_found` code. */
+function isNotFound(error: { status?: number; code?: string }): boolean {
+  return error.status === 404 || error.code === 'user_not_found';
+}
+
+/** Supabase's own text goes to the log, not to the member. */
+function accountDeleteFailed(error: { message: string }): DomainException {
+  new Logger(SupabaseAdminService.name).warn(`Account deletion refused by Supabase: ${error.message}`);
+  return new DomainException(
+    'ACCOUNT_DELETE_FAILED',
+    'Could not delete the Supabase identity of a deleted account.',
+    HttpStatus.BAD_GATEWAY,
+  );
 }
 
 /** "Already registered" is the caller's 409; anything else is Supabase's 502. */

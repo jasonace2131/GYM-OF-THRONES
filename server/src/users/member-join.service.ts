@@ -9,7 +9,7 @@ import { resolveAppOrigin } from '../config/app-origin';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { gymToday, toDateColumn } from '../common/time/gym-time';
 import { SupabaseAdminService } from '../auth/supabase-admin.service';
-import { asJoinableBirthDate } from '../auth/jwt-verifier';
+import { asBirthDate } from '../auth/jwt-verifier';
 import { EmailService } from '../notifications/email.service';
 import { hashInvitationToken, newInvitationToken } from '../staff-invitations/invitation-token';
 
@@ -186,7 +186,7 @@ export class MemberJoinService {
     }
     if (row.usedAt !== null) return { dateOfBirthSaved: false };
 
-    const birth = asJoinableBirthDate(dateOfBirth);
+    const birth = asBirthDate(dateOfBirth, now.getTime());
     return this.prisma.$transaction(async (tx) => {
       const claimed = await tx.memberJoinLink.updateMany({
         where: { id: row.id, usedAt: null },

@@ -22,6 +22,7 @@ import {
   verifyLoginCode,
 } from '@/lib/loginCode';
 import { PasswordInput } from './PasswordInput';
+import { EMAIL_MAX } from '@got/shared';
 
 /** One retry before giving up, long enough to outlast a cold start. */
 const RETRY_DELAY_MS = 600;
@@ -53,6 +54,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [stranded, setStranded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  /**
+   * True until the mount check below knows whether a session already exists,
+   * so a signed-in visitor sees "Checking your sign-in…" instead of a flash
+   * of the password form they do not need.
+   */
+  const [checking, setChecking] = useState(true);
 
   // ── The emailed sign-in code (second step) ──
   const [step, setStep] = useState<'password' | 'code'>('password');
@@ -270,21 +277,38 @@ export default function LoginPage() {
     await resolveDestination(signInData.session?.access_token);
   };
 
-  // ARRIVING WITH A SESSION THAT STILL NEEDS ITS CODE — a reload mid-step, a
-  // deep link, or apiFetch / the console bouncing a LOGIN_CODE_REQUIRED here.
-  // Go straight to the code step without asking for the password again. Any
-  // other outcome leaves the password form exactly as it was; this effect
+  // ARRIVING ALREADY SIGNED IN. Two cases, both of which used to show the
+  // password form:
+  //  - a VERIFIED session (staff who went "back to site" and tapped Log in,
+  //    owner bug 2026-10-23): route on exactly as a fresh sign-in would —
+  //    asking for the password and a new emailed code again was the bug;
+  //  - a session STILL OWED ITS CODE (a reload mid-step, a deep link, or
+  //    apiFetch / the console bouncing a LOGIN_CODE_REQUIRED here): go straight
+  //    to the code step for this session.
+  // Any other outcome shows the password form exactly as it was; this effect
   // never signs anybody out.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (cancelled || !token) return;
+      let token: string | undefined;
       try {
-        await apiFetch('/me', { headers: { Authorization: `Bearer ${token}` } });
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token;
+      } catch {
+        token = undefined;
+      }
+      if (cancelled) return;
+      if (!token) {
+        setChecking(false);
+        return;
+      }
+      try {
+        // `checking` stays true across the redirect, so the form never flashes.
+        await routeByPermissions(token);
       } catch (caught) {
-        if (!cancelled && classifyMeFailure(caught) === 'code-required') {
+        if (cancelled) return;
+        setChecking(false);
+        if (classifyMeFailure(caught) === 'code-required') {
           await enterCodeStep(token);
         }
       }
@@ -292,7 +316,8 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-    // Mount only. enterCodeStep is re-created each render and only sets state.
+    // Mount only. routeByPermissions / enterCodeStep are re-created each render
+    // and only read the router, `requested` and state setters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -333,7 +358,11 @@ export default function LoginPage() {
               : 'Manage your schedule, membership and payments.'}
           </p>
 
-          {step === 'code' ? (
+          {checking && step === 'password' ? (
+            <p role="status" style={{ fontSize: 14, color: 'var(--text-2)', margin: '0 0 8px' }}>
+              Checking your sign-in…
+            </p>
+          ) : step === 'code' ? (
             <LoginCodeStep
               sentTo={pending?.sentTo ?? null}
               code={code}
@@ -358,6 +387,7 @@ export default function LoginPage() {
                   className="input"
                   type="text"
                   placeholder="you@example.com"
+                  maxLength={EMAIL_MAX}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   autoComplete="username"
@@ -378,6 +408,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
+                  // An existing password is never cut: only set/change fields cap at 72.
+                  maxLength={undefined}
                   required
                 />
                 <div style={{ textAlign: 'right', marginTop: 2 }}>

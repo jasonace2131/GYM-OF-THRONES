@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { collapseSpaces, isPersonName, normalisePhPhone, PH_PHONE_MESSAGE } from '@got/shared';
 import { API_URL } from '@/lib/apiBase';
+import { CharCounter } from '@/components/inputs/CharCounter';
+import { EmailInput } from '@/components/inputs/EmailInput';
+import { NameInput } from '@/components/inputs/NameInput';
+import { PhoneInput } from '@/components/inputs/PhoneInput';
+
+const MESSAGE_MAX = 2000;
 
 /**
  * The enquiry form — the thing the "contact" section did not have.
@@ -42,6 +49,15 @@ export default function ContactForm() {
   const submit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
     if (!canSend) return;
+    if (!isPersonName(name)) {
+      setError("Use letters, spaces, apostrophes ('), hyphens (-) and dots in your name.");
+      return;
+    }
+    const mobile = phone.trim() === '' ? null : normalisePhPhone(phone);
+    if (phone.trim() !== '' && mobile === null) {
+      setError(`${PH_PHONE_MESSAGE}.`);
+      return;
+    }
 
     setState('sending');
     setError(null);
@@ -51,11 +67,11 @@ export default function ContactForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: name.trim(),
+          name: collapseSpaces(name),
           // Omitted rather than sent empty: the DTO treats absent as "not
           // given" and an empty string as a value that fails validation.
           ...(email.trim() === '' ? {} : { email: email.trim() }),
-          ...(phone.trim() === '' ? {} : { phone: phone.trim() }),
+          ...(mobile === null ? {} : { phone: mobile }),
           ...(message.trim() === '' ? {} : { message: message.trim() }),
           ...(website === '' ? {} : { website }),
         }),
@@ -108,11 +124,11 @@ export default function ContactForm() {
     <form className="cform" onSubmit={(event) => void submit(event)} noValidate>
       <div className="field">
         <label htmlFor="cf-name">Your name</label>
-        <input
+        <NameInput
           id="cf-name"
           className="input"
           value={name}
-          onChange={(event) => setName(event.target.value)}
+          onChange={setName}
           autoComplete="name"
           required
           disabled={state === 'sending'}
@@ -122,31 +138,22 @@ export default function ContactForm() {
       <div className="field-row">
         <div className="field">
           <label htmlFor="cf-email">Email</label>
-          <input
+          <EmailInput
             id="cf-email"
             className="input"
-            type="email"
-            inputMode="email"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            autoComplete="email"
+            onChange={setEmail}
             disabled={state === 'sending'}
           />
         </div>
 
         <div className="field">
           <label htmlFor="cf-phone">Mobile</label>
-          <input
+          <PhoneInput
             id="cf-phone"
             className="input"
-            type="tel"
-            inputMode="tel"
             value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            autoComplete="tel"
+            onChange={setPhone}
             placeholder="0917 000 0000"
             disabled={state === 'sending'}
           />
@@ -166,9 +173,11 @@ export default function ContactForm() {
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           placeholder="Asking about rates, a trial, or class schedules?"
-          maxLength={2000}
+          maxLength={MESSAGE_MAX}
+          aria-describedby="cf-message-count"
           disabled={state === 'sending'}
         />
+        <CharCounter id="cf-message-count" value={message} max={MESSAGE_MAX} />
       </div>
 
       {/*

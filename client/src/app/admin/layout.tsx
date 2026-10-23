@@ -19,6 +19,7 @@ import { hasPermission } from '@/lib/rbac/permissions';
 import { STAFF_HOME, isStaff } from '@/lib/safeNext';
 import { IconSignOut } from '@/components/portal/icons';
 import { SurfaceSwitch } from '@/components/portal/SurfaceSwitch';
+import { SignOutButton } from '@/components/auth/ConfirmSignOutDialog';
 import { MobileTabBar } from '@/components/portal/Sidebar';
 import { MoreSheet } from '@/components/portal/MoreSheet';
 import { PortalContainerProvider } from '@/components/ui/portal-container';
@@ -257,10 +258,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
                 behaves identically from both sides instead of being a nav row
                 on one and a nav row on the other with different wording. */}
 
-            <button type="button" className="p-link" onClick={() => void signOut()}>
+            <SignOutButton surface="admin" className="p-link" onConfirm={signOut}>
               <IconSignOut />
               Sign out
-            </button>
+            </SignOutButton>
           </nav>
         </aside>
 
@@ -317,7 +318,8 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
         groups={groups.map((group) => ({ label: group.heading, items: group.items }))}
-        onSignOut={() => void signOut()}
+        onSignOut={signOut}
+        surface="admin"
         switchTo={<SurfaceSwitch to="portal" />}
       />
     </AdminFrame>

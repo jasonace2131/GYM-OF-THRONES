@@ -27,8 +27,11 @@ export function SaveBar({
   const trimmed = name.trim();
   const valid = trimmed.length >= 1 && trimmed.length <= WORKOUT_LIMITS.planNameMax;
   return (
+    // Sticky on a phone, flush on the tab bar — see IntakeFooter for
+    // `data-sticky-bar`.
     <form
-      className="flex flex-col gap-2.5 border-t border-[rgba(26,26,26,0.08)] bg-card px-4 pt-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] max-[900px]:sticky max-[900px]:bottom-[58px] max-[900px]:z-30 max-[900px]:-mx-4 max-[900px]:shadow-[0_-8px_24px_rgba(26,26,26,0.06)] @3xl:mx-0 @3xl:border-0 @3xl:bg-transparent @3xl:p-0 @3xl:shadow-none"
+      data-sticky-bar
+      className="flex flex-col gap-2.5 border-t border-[rgba(26,26,26,0.08)] bg-card px-4 py-3 max-[900px]:sticky max-[900px]:bottom-[calc(var(--p-tabbar-h)+env(safe-area-inset-bottom,0px))] max-[900px]:z-30 max-[900px]:bg-background max-[900px]:-mx-4 max-[900px]:shadow-[0_-8px_24px_rgba(26,26,26,0.06)] @3xl:mx-0 @3xl:border-0 @3xl:bg-transparent @3xl:p-0 @3xl:shadow-none"
       onSubmit={(e) => {
         e.preventDefault();
         if (valid && !busy) onSave();

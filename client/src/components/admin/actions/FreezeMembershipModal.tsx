@@ -154,6 +154,7 @@ export function FreezeMembershipModal({
             className="a-textarea"
             rows={3}
             value={reason}
+            maxLength={200}
             placeholder="At least 3 characters"
             onChange={(event) => setReason(event.target.value)}
           />

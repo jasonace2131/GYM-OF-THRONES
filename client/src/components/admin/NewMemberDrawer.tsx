@@ -13,7 +13,20 @@ import {
 import { ApiError } from '@/lib/api';
 import { useAdminQuery } from '@/lib/useAdminQuery';
 import { DISCOUNTS, DISCRETIONARY } from './actions/SellMembershipModal';
-import { PERMISSIONS } from '@got/shared';
+import {
+  EMERGENCY_CONTACT_MAX,
+  PERMISSIONS,
+  STATUTORY_ID_MAX,
+  STATUTORY_ID_MIN,
+  collapseSpaces,
+  isPersonName,
+  normalisePhPhone,
+} from '@got/shared';
+import { CharCounter } from '@/components/inputs/CharCounter';
+import { EmailInput } from '@/components/inputs/EmailInput';
+import { NameInput } from '@/components/inputs/NameInput';
+import { PhoneInput } from '@/components/inputs/PhoneInput';
+import { saleReference, saleReferenceProblem } from '@/lib/paymentReference';
 import { usePermission } from '@/components/rbac/MeProvider';
 import { Drawer } from './Drawer';
 import { GcashFields } from './GcashFields';
@@ -133,15 +146,28 @@ export function NewMemberDrawer({
     operatorDiscountCentavos,
   });
 
-  const trimmedFirst = firstName.trim();
-  const trimmedLast = lastName.trim();
+  const trimmedFirst = collapseSpaces(firstName);
+  const trimmedLast = collapseSpaces(lastName);
   const trimmedEmail = email.trim();
+  // Optional, but when given: a PH mobile, sent as +639XXXXXXXXX.
+  const phoneOut = phone.trim() === '' ? null : normalisePhPhone(phone);
+  const trimmedStatutoryId = statutoryIdNo.trim();
+  // Only a GCash sale has a reference; one left over from before switching to
+  // cash is ignored, never a silent reason Save stays disabled.
+  const referenceProblem = sellingPlan ? saleReferenceProblem(method, reference) : null;
+  const statutoryIdProblem =
+    statutory && trimmedStatutoryId !== '' && trimmedStatutoryId.length < STATUTORY_ID_MIN
+      ? `An OSCA / PWD ID is at least ${STATUTORY_ID_MIN} characters — or leave it blank.`
+      : null;
   const valid =
-    trimmedFirst.length > 0 &&
-    trimmedLast.length > 0 &&
+    isPersonName(trimmedFirst) &&
+    isPersonName(trimmedLast) &&
     trimmedEmail.length > 0 &&
+    (phone.trim() === '' || phoneOut !== null) &&
     (!sellingPlan ||
       (planCode !== '' &&
+        referenceProblem === null &&
+        statutoryIdProblem === null &&
         (!discretionary ||
           (operatorDiscountCentavos > 0 &&
             trimmedDiscountReason.length >= 3 &&
@@ -161,7 +187,7 @@ export function NewMemberDrawer({
         firstName: trimmedFirst,
         lastName: trimmedLast,
         email: trimmedEmail,
-        phone: phone.trim() === '' ? undefined : phone.trim(),
+        phone: phoneOut ?? undefined,
         emergencyContact: emergencyContact.trim() === '' ? undefined : emergencyContact.trim(),
         plan: sellingPlan
           ? {
@@ -171,7 +197,7 @@ export function NewMemberDrawer({
               statutoryIdNo: statutoryIdNo.trim() === '' ? undefined : statutoryIdNo.trim(),
               discountReason: discountReason.trim() === '' ? undefined : discountReason.trim(),
               method,
-              reference: reference.trim() === '' ? undefined : reference.trim(),
+              reference: saleReference(method, reference),
               gcashVerified: method === 'GCASH' ? gcashVerified : undefined,
               receiptNo: receiptNo.trim() === '' ? undefined : receiptNo.trim(),
             }
@@ -258,13 +284,13 @@ export function NewMemberDrawer({
               <label className="a-field-label" htmlFor="new-member-first">
                 First name
               </label>
-              <input
+              <NameInput
                 id="new-member-first"
                 className="a-input"
                 value={firstName}
                 autoComplete="off"
                 autoFocus
-                onChange={(event) => setFirstName(event.target.value)}
+                onChange={setFirstName}
               />
             </div>
 
@@ -272,12 +298,12 @@ export function NewMemberDrawer({
               <label className="a-field-label" htmlFor="new-member-last">
                 Last name
               </label>
-              <input
+              <NameInput
                 id="new-member-last"
                 className="a-input"
                 value={lastName}
                 autoComplete="off"
-                onChange={(event) => setLastName(event.target.value)}
+                onChange={setLastName}
               />
             </div>
 
@@ -285,13 +311,12 @@ export function NewMemberDrawer({
               <label className="a-field-label" htmlFor="new-member-email">
                 Email
               </label>
-              <input
+              <EmailInput
                 id="new-member-email"
                 className="a-input"
-                type="email"
                 value={email}
                 autoComplete="off"
-                onChange={(event) => setEmail(event.target.value)}
+                onChange={setEmail}
               />
             </div>
 
@@ -299,13 +324,12 @@ export function NewMemberDrawer({
               <label className="a-field-label" htmlFor="new-member-phone">
                 Phone <span className="a-field-opt">optional</span>
               </label>
-              <input
+              <PhoneInput
                 id="new-member-phone"
                 className="a-input"
                 value={phone}
-                inputMode="tel"
                 autoComplete="off"
-                onChange={(event) => setPhone(event.target.value)}
+                onChange={setPhone}
               />
             </div>
 
@@ -318,8 +342,15 @@ export function NewMemberDrawer({
                 className="a-input"
                 value={emergencyContact}
                 autoComplete="off"
+                maxLength={EMERGENCY_CONTACT_MAX}
+                aria-describedby="new-member-emergency-count"
                 placeholder="Name, relation, phone — free text"
                 onChange={(event) => setEmergencyContact(event.target.value)}
+              />
+              <CharCounter
+                id="new-member-emergency-count"
+                value={emergencyContact}
+                max={EMERGENCY_CONTACT_MAX}
               />
             </div>
 
@@ -369,7 +400,13 @@ export function NewMemberDrawer({
                         aria-checked={method === option}
                         className="a-seg-btn"
                         data-on={method === option || undefined}
-                        onClick={() => setMethod(option)}
+                        onClick={() => {
+                          setMethod(option);
+                          if (option !== 'GCASH') {
+                            setReference('');
+                            setGcashVerified(false);
+                          }
+                        }}
                       >
                         {option === 'CASH' ? 'Cash' : 'GCash'}
                       </button>
@@ -384,6 +421,7 @@ export function NewMemberDrawer({
                   verified={gcashVerified}
                   onVerified={setGcashVerified}
                 />
+
 
                 <ReceiptNoField
                   value={receiptNo}
@@ -419,9 +457,15 @@ export function NewMemberDrawer({
                       id="new-member-statutory-id"
                       className="a-input"
                       value={statutoryIdNo}
+                      maxLength={STATUTORY_ID_MAX}
                       autoComplete="off"
                       onChange={(event) => setStatutoryIdNo(event.target.value)}
                     />
+                    {statutoryIdProblem !== null ? (
+                      <p className="a-field-hint" data-tone="danger" role="alert">
+                        {statutoryIdProblem}
+                      </p>
+                    ) : null}
                   </div>
                 )}
 
@@ -443,6 +487,7 @@ export function NewMemberDrawer({
                         id="new-member-discount-reason"
                         className="a-input"
                         value={discountReason}
+                        maxLength={200}
                         autoComplete="off"
                         placeholder="At least 3 characters"
                         onChange={(event) => setDiscountReason(event.target.value)}
