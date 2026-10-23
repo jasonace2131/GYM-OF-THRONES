@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { MyProfile } from '@got/shared';
 import { changeEmail, changePassword, getProfile, saveProfile } from '@/lib/account';
 import { updateEmail, updatePassword, verifyCurrentPassword } from '@/lib/accountAuth';
+import { ApiError } from '@/lib/api';
 import { Card, EmptyState, Skeleton } from '@/components/portal/ui';
 import {
   BodySection,
@@ -21,25 +22,32 @@ import {
  */
 export default function AccountPage() {
   const [profile, setProfile] = useState<MyProfile | null>(null);
-  const [failed, setFailed] = useState(false);
+  /**
+   * Why the load failed. Only a request that never got an answer is the
+   * connection's fault; an HTTP error (404, 5xx) is ours, and telling the
+   * member to check their wifi would send them chasing the wrong thing.
+   */
+  const [failed, setFailed] = useState<'network' | 'http' | null>(null);
 
   const load = useCallback(() => {
-    setFailed(false);
+    setFailed(null);
     getProfile()
       .then(setProfile)
-      .catch(() => setFailed(true));
+      .catch((error: unknown) => setFailed(error instanceof ApiError ? 'http' : 'network'));
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (failed) {
+  if (failed !== null) {
     return (
       <Card>
         <EmptyState
           title="Couldn't load your account."
-          hint="Check your connection and try again."
+          hint={
+            failed === 'network' ? 'Check your connection and try again.' : 'Try again in a moment.'
+          }
           action={
             <button type="button" className="p-btn p-btn-dark p-btn-sm" onClick={load}>
               Try again

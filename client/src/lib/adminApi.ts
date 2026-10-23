@@ -16,6 +16,8 @@ import type {
   DailyCheckIns,
   DenialReason,
   DeskTodayPayload,
+  GymEquipmentInput,
+  GymEquipmentItem,
   MembershipStatus,
   PaginatedData,
   PublicGymConfig,
@@ -669,7 +671,10 @@ export interface AuditEntry {
     // ── AI assistant settings ── an admin saving new instructions
     // ({ before, after, wasDefault }) or putting the built-in ones back.
     | 'ASSISTANT_INSTRUCTIONS_UPDATED'
-    | 'ASSISTANT_INSTRUCTIONS_RESET';
+    | 'ASSISTANT_INSTRUCTIONS_RESET'
+    // ── Gym equipment list ── an admin added, edited, removed or reordered
+    // equipment ({ change, before?, after? }).
+    | 'GYM_EQUIPMENT_CHANGED';
   actorId: string;
   actorName: string;
   actorRole: string;
@@ -1402,6 +1407,28 @@ export const adminApi = {
     apiFetch<AssistantDraftAnswer>('/admin/assistant/test', {
       method: 'POST',
       body: JSON.stringify({ instructions, question }),
+    }),
+
+  // ── The gym's equipment list (Admin → Settings), fed to the AI planners ──
+  equipment: (): Promise<GymEquipmentItem[]> => apiFetch<GymEquipmentItem[]>('/admin/equipment'),
+
+  addEquipment: (input: GymEquipmentInput): Promise<GymEquipmentItem> =>
+    apiFetch<GymEquipmentItem>('/admin/equipment', { method: 'POST', body: JSON.stringify(input) }),
+
+  updateEquipment: (id: string, input: GymEquipmentInput): Promise<GymEquipmentItem> =>
+    apiFetch<GymEquipmentItem>(`/admin/equipment/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  removeEquipment: (id: string): Promise<{ removed: true }> =>
+    apiFetch<{ removed: true }>(`/admin/equipment/${id}`, { method: 'DELETE' }),
+
+  /** Every id, in the new order. */
+  reorderEquipment: (ids: string[]): Promise<GymEquipmentItem[]> =>
+    apiFetch<GymEquipmentItem[]>('/admin/equipment/order', {
+      method: 'PUT',
+      body: JSON.stringify({ ids }),
     }),
 
   dailySummary: (date?: string): Promise<Record<string, unknown>> =>

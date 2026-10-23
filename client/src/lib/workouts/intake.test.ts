@@ -197,6 +197,7 @@ describe('the rail', () => {
       ['Sessions', '45 min · Evening'],
       ['Health', 'No flags'],
       ['Go easy on', 'knees'],
+      ['Body', 'Not set'],
     ]);
     expect(summaryRows(initialIntake()).map((r) => r[1])).toEqual([
       'Not picked yet',
@@ -205,7 +206,13 @@ describe('the rail', () => {
       '45 min · Evening',
       'No flags',
       'Nothing',
+      'Not set',
     ]);
+  });
+
+  it("shows the account's height and weight as the Body row", () => {
+    const rows = summaryRows(filled(), { heightCm: 170, weightKg: 55 });
+    expect(rows.at(-1)).toEqual(['Body', '170 cm · 55 kg']);
   });
 
   it('lists what the AI sees, following the switches', () => {

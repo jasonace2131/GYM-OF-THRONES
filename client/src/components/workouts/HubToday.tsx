@@ -12,6 +12,7 @@ import { SegmentBar } from './session/SegmentBar';
 import { StartFeedback } from './session/StartFeedback';
 import type { SessionStarter } from './session/useSessionStarter';
 import { WeekStrip } from './WeekStrip';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 
 type Progress = { done: number; total: number } | null;
 
@@ -58,6 +59,8 @@ export function HubToday({
   draftRunning: boolean;
   starter: SessionStarter;
 }) {
+  // A lapsed member sees Today but may not start, adjust or create (writes).
+  const canWrite = useMemberCanWrite();
   const starting = (key: string): boolean =>
     starter.state.kind === 'starting' && starter.state.key === key;
 
@@ -89,7 +92,7 @@ export function HubToday({
                 your coach&apos;s measurements, your attendance and your bookings.
               </p>
             </div>
-            <div className="mt-1 flex flex-wrap gap-2.5">
+            <div className={canWrite ? 'mt-1 flex flex-wrap gap-2.5' : 'hidden'}>
               <Link
                 href={draftRunning ? '/portal/workouts/draft' : '/portal/workouts/new'}
                 className={buttonClass('gold', 'md', 'w-full @md:w-auto')}
@@ -168,7 +171,7 @@ export function HubToday({
                 <li key={day.key} className="flex flex-col gap-2">
                   <button
                     type="button"
-                    disabled={starter.state.kind === 'starting'}
+                    disabled={!canWrite || starter.state.kind === 'starting'}
                     onClick={() => void starter.start(day.start)}
                     className="grid min-h-[60px] w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto_36px] items-center gap-3 rounded-xl border-[1.5px] border-[color:var(--p-border-2)] bg-card px-4 py-2.5 text-left transition-colors hover:border-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none"
                   >
@@ -228,14 +231,14 @@ export function HubToday({
                 <div
                   className={cn(
                     'mt-1 grid gap-2 @md:flex @md:flex-wrap @md:gap-2.5',
-                    model.adjustHref === null
+                    model.adjustHref === null || !canWrite
                       ? 'grid-cols-[minmax(0,1fr)]'
                       : 'grid-cols-[minmax(0,1fr)_auto]',
                   )}
                 >
                   <button
                     type="button"
-                    disabled={starter.state.kind === 'starting'}
+                    disabled={!canWrite || starter.state.kind === 'starting'}
                     onClick={() => void starter.start(model.start)}
                     className={buttonClass('gold', 'md', 'h-12 cursor-pointer @md:h-[46px]')}
                   >
@@ -249,7 +252,7 @@ export function HubToday({
                       </>
                     )}
                   </button>
-                  {model.adjustHref === null ? null : (
+                  {model.adjustHref === null || !canWrite ? null : (
                     <Link
                       href={model.adjustHref}
                       className={buttonClass('ghost', 'md', 'h-12 px-3.5 @md:h-[46px] @md:px-5')}

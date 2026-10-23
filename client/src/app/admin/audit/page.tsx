@@ -64,6 +64,7 @@ const ACTION_LABELS: Record<AuditEntry['action'], string> = {
   WORKOUT_PLAN_SAVED: 'Workout plan saved',
   ASSISTANT_INSTRUCTIONS_UPDATED: 'Assistant instructions edited',
   ASSISTANT_INSTRUCTIONS_RESET: 'Assistant instructions reset',
+  GYM_EQUIPMENT_CHANGED: 'Equipment list changed',
 };
 
 /**
@@ -133,6 +134,8 @@ const TONE: Record<AuditEntry['action'], 'danger' | 'warn' | 'ok' | 'neutral'> =
   // What the member assistant is told: an owner decision, routine like a plan edit.
   ASSISTANT_INSTRUCTIONS_UPDATED: 'neutral',
   ASSISTANT_INSTRUCTIONS_RESET: 'neutral',
+  // What the AI planners may use: routine, like the assistant's instructions.
+  GYM_EQUIPMENT_CHANGED: 'neutral',
 };
 
 const PAGE_SIZE = 25;

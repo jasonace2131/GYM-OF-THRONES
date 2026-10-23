@@ -10,6 +10,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import type { MemberAccess } from '@got/shared';
 import { supabase } from '@/lib/supabase';
 import { ApiError, apiFetch, onApiForbidden } from '@/lib/api';
 import { hasPermission, type PermissionOptions } from '@/lib/rbac/permissions';
@@ -54,6 +55,12 @@ export interface Me {
   role: string;
   status: string;
   permissions: { key: string; scope: string }[];
+  /**
+   * What the caller may do in the member-only features (owner, 2026-10-17),
+   * decided by the server — read through `memberAccessOf`. Optional so a
+   * bundle survives an API that predates it.
+   */
+  memberAccess?: MemberAccess;
 }
 
 /** Which shell a provider serves — decides where "home" is for a guard. */

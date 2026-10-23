@@ -4,8 +4,9 @@ import {
   Prisma,
   type Membership,
   type MembershipStatus as PrismaStatus,
+  type Role,
 } from '@prisma/client';
-import type { PaginatedData } from '@got/shared';
+import type { MemberAccess, PaginatedData } from '@got/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { GymConfigService } from '../config/gym.config';
 import { DomainException } from '../common/exceptions/domain.exception';
@@ -20,6 +21,7 @@ import {
   type AccessVerdictConfig,
 } from './access-verdict';
 import type { BookingSubject } from './booking-eligibility';
+import { hasActiveMembership, isMembershipGated, memberAccess } from './membership-gate';
 import { DAY_PASS_RESOLVER, type DayPassResolver } from './day-pass.resolver';
 import {
   toBookingSubject,
@@ -219,6 +221,29 @@ export class MembershipService {
       select: BOOKING_SUBJECT_SELECT,
     });
     return new Map(rows.map((row) => [row.id, toBookingSubject(row)]));
+  }
+
+  /**
+   * "Does this member have an ACTIVE membership today" — the gate on the
+   * member-only features (membership-gate.ts). The booking subject and the
+   * booking rule, judged on the gym's today: one definition of "active".
+   */
+  async hasActiveMembership(userId: string, now: Date = new Date()): Promise<boolean> {
+    const today = gymToday(now, this.gym.timeZone);
+    return hasActiveMembership(await this.loadBookingSubject(userId), today);
+  }
+
+  /**
+   * `GET /me`'s `memberAccess`. Staff are answered without a query: the gate
+   * never asks about them.
+   */
+  async memberAccessFor(
+    user: { id: string; role: Role },
+    now: Date = new Date(),
+  ): Promise<MemberAccess> {
+    if (!isMembershipGated(user.role)) return 'FULL';
+    const today = gymToday(now, this.gym.timeZone);
+    return memberAccess(user.role, await this.loadBookingSubject(user.id), today);
   }
 
   /** The ladder's configuration, exposed so an in-transaction caller can run it. */

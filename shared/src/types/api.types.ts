@@ -58,6 +58,9 @@ export type DomainErrorCode =
   | 'CLASS_ALREADY_CANCELLED'
   | 'CLASS_ALREADY_STARTED'
   | 'CLASS_ENDS_BEFORE_START'
+  // 403. A coach (class.manage at OWN) touched a class someone else coaches,
+  // or tried to give one of theirs to another coach.
+  | 'CLASS_NOT_YOURS'
   | 'CAPACITY_BELOW_BOOKED'
   | 'COACH_NOT_FOUND'
   | 'NOT_A_COACH'
@@ -94,6 +97,12 @@ export type DomainErrorCode =
   | 'STATION_AMBIGUOUS'
   | 'STATION_BATCH_STALE'
   | 'GYM_CLOSED'
+  // 403. A member-only feature (Workouts, Ask the Gym, My Progress, My Coach)
+  // was asked to spend AI quota or write, and the caller — a member, never
+  // staff — has no ACTIVE membership today (owner, 2026-10-17: the booking
+  // rule; grace, day pass, frozen, expired, cancelled and none do not count).
+  // Reads stay open, so an expired member keeps their history.
+  | 'MEMBERSHIP_REQUIRED'
   | 'MEMBERSHIP_NOT_FOUND'
   | 'MEMBERSHIP_NOT_ACTIVE'
   | 'MEMBERSHIP_ALREADY_FROZEN'
@@ -345,6 +354,9 @@ export type DomainErrorCode =
   | 'WORKOUT_EXERCISE_UNKNOWN'
   // 400. The intake was sent without `consent: true`.
   | 'WORKOUT_CONSENT_REQUIRED'
+  // 400. The goal is not offered at the member's BMI (Lose fat under 18.5;
+  // shared/src/workouts/goal-suitability.ts). The wizard hides it first.
+  | 'GOAL_NOT_SUITABLE'
   // ── Workout sessions (feat/workout-sessions) ────────────────────────────
   // 409. A workout is already open — finish or discard it first. `details.sessionId` names it.
   | 'WORKOUT_SESSION_OPEN'
@@ -404,4 +416,10 @@ export type DomainErrorCode =
   // 422. A saved plan failed the workout-plan schema (@got/shared).
   | 'WORKOUT_PLAN_INVALID'
   // 502. The model answered, but not with a plan the schema accepts.
-  | 'WORKOUT_PLAN_SUGGESTION_INVALID';
+  | 'WORKOUT_PLAN_SUGGESTION_INVALID'
+
+  // ── Gym equipment list (owner, 2026-10-23) ──────────────────────────────
+  // 409. Another item already has this name (case-insensitive).
+  | 'GYM_EQUIPMENT_DUPLICATE'
+  // 400. A reorder must list every item exactly once.
+  | 'GYM_EQUIPMENT_ORDER_MISMATCH';

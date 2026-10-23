@@ -36,6 +36,7 @@ import { PlanHeader } from './PlanHeader';
 import { PlanRail } from './PlanRail';
 import type { SwapState } from './SwapPanel';
 import { SwapSheet } from './SwapSheet';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 
 /**
  * The plan screen (Plan.dc.html), in two modes.
@@ -96,7 +97,10 @@ const swapKey = (weekday: number, index: number, name: string): string =>
 export function PlanScreen(props: PlanScreenProps) {
   const { mode, planId, quota, onQuota } = props;
   const isPhone = useIsPhone();
+  // A lapsed member reads the plan: How to stays, Swap / Adjust / Start go.
+  const canWrite = useMemberCanWrite();
   const saved = mode === 'saved' && planId !== null;
+  const tools = saved && canWrite;
 
   const [history, setHistory] = useState<EditHistory>(() => freshHistory(props.body));
   const [open, setOpen] = useState<OpenPanel | null>(null);
@@ -409,7 +413,7 @@ export function PlanScreen(props: PlanScreenProps) {
                   index={i}
                   day={day}
                   highlighted={highlighted === day.weekday}
-                  toolbelt={saved ? 'full' : 'howOnly'}
+                  toolbelt={tools ? 'full' : 'howOnly'}
                   busy={busy}
                   open={
                     open !== null && open.weekday === day.weekday
@@ -423,7 +427,7 @@ export function PlanScreen(props: PlanScreenProps) {
                   adjusted={adjustedFor(day.weekday)}
                   activePreset={activePreset[day.weekday] ?? null}
                   adjustDisabled={adjustDisabled}
-                  showAdjust={saved && (adjustOpen === null || adjustOpen === day.weekday)}
+                  showAdjust={tools && (adjustOpen === null || adjustOpen === day.weekday)}
                   onHow={(index) => toggleHow(day.weekday, index, day.exercises[index]?.name ?? '')}
                   onSwap={(index) =>
                     toggleSwap(day.weekday, index, day.exercises[index]?.name ?? '')

@@ -106,6 +106,30 @@ describe('My account page', () => {
     container.remove();
   });
 
+  async function renderFailing(error: unknown): Promise<void> {
+    apiFetch.mockRejectedValueOnce(error);
+    await act(async () => {
+      root.render(<AccountPage />);
+    });
+    await flush();
+  }
+
+  it('blames the connection only when the request never got an answer', async () => {
+    await renderFailing(new TypeError('Failed to fetch'));
+    expect(container.textContent).toContain("Couldn't load your account.");
+    expect(container.textContent).toContain('Check your connection and try again.');
+    expect(button('Try again')).toBeTruthy();
+  });
+
+  it('says "try again in a moment" for an HTTP error, not "check your connection"', async () => {
+    const { ApiError } = await import('@/lib/api');
+    await renderFailing(new ApiError('Not found', 404, 'NOT_FOUND'));
+    expect(container.textContent).toContain("Couldn't load your account.");
+    expect(container.textContent).toContain('Try again in a moment.');
+    expect(container.textContent).not.toContain('Check your connection');
+    expect(button('Try again')).toBeTruthy();
+  });
+
   it('loads the profile and shows the current values', async () => {
     await renderPage();
     expect(apiFetch).toHaveBeenCalledWith('/me/profile');

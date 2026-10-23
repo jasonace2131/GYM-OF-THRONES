@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { MembershipModule } from '../membership/membership.module';
 import { GeminiModule } from '../assistant/gemini.module';
 import { ClassesModule } from '../classes/classes.module';
 import { ProgressService } from '../me/progress.service';
 import { MeCheckInsService } from '../me/me-check-ins.service';
 import { WorkoutPlansModule } from '../workout-plans/workout-plans.module';
+import { GymEquipmentModule } from '../gym-equipment/gym-equipment.module';
 import { WorkoutsController } from './workouts.controller';
 import { WorkoutSessionsController } from './workout-sessions.controller';
 import { WorkoutQuotaService } from './workout-quota.service';
@@ -26,7 +28,8 @@ import { WorkoutSessionsService } from './workout-sessions.service';
  * GymConfigModule (with OpeningHoursService) are @Global.
  */
 @Module({
-  imports: [GeminiModule, ClassesModule, WorkoutPlansModule],
+  // MembershipModule: the How-to miss needs an active membership (owner, 2026-10-17).
+  imports: [GeminiModule, ClassesModule, WorkoutPlansModule, GymEquipmentModule, MembershipModule],
   controllers: [WorkoutsController, WorkoutSessionsController],
   providers: [
     WorkoutQuotaService,

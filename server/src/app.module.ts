@@ -28,12 +28,14 @@ import { AdminModule } from './admin/admin.module';
 import { ChatModule } from './chat/chat.module';
 import { WorkoutPlansModule } from './workout-plans/workout-plans.module';
 import { WorkoutsModule } from './workouts/workouts.module';
+import { GymEquipmentModule } from './gym-equipment/gym-equipment.module';
 // ── Staff & Access ──
 import { StaffInvitationsModule } from './staff-invitations/staff-invitations.module';
 import { CoachesModule } from './coaches/coaches.module';
 // ── end Staff & Access ──
 import { AuthGuard } from './auth/auth.guard';
 import { PermissionsGuard } from './rbac/permissions.guard';
+import { ActiveMembershipGuard } from './membership/active-membership.guard';
 import { UserThrottlerGuard } from './common/guards/user-throttler.guard';
 import { IdempotencyInterceptor } from './common/interceptors/idempotency.interceptor';
 import { envValidationSchema, type Env } from './config/env.validation';
@@ -144,6 +146,8 @@ import { GymConfigModule } from './config/gym-config.module';
     StorageModule,
     AnnouncementsModule,
     AssistantModule,
+    // The gym's equipment list (Admin → Settings), read by the AI planners.
+    GymEquipmentModule,
     ClassesModule,
     ConsentModule,
     ContactModule,
@@ -165,6 +169,10 @@ import { GymConfigModule } from './config/gym-config.module';
     { provide: APP_GUARD, useClass: UserThrottlerGuard },
     // Runs after AuthGuard. Only enforces on routes carrying @RequirePermission().
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    // Runs after PermissionsGuard. Only enforces on routes carrying
+    // @RequireActiveMembership(), and only for a member (CLIENT): the
+    // member-only features need an ACTIVE membership (owner, 2026-10-17).
+    { provide: APP_GUARD, useClass: ActiveMembershipGuard },
     // Outermost interceptor: it observes the finished response body and
     // replays it verbatim, so a replay carries exactly one envelope. Does
     // nothing at all to a route without @Idempotent().

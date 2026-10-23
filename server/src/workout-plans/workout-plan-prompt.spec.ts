@@ -157,6 +157,37 @@ describe('planPrompt', () => {
   });
 });
 
+describe('gym equipment (owner, 2026-10-23)', () => {
+  it('gives the coach suggester the list as data, and nothing when it is empty', () => {
+    const list = ['Dumbbells (2–40 kg pairs)', 'Rower'];
+    expect(buildPlanContext(progress(), checkIns, today, null, list).gymEquipment).toEqual(list);
+    expect(buildPlanContext(progress(), checkIns, today, null, [])).not.toHaveProperty(
+      'gymEquipment',
+    );
+    expect(planPrompt(buildPlanContext(progress(), checkIns, today, null, list))).toContain(
+      '"gymEquipment":["Dumbbells (2–40 kg pairs)","Rower"]',
+    );
+    const line = WORKOUT_PLAN_SYSTEM_PROMPT.split('\n').find((l) => l.includes('"gymEquipment"'));
+    expect(line).toMatch(/only/i);
+    expect(line).toMatch(/bodyweight/i);
+  });
+
+  it('prefers commercial-gym basics only when no list is given', () => {
+    for (const line of WORKOUT_PLAN_SYSTEM_PROMPT.split('\n').filter((l) =>
+      /commercial gym has|common gym|barbells/i.test(l),
+    )) {
+      expect(line).toContain('"gymEquipment"');
+      expect(line.search(/barbells|common gym/i)).toBeGreaterThan(line.indexOf('absent'));
+    }
+    expect(planPrompt(buildPlanContext(progress(), checkIns, today, null, []))).not.toContain(
+      'gymEquipment',
+    );
+    expect(planPrompt(buildPlanContext(progress(), checkIns, today, null, ['Rower']))).toContain(
+      '"gymEquipment"',
+    );
+  });
+});
+
 describe('readModelJson', () => {
   it('parses a bare JSON reply', () => {
     expect(readModelJson('{"summary":"x","days":[]}')).toEqual({ summary: 'x', days: [] });

@@ -5,6 +5,7 @@ import type { ChatMessagePage, ChatMessageView, ChatThreadList, ChatThreadView }
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
+import { RequireActiveMembership } from '../membership/require-active-membership.decorator';
 import { Scope } from '../rbac/decorators/scope.decorator';
 import type { ScopedWhere } from '../rbac/scope.util';
 import { ChatService } from './chat.service';
@@ -53,6 +54,7 @@ export class ChatController {
    */
   @Post('threads/:id/messages')
   @RequirePermission('chat.use')
+  @RequireActiveMembership()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async send(
     @CurrentUser() user: AuthUser,

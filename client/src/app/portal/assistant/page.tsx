@@ -14,6 +14,7 @@ import { assistantErrorMessage } from '@/lib/assistant/errors';
 import { ReplyBody } from '@/components/assistant/ReplyBody';
 import { assistantTimeoutSignal, pendingLabel } from '@/lib/assistant/pending';
 import { Card, EmptyState, Skeleton } from '@/components/portal/ui';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 
 /**
  * The member assistant.
@@ -71,6 +72,9 @@ function Assistant() {
   const [error, setError] = useState<string | null>(null);
   const conversationId = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
+  // A lapsed member may not ask: every question spends AI (the server
+  // refuses it with 403 MEMBERSHIP_REQUIRED; this only stops the offer).
+  const canAsk = useMemberCanWrite();
 
   // A 403 and a dropped connection are not "switched off" — see availability.ts.
   const fetchStatus = useCallback((): void => {
@@ -102,7 +106,7 @@ function Assistant() {
 
   const send = async (text: string): Promise<void> => {
     const message = text.trim();
-    if (message === '' || busy) return;
+    if (message === '' || busy || !canAsk) return;
 
     setDraft('');
     setError(null);
@@ -173,7 +177,7 @@ function Assistant() {
         </p>
       </Card>
 
-      {turns.length === 0 ? (
+      {turns.length === 0 && canAsk ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {SUGGESTIONS.map((suggestion) => (
             <button
@@ -247,11 +251,15 @@ function Assistant() {
           style={{ flex: 1 }}
           value={draft}
           maxLength={2000}
-          disabled={busy}
-          placeholder="Ask something…"
+          disabled={busy || !canAsk}
+          placeholder={canAsk ? 'Ask something…' : 'Renew to ask a question'}
           onChange={(event) => setDraft(event.target.value)}
         />
-        <button type="submit" className="p-btn p-btn-gold" disabled={busy || draft.trim() === ''}>
+        <button
+          type="submit"
+          className="p-btn p-btn-gold"
+          disabled={busy || !canAsk || draft.trim() === ''}
+        >
           Ask
         </button>
       </form>

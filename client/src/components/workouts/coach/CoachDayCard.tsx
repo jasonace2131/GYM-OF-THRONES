@@ -81,7 +81,11 @@ export function CoachDayCard({
                 onUndoSwap={noop}
               />
               {open && guide !== null ? (
-                <HowToPanel state={guide} onRetry={() => onRetryGuide(exercise.name)} />
+                <HowToPanel
+                  state={guide}
+                  exerciseName={exercise.name}
+                  onRetry={() => onRetryGuide(exercise.name)}
+                />
               ) : null}
             </li>
           );

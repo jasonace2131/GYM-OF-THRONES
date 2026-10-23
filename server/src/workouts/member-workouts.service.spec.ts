@@ -9,6 +9,7 @@ import { GeminiGateway } from '../assistant/gemini-gateway.service';
 import type { WorkoutPlansService } from '../workout-plans/workout-plans.service';
 import type { WorkoutQuotaService } from './workout-quota.service';
 import type { WorkoutDraftService } from './workout-draft.service';
+import type { GymEquipmentService } from '../gym-equipment/gym-equipment.service';
 import type { WorkoutSessionsService } from './workout-sessions.service';
 import { MEMBER_COPY } from './member-workout-gemini';
 import { ADJUST_RESPONSE_SCHEMA, SWAP_RESPONSE_SCHEMA } from './member-plan-prompt';
@@ -145,6 +146,7 @@ describe('MemberWorkoutsService', () => {
   let coachPlans: { readForMember: jest.Mock };
   let sessions: { current: jest.Mock; list: jest.Mock };
   let logs: string[];
+  let equipment: { forPrompt: jest.Mock };
 
   const QUOTA = { used: 1, limit: 8, remaining: 7, resetsAt: 'x' };
 
@@ -163,6 +165,7 @@ describe('MemberWorkoutsService', () => {
       gateway,
       coachPlans as unknown as WorkoutPlansService,
       sessions as unknown as WorkoutSessionsService,
+      equipment as unknown as GymEquipmentService,
     );
   };
 
@@ -218,6 +221,7 @@ describe('MemberWorkoutsService', () => {
       list: jest.fn().mockResolvedValue([]),
     };
     logs = [];
+    equipment = { forPrompt: jest.fn().mockResolvedValue([]) };
     for (const level of ['log', 'warn', 'error'] as const) {
       jest.spyOn(Logger.prototype, level).mockImplementation((...args: unknown[]) => {
         logs.push(String(args[0]));
@@ -516,6 +520,28 @@ describe('MemberWorkoutsService', () => {
       const caught = await failure(build().swap(MEMBER, PLAN_ID, { weekday: 1, index: 0 }, NOW));
       expect(caught).toMatchObject({ code: 'ASSISTANT_BUSY' });
       expect(quota.refund).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('gym equipment', () => {
+    const ALTERNATIVES = {
+      alternatives: ['A', 'B', 'C'].map((name) => ({ ...exercise(name), why: 'Fits.' })),
+    };
+
+    it('sends the list with a swap and an adjust, and nothing when it is empty', async () => {
+      equipment.forPrompt.mockResolvedValue(['Dumbbells (2–40 kg pairs)']);
+      generateContent.mockResolvedValueOnce(reply(ALTERNATIVES));
+      await build().swap(MEMBER, PLAN_ID, { weekday: 1, index: 1 }, NOW);
+      generateContent.mockResolvedValueOnce(reply(day(1)));
+      await build().adjust(MEMBER, PLAN_ID, { weekday: 1, preset: 'SHORTER' }, NOW);
+      for (const call of generateContent.mock.calls as [string][]) {
+        expect(call[0]).toContain('"gymEquipment":["Dumbbells (2–40 kg pairs)"]');
+      }
+
+      equipment.forPrompt.mockResolvedValue([]);
+      generateContent.mockResolvedValueOnce(reply(ALTERNATIVES));
+      await build().swap(MEMBER, PLAN_ID, { weekday: 1, index: 1 }, NOW);
+      expect((generateContent.mock.calls[2] as [string])[0]).not.toContain('gymEquipment');
     });
   });
 

@@ -191,3 +191,25 @@ describe('SessionCard — a class the member holds', () => {
     expect(view.buttons).toEqual([]);
   });
 });
+
+describe('SessionCard — the coach running the class (owner, 2026-10-23)', () => {
+  const coachView = (onEdit?: () => void, onCancelClass?: () => void) => {
+    const markup = renderToStaticMarkup(
+      <SessionCard
+        session={session({})}
+        booking={undefined}
+        now={at('2026-09-16', '12:00')}
+        busy={false}
+        onEdit={onEdit}
+        onCancelClass={onCancelClass}
+      />,
+    );
+    return [...markup.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => plain(m[1] as string));
+  };
+
+  it('offers Edit and Cancel class when the page hands them over, and no Book', () => {
+    expect(coachView(noop, noop)).toEqual(['Edit', 'Cancel class']);
+    expect(coachView(noop, undefined)).toEqual(['Edit']);
+    expect(coachView()).toEqual([]);
+  });
+});

@@ -12,6 +12,9 @@ import type {
 import { createTestApp, type TestApp } from './support/test-app';
 import { FIXTURE_IDS } from './support/auth-fixture';
 import { resetDatabase } from './support/db';
+import { makeActiveMembers } from './support/membership-fixtures';
+import { GymConfigService } from '../src/config/gym.config';
+import { gymToday } from '../src/common/time/gym-time';
 import { GeminiGateway, type AttemptContext } from '../src/assistant/gemini-gateway.service';
 import { DomainException } from '../src/common/exceptions/domain.exception';
 import { MEMBER_COPY } from '../src/workouts/member-workout-gemini';
@@ -218,6 +221,13 @@ describe('member workouts (e2e)', () => {
     coachToken = await ctx.fixture.tokenFor('COACH', { supabaseId: FIXTURE_IDS.COACH_A });
     adminToken = await ctx.fixture.tokenFor('ADMIN', { supabaseId: FIXTURE_IDS.ADMIN });
     clientAId = await ctx.fixture.userIdFor(FIXTURE_IDS.CLIENT_A);
+
+    // The planner's writes need an ACTIVE membership (owner, 2026-10-17).
+    await makeActiveMembers(
+      ctx.prisma,
+      [clientAId, await ctx.fixture.userIdFor(FIXTURE_IDS.CLIENT_B)],
+      gymToday(new Date(), ctx.app.get(GymConfigService, { strict: false }).timeZone),
+    );
   });
 
   beforeEach(() => {

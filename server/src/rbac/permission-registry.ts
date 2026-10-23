@@ -407,6 +407,10 @@ export const ROLE_PERMISSIONS: Record<
   ],
   COACH: [
     { key: 'class.read', scope: 'ALL' },
+    // OWN = classes this coach coaches (owner, 2026-10-23: coaches create
+    // their own, nobody approves). ClassesService enforces it against the
+    // class's coachId: never another coach's class, never handed to one.
+    { key: 'class.manage', scope: 'OWN' },
     { key: 'booking.read', scope: 'ALL' },
     { key: 'booking.attend', scope: 'ALL' },
     { key: 'member.read', scope: 'OWN' },

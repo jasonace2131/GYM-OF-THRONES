@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import type { MemberWorkoutPlanView, WorkoutAiQuotaView } from '@got/shared';
 import { Card, EmptyState, Skeleton } from '@/components/portal/ui';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 import { PlanScreen } from '@/components/workouts/plan/PlanScreen';
 import { QuotaPill } from '@/components/workouts/QuotaPill';
 import { DeletePlanDialog } from '@/components/workouts/DeletePlanDialog';
@@ -47,6 +48,8 @@ export function PlanPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const router = useRouter();
   const starter = useSessionStarter();
+  // A lapsed member reads the plan; deleting or activating it is a write.
+  const canWrite = useMemberCanWrite();
 
   const load = useCallback((): void => {
     workoutsApi
@@ -146,7 +149,7 @@ export function PlanPage() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <QuotaPill quota={quota} />
-            {plan.isActive ? null : (
+            {plan.isActive || !canWrite ? null : (
               <Link
                 href="/portal/workouts"
                 className={buttonClass('ghost', 'xs', 'hidden @2xl:inline-flex')}
@@ -156,6 +159,7 @@ export function PlanPage() {
             )}
             <button
               type="button"
+              hidden={!canWrite}
               onClick={() => setConfirmDelete(true)}
               aria-label={`Delete ${plan.name}`}
               className={buttonClass(

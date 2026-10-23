@@ -1080,3 +1080,91 @@ describe('ClassesService.create — never in the past', () => {
     expect(error.code).toBe('CLASS_ALREADY_STARTED');
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Coaches run their own classes (owner, 2026-10-23): COACH holds
+ * `class.manage` at OWN, and the controller passes the caller as `ownerId`.
+ * The same service, so the same time, capacity and coach checks as the admin.
+ */
+describe('ClassesService — a coach managing their own classes (ownerId)', () => {
+  const yoga = (coachId: string) => ({
+    title: 'Yoga',
+    coachId,
+    startsAt: '2026-09-20T01:00:00.000Z',
+    endsAt: '2026-09-20T02:00:00.000Z',
+    capacity: 12,
+  });
+
+  const notYours = (error: DomainException): void => {
+    expect([error.code, error.getStatus(), error.message]).toEqual([
+      'CLASS_NOT_YOURS',
+      HttpStatus.FORBIDDEN,
+      'You can only create, change or cancel classes you coach.',
+    ]);
+  };
+
+  it('lets a coach create a class they coach', async () => {
+    const ctx = build();
+    await expect(
+      ctx.service.create(COACH_ID, yoga(COACH_ID), NOW, COACH_ID),
+    ).resolves.toMatchObject({ title: 'Yoga', coachId: COACH_ID });
+  });
+
+  it('refuses a coach creating a class for another coach — 403, nothing created', async () => {
+    const ctx = build();
+    notYours(await refusal(ctx.service.create(COACH_ID, yoga(NEW_COACH_ID), NOW, COACH_ID)));
+    expect(ctx.db.classSession.create).not.toHaveBeenCalled();
+  });
+
+  it('runs the admin checks for a coach too', async () => {
+    const ctx = build();
+    const past = { ...yoga(COACH_ID), startsAt: '2026-09-13T01:00:00.000Z' };
+    expect((await refusal(ctx.service.create(COACH_ID, past, NOW, COACH_ID))).code).toBe(
+      'CLASS_ALREADY_STARTED',
+    );
+  });
+
+  it('lets a coach edit and cancel their own class', async () => {
+    const ctx = build({ coachId: COACH_ID });
+    await expect(
+      ctx.service.update(SESSION_ID, edit({ title: 'Spin Express' }), COACH_ID, NOW, COACH_ID),
+    ).resolves.toMatchObject({ title: 'Spin Express' });
+    await expect(
+      ctx.service.cancel(SESSION_ID, 'Coach is unwell', COACH_ID, NOW, COACH_ID),
+    ).resolves.toMatchObject({ cancelReason: 'Coach is unwell' });
+  });
+
+  it("refuses a coach editing or cancelling another coach's class, changing nothing", async () => {
+    const ctx = build({ coachId: NEW_COACH_ID });
+    const before = { ...ctx.db.sessions.get(SESSION_ID) };
+    notYours(
+      await refusal(
+        ctx.service.update(SESSION_ID, edit({ title: 'Mine now' }), COACH_ID, NOW, COACH_ID),
+      ),
+    );
+    notYours(await refusal(ctx.service.cancel(SESSION_ID, 'Nope', COACH_ID, NOW, COACH_ID)));
+    expect(ctx.db.sessions.get(SESSION_ID)).toEqual(before);
+  });
+
+  it('refuses a coach handing their own class to another coach', async () => {
+    const ctx = build({ coachId: COACH_ID });
+    notYours(
+      await refusal(
+        ctx.service.update(SESSION_ID, edit({ coachId: NEW_COACH_ID }), COACH_ID, NOW, COACH_ID),
+      ),
+    );
+    expect(ctx.db.sessions.get(SESSION_ID)?.coachId).toBe(COACH_ID);
+  });
+
+  it('leaves the admin (no ownerId) unchanged: any coach, any class', async () => {
+    const ctx = build({ coachId: COACH_ID });
+    await expect(ctx.service.create(ADMIN_ID, yoga(NEW_COACH_ID), NOW)).resolves.toMatchObject({
+      coachId: NEW_COACH_ID,
+    });
+    await expect(
+      ctx.service.update(SESSION_ID, edit({ coachId: NEW_COACH_ID }), ADMIN_ID, NOW),
+    ).resolves.toMatchObject({ coachId: NEW_COACH_ID });
+  });
+});

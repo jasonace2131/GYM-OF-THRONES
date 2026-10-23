@@ -53,6 +53,18 @@ describe('class booking keys', () => {
     expect(holders('booking.create')).toEqual([['CLIENT', 'OWN']]);
   });
 
+  /**
+   * Coaches run their own classes, nobody approves (owner, 2026-10-23). OWN
+   * means "classes I coach": the route hands the caller to ClassesService as
+   * the owner, which refuses anybody else's class with 403 CLASS_NOT_YOURS.
+   */
+  it('grants class.manage to ADMIN at ALL and to COACH at OWN, and to nobody else', () => {
+    expect(holders('class.manage')).toEqual([
+      ['COACH', 'OWN'],
+      ['ADMIN', 'ALL'],
+    ]);
+  });
+
   it('keeps the requires closure intact with the new key', () => {
     expect(() => assertRequiresKeysExist(PERMISSION_CATALOGUE)).not.toThrow();
     expect(() => assertRequiresClosure(PERMISSION_CATALOGUE, ROLE_PERMISSIONS)).not.toThrow();

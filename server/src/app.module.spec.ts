@@ -20,7 +20,9 @@ import { join } from 'node:path';
  * lines are stripped first so a disabled registration can never match.
  */
 describe('AppModule guard registration order', () => {
-  it('registers AuthGuard, then UserThrottlerGuard, then PermissionsGuard as APP_GUARD providers', () => {
+  // ActiveMembershipGuard last: a caller without the feature's permission gets
+  // that 403 first, and only a permitted member costs the membership read.
+  it('registers AuthGuard, UserThrottlerGuard, PermissionsGuard, then ActiveMembershipGuard', () => {
     const rawSource = readFileSync(join(__dirname, 'app.module.ts'), 'utf-8');
 
     // Drop full-line `//` comments so a disabled registration cannot match.
@@ -33,6 +35,11 @@ describe('AppModule guard registration order', () => {
 
     const registeredGuards = [...source.matchAll(guardProviderPattern)].map((match) => match[1]);
 
-    expect(registeredGuards).toEqual(['AuthGuard', 'UserThrottlerGuard', 'PermissionsGuard']);
+    expect(registeredGuards).toEqual([
+      'AuthGuard',
+      'UserThrottlerGuard',
+      'PermissionsGuard',
+      'ActiveMembershipGuard',
+    ]);
   });
 });

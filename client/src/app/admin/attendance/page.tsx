@@ -128,7 +128,6 @@ export default function AdminAttendancePage() {
   }, []);
 
   const counters = feed?.counters;
-  const unresolved = (feed?.denials ?? []).filter((d) => d.outcome === 'UNRESOLVED');
   const station = feed?.stations[0];
 
   return (
@@ -191,56 +190,8 @@ export default function AdminAttendancePage() {
           }}
         />
 
-        <Card>
-          <CardHead
-            title="Needs you"
-            action={
-              <Badge tone={unresolved.length > 0 ? 'warn' : 'neutral'}>{unresolved.length}</Badge>
-            }
-          />
-
-          {feed === null ? (
-            <span className="p-muted">Loading…</span>
-          ) : unresolved.length === 0 ? (
-            <span className="p-muted">
-              Nobody is waiting. Denials appear here the moment they happen.
-            </span>
-          ) : (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {unresolved.map((denial) => (
-                <div key={denial.denialId} className="a-denial">
-                  <Person
-                    firstName={denial.member.firstName}
-                    lastName={denial.member.lastName}
-                    sub={denial.member.memberCode}
-                    avatarUrl={denial.member.avatarUrl}
-                  />
-                  {/* The STAFF directive — the blunt form that never travelled
-                      to the member's handset. Rendered verbatim: the server
-                      composes it so both surfaces cannot contradict each
-                      other in front of the same person. */}
-                  <p className="a-denial-say">{denial.staffMessage}</p>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12 }}>
-                    <span className="p-muted">{gymTime(denial.at)}</span>
-                    {denial.offSiteOrigin ? (
-                      // A quiet chip. It denies nobody and never has — members
-                      // on cellular inside the building are entirely
-                      // legitimate.
-                      <span className="p-badge p-badge-neutral">off-site network</span>
-                    ) : null}
-                    {denial.tokenStalenessSeconds === null ? null : (
-                      <span className="p-badge p-badge-neutral">
-                        code {denial.tokenStalenessSeconds}s stale
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
+        {/* No "Needs you" denial list (owner, 2026-10-20): a denial stayed on it
+            even after the member bought a plan, and the owner wants it gone. */}
         <Card>
           <CardHead title="Arrivals" />
           {feed === null ? (

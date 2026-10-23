@@ -31,6 +31,22 @@ export enum PaymentPurpose {
   FREEZE_FEE = 'FREEZE_FEE',
 }
 
+/**
+ * `GET /me`'s `memberAccess`: what the caller may do in the member-only
+ * features — Workouts, Ask the Gym, My Progress, My Coach (owner, 2026-10-17).
+ *
+ *   - FULL — an ACTIVE membership today (the class-booking rule), or staff,
+ *     whom the gate never asks.
+ *   - READ_ONLY — a member who has a membership that is not active today
+ *     (grace, frozen, expired, cancelled): their history stays readable; every
+ *     write and AI spend is refused with 403 MEMBERSHIP_REQUIRED.
+ *   - LOCKED — a member who never had one: the feature's locked page.
+ *
+ * The server decides it, so the portal never reads a role. It only explains:
+ * the gate itself is `@RequireActiveMembership` on the server.
+ */
+export type MemberAccess = 'FULL' | 'READ_ONLY' | 'LOCKED';
+
 /** Cash, or a GCash reference typed by staff. No payment processing exists. */
 export enum PaymentMethod {
   CASH = 'CASH',

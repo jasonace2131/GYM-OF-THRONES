@@ -24,6 +24,8 @@ export * from './types/staff.types';
 export * from './types/member-join.types';
 // The emailed sign-in code: the two /auth/login-code responses.
 export * from './types/login-code.types';
+// The gym's equipment list, fed to the AI planners.
+export * from './types/gym-equipment.types';
 // The statutory money arithmetic, consumed by the server's payment writes and
 // by the console's amend preview. One copy, two runtimes.
 export * from './money/amounts';
@@ -44,3 +46,4 @@ export * from './coaching/workout-plan';
 export * from './workouts/workouts.types';
 export * from './workouts/member-plan';
 export * from './workouts/sessions';
+export * from './workouts/goal-suitability';

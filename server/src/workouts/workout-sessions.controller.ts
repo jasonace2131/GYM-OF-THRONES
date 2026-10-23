@@ -17,6 +17,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { Idempotent } from '../common/decorators/idempotent.decorator';
 import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
+import { RequireActiveMembership } from '../membership/require-active-membership.decorator';
 import { WorkoutSessionsService } from './workout-sessions.service';
 import {
   FinishSessionDto,
@@ -50,6 +51,7 @@ export class WorkoutSessionsController {
   /** Start a day. 409 WORKOUT_SESSION_OPEN (with `details.sessionId`) if one is open. */
   @Post()
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   async start(
     @CurrentUser() user: AuthUser,
@@ -95,6 +97,7 @@ export class WorkoutSessionsController {
   /** Tick (or re-tick with new numbers). Indexes are checked by the service: 400 WORKOUT_SET_INVALID. */
   @Put(':id/sets/:exerciseIndex/:setIndex')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async logSet(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -111,6 +114,7 @@ export class WorkoutSessionsController {
   /** Untick. `{ deleted: false }` when it was not ticked — replay-safe. */
   @Delete(':id/sets/:exerciseIndex/:setIndex')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async unlogSet(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -123,6 +127,7 @@ export class WorkoutSessionsController {
   /** Needs ≥ 1 ticked set (422). A finished session answers its summary again. */
   @Post(':id/finish')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   @HttpCode(HttpStatus.OK)
   async finish(
@@ -136,6 +141,7 @@ export class WorkoutSessionsController {
   /** The feeling, on a finished session only. */
   @Patch(':id')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async patch(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -147,6 +153,7 @@ export class WorkoutSessionsController {
   /** Discard an OPEN workout (its sets go with it). A finished one is 409. */
   @Delete(':id')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async discard(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,

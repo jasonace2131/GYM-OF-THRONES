@@ -74,7 +74,12 @@ export function ExerciseCard({
       </div>
 
       {howOpen && guide !== null ? (
-        <HowToPanel state={guide} onRetry={onRetryGuide} className="m-0 @2xl:m-0" />
+        <HowToPanel
+          state={guide}
+          exerciseName={copy.name}
+          onRetry={onRetryGuide}
+          className="m-0 @2xl:m-0"
+        />
       ) : null}
 
       <SetTable rows={rows} {...handlers} />

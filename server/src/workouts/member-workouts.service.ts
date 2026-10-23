@@ -54,6 +54,7 @@ import {
 } from './workouts.presenter';
 import { WorkoutPlansService } from '../workout-plans/workout-plans.service';
 import { WorkoutSessionsService, NO_COACH_PLAN_MESSAGE } from './workout-sessions.service';
+import { GymEquipmentService } from '../gym-equipment/gym-equipment.service';
 import { toCoachPlanInWorkouts } from './workout-sessions.presenter';
 
 export const PLAN_LIMIT_MESSAGE = `You already keep ${WORKOUT_LIBRARY_LIMIT} plans. Delete one to save this.`;
@@ -92,6 +93,8 @@ export class MemberWorkoutsService {
     // plan, the open workout and the recent ones beside the AI plans.
     private readonly coachPlans: WorkoutPlansService,
     private readonly sessions: WorkoutSessionsService,
+    // The gym's equipment list (Admin → Settings), sent with swap and adjust.
+    private readonly equipment: GymEquipmentService,
   ) {}
 
   /** `GET /me/workouts`. */
@@ -327,6 +330,7 @@ export class MemberWorkoutsService {
       healthFlag: view.intake.healthFlag,
       easyOn: view.intake.easyOn,
       medicalNotes: await this.sharedMedicalNotes(memberId),
+      gymEquipment: await this.equipment.forPrompt(),
     });
 
     const quota = await this.charge(memberId, now);
@@ -376,9 +380,10 @@ export class MemberWorkoutsService {
       easyOn: view.intake.easyOn,
     };
     const medicalNotes = await this.sharedMedicalNotes(memberId);
+    const gymEquipment = await this.equipment.forPrompt();
     const prompt = hasPreset
-      ? adjustPrompt({ day, summary, medicalNotes, preset: body.preset! })
-      : adjustPrompt({ day, summary, medicalNotes, request: body.request!.trim() });
+      ? adjustPrompt({ day, summary, medicalNotes, gymEquipment, preset: body.preset! })
+      : adjustPrompt({ day, summary, medicalNotes, gymEquipment, request: body.request!.trim() });
 
     const quota = await this.charge(memberId, now);
     const { model, value, startedAt } = await this.paidAsk(

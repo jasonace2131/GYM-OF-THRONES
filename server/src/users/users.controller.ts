@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Patch } from '@nestjs/common';
-import type { MyProfile } from '@got/shared';
+import type { MemberAccess, MyProfile } from '@got/shared';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { PermissionsService } from '../rbac/permissions.service';
 import { MyProfileService } from './my-profile.service';
+import { MembershipService } from '../membership/membership.service';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import type { AuthUser } from '../auth/auth.types';
 import type { EffectivePermission } from '../rbac/rbac.types';
@@ -17,6 +18,12 @@ interface MeResponse {
   heightCm: number | null;
   weightKg: number | null;
   permissions: readonly EffectivePermission[];
+  /**
+   * What the caller may do in the member-only features (Workouts, Ask the
+   * Gym, My Progress, My Coach) — see `MemberAccess`. Decided here so the
+   * portal never reads a role; the gate itself is the server's.
+   */
+  memberAccess: MemberAccess;
 }
 
 @Controller('me')
@@ -24,6 +31,7 @@ export class UsersController {
   constructor(
     private readonly permissions: PermissionsService,
     private readonly profiles: MyProfileService,
+    private readonly memberships: MembershipService,
   ) {}
 
   /**
@@ -37,7 +45,10 @@ export class UsersController {
    */
   @Get()
   async me(@CurrentUser() user: AuthUser): Promise<MeResponse> {
-    const permissions = await this.permissions.getEffectivePermissions(user);
+    const [permissions, memberAccess] = await Promise.all([
+      this.permissions.getEffectivePermissions(user),
+      this.memberships.memberAccessFor(user),
+    ]);
 
     return {
       id: user.id,
@@ -51,6 +62,7 @@ export class UsersController {
       heightCm: user.heightCm,
       weightKg: user.weightKg,
       permissions,
+      memberAccess,
     };
   }
 

@@ -321,3 +321,20 @@ export async function makeMember(
 
   return { userId, membershipId: membership.id, memberCode, email };
 }
+
+/**
+ * Gives each already-provisioned member an ACTIVE Monthly membership from
+ * `today` — for suites that exercise a member-only feature (Workouts, Ask the
+ * Gym, My Coach's chat), whose writes need an active membership since
+ * 2026-10-17 (`@RequireActiveMembership`). Seeds the plans first.
+ */
+export async function makeActiveMembers(
+  prisma: PrismaClient,
+  userIds: readonly string[],
+  today: CivilDate,
+): Promise<void> {
+  await seedPlansForTest(prisma);
+  for (const userId of userIds) {
+    await makeMember(prisma, { state: 'ACTIVE', today, userId });
+  }
+}

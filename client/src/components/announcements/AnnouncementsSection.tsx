@@ -184,7 +184,14 @@ export function AnnouncementsSection({
         />
       ) : (
         <>
-          <div>
+          {/* Fixed height: many notices scroll inside the card instead of
+              stretching the dashboard. Focusable so keyboards can scroll it. */}
+          <div
+            role="region"
+            aria-label="Announcements list"
+            tabIndex={0}
+            className="max-h-[360px] overflow-y-auto overscroll-contain sm:max-h-[420px]"
+          >
             {shown.map((notice) => (
               <NoticeItem
                 key={notice.id}

@@ -2,6 +2,7 @@
 
 import { PERMISSIONS } from '@got/shared';
 import { RequirePermission } from '@/components/rbac/guards';
+import { WritesOnly } from '@/components/portal/MembershipGate';
 import { SessionScreen } from '@/components/workouts/session/SessionScreen';
 
 /**
@@ -12,7 +13,10 @@ import { SessionScreen } from '@/components/workouts/session/SessionScreen';
 export default function WorkoutSessionPage() {
   return (
     <RequirePermission permission={PERMISSIONS.WORKOUT_MEMBER}>
-      <SessionScreen />
+      {/* Logging sets is a write: a lapsed member is pointed back. */}
+      <WritesOnly backHref="/portal/workouts/history" backLabel="See past workouts">
+        <SessionScreen />
+      </WritesOnly>
     </RequirePermission>
   );
 }

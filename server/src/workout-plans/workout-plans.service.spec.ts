@@ -13,6 +13,7 @@ import type { MeCheckInsService } from '../me/me-check-ins.service';
 import type { ScopedWhere } from '../rbac/scope.util';
 import { GeminiGateway } from '../assistant/gemini-gateway.service';
 import { WORKOUT_PLAN_RESPONSE_SCHEMA } from './workout-plan-prompt';
+import type { GymEquipmentService } from '../gym-equipment/gym-equipment.service';
 import { WorkoutPlansService, type PlanActor } from './workout-plans.service';
 
 jest.mock('@google/generative-ai', () => {
@@ -73,6 +74,7 @@ describe('WorkoutPlansService', () => {
   let progress: { memberProgress: jest.Mock };
   let audit: { record: jest.Mock };
   let logs: string[];
+  let equipment: { forPrompt: jest.Mock };
 
   const build = (apiKey: string | null = 'configured'): WorkoutPlansService => {
     const gym = { timeZone: 'Asia/Manila' } as unknown as GymConfigService;
@@ -98,6 +100,7 @@ describe('WorkoutPlansService', () => {
         }),
       } as unknown as MeCheckInsService,
       gateway,
+      equipment as unknown as GymEquipmentService,
     );
   };
 
@@ -139,6 +142,7 @@ describe('WorkoutPlansService', () => {
     progress = { memberProgress: jest.fn().mockResolvedValue(memberProgress()) };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     logs = [];
+    equipment = { forPrompt: jest.fn().mockResolvedValue([]) };
     for (const level of ['log', 'warn', 'error'] as const) {
       jest.spyOn(Logger.prototype, level).mockImplementation((...args: unknown[]) => {
         logs.push(String(args[0]));
@@ -193,6 +197,16 @@ describe('WorkoutPlansService', () => {
       });
       const [prompt] = generateContent.mock.calls[0] as [string];
       expect(prompt).toContain('"heightCm":182');
+    });
+
+    it("sends the gym's equipment list as data", async () => {
+      generateContent.mockResolvedValue(reply(JSON.stringify(PLAN)));
+      equipment.forPrompt.mockResolvedValue(['Rower']);
+
+      await build().suggest(COACH, MEMBER_ID, scope, NOW);
+
+      const [prompt] = generateContent.mock.calls[0] as [string];
+      expect(prompt).toContain('"gymEquipment":["Rower"]');
     });
 
     it('sends the model no name, member code or id', async () => {

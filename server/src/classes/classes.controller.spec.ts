@@ -7,6 +7,7 @@ import {
 import { IDEMPOTENT_KEY } from '../common/decorators/idempotent.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { AdminClassesController, ClassesController } from './classes.controller';
+import { grantedScopeOf } from '../rbac/decorators/granted-scope.decorator';
 import type { ClassesService } from './classes.service';
 import type { BookingsService } from './bookings.service';
 
@@ -168,17 +169,77 @@ describe('the actor comes from the token, never from the request', () => {
   it('passes the signed-in staffer to every staff write', async () => {
     const { classes, bookings, controller } = services();
 
-    await controller.update(STAFF, SESSION_ID, { title: 'Spin' });
-    await controller.cancelSession(STAFF, SESSION_ID, { reason: 'Coach is unwell' });
+    await controller.update(STAFF, 'ALL', SESSION_ID, { title: 'Spin' });
+    await controller.cancelSession(STAFF, 'ALL', SESSION_ID, { reason: 'Coach is unwell' });
     await controller.addMember(STAFF, SESSION_ID, { userId: MEMBER_ID });
     await controller.removeMember(STAFF, BOOKING_ID, { reason: 'Moved to the 7pm' });
     await controller.markAttendance(STAFF, BOOKING_ID, { attended: false });
 
-    expect(classes.update).toHaveBeenCalledWith(SESSION_ID, { title: 'Spin' }, STAFF.id);
-    expect(classes.cancel).toHaveBeenCalledWith(SESSION_ID, 'Coach is unwell', STAFF.id);
+    expect(classes.update).toHaveBeenCalledWith(
+      SESSION_ID,
+      { title: 'Spin' },
+      STAFF.id,
+      undefined,
+      null,
+    );
+    expect(classes.cancel).toHaveBeenCalledWith(
+      SESSION_ID,
+      'Coach is unwell',
+      STAFF.id,
+      undefined,
+      null,
+    );
     expect(bookings.addByStaff).toHaveBeenCalledWith(STAFF.id, SESSION_ID, MEMBER_ID);
     expect(bookings.removeByStaff).toHaveBeenCalledWith(STAFF.id, BOOKING_ID, 'Moved to the 7pm');
     expect(bookings.markAttendance).toHaveBeenCalledWith(STAFF.id, BOOKING_ID, false);
+  });
+
+  /**
+   * Coaches run their own classes (owner, 2026-10-23): class.manage at OWN
+   * hands the caller to the service as the owner every class must have;
+   * at ALL (the admin) there is no owner and nothing changes.
+   */
+  it('makes an OWN holder the owner of every class write, and an ALL holder unrestricted', async () => {
+    const classes = {
+      create: jest.fn().mockResolvedValue({}),
+      update: jest.fn().mockResolvedValue({}),
+      cancel: jest.fn().mockResolvedValue({}),
+    };
+    const controller = new AdminClassesController(
+      classes as unknown as ClassesService,
+      {} as unknown as BookingsService,
+    );
+    const coach = { id: '11111111-1111-4111-8111-111111111111' } as AuthUser;
+    const dto = {
+      title: 'Yoga',
+      coachId: coach.id,
+      startsAt: '2026-11-01T01:00:00.000Z',
+      endsAt: '2026-11-01T02:00:00.000Z',
+      capacity: 12,
+    };
+
+    await controller.create(coach, 'OWN', dto);
+    await controller.update(coach, 'OWN', SESSION_ID, { title: 'Spin' });
+    await controller.cancelSession(coach, 'OWN', SESSION_ID, { reason: 'Unwell' });
+    expect(classes.create).toHaveBeenCalledWith(coach.id, dto, undefined, coach.id);
+    expect(classes.update).toHaveBeenCalledWith(
+      SESSION_ID,
+      { title: 'Spin' },
+      coach.id,
+      undefined,
+      coach.id,
+    );
+    expect(classes.cancel).toHaveBeenCalledWith(SESSION_ID, 'Unwell', coach.id, undefined, coach.id);
+
+    await controller.create(STAFF, 'ALL', dto);
+    expect(classes.create).toHaveBeenLastCalledWith(STAFF.id, dto, undefined, null);
+  });
+
+  it('reads the scope the guard resolved, and refuses a route the guard never saw', () => {
+    expect(grantedScopeOf({ permission: { key: 'class.manage', scope: 'OWN' } } as never)).toBe(
+      'OWN',
+    );
+    expect(() => grantedScopeOf({} as never)).toThrow(/RequirePermission/);
   });
 
   it('books and cancels as the signed-in member only', async () => {

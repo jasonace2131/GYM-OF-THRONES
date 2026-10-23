@@ -2,6 +2,7 @@ import { SchemaType, type ResponseSchema } from '@google/generative-ai';
 import { WORKOUT_PLAN_LIMITS, type MyCheckInSummary } from '@got/shared';
 import { addDays, type CivilDate } from '../common/time/gym-time';
 import type { ProgressSummary } from '../me/progress.presenter';
+import { EQUIPMENT_RULE, equipmentField } from '../workouts/member-plan-prompt';
 
 /**
  * Everything the plan suggester sends to Gemini — pure, so what leaves the
@@ -39,6 +40,8 @@ export interface PlanContext {
   };
   weightChange: { kg: number; overDays: number } | null;
   attendance: { visitsLast30Days: number; averageVisitsPerWeek: number };
+  /** What the gym has (Admin → Settings), as data. Absent when the list is empty. */
+  gymEquipment?: string[];
 }
 
 const ATTENDANCE_WINDOW_DAYS = 30;
@@ -65,6 +68,7 @@ export function buildPlanContext(
   checkIns: MyCheckInSummary,
   today: CivilDate,
   account: { heightCm: number | null } | null = null,
+  equipment: readonly string[] = [],
 ): PlanContext {
   // `measurements` is oldest first (ProgressService.summary).
   const heightMm =
@@ -100,13 +104,15 @@ export function buildPlanContext(
         .reduce((sum, day) => sum + day.count, 0),
       averageVisitsPerWeek: checkIns.avgPerWeek,
     },
+    ...equipmentField(equipment),
   };
 }
 
 export const WORKOUT_PLAN_SYSTEM_PROMPT = [
   'You help a gym coach draft a weekly workout plan for one of their clients. The coach reviews and edits your draft before the client sees it.',
   'Use only the facts you are given. Never invent injuries, conditions or equipment limits; if something matters and is unknown, keep the plan conservative.',
-  'Prefer safe, well-known exercises a commercial gym has. Match the number of training days to how often the client actually comes in (their recent attendance), between 2 and 5 days.',
+  EQUIPMENT_RULE,
+  'Prefer safe, well-known exercises. Match the number of training days to how often the client actually comes in (their recent attendance), between 2 and 5 days.',
   // The member's Today finds a day by its label (feat/workout-sessions), so
   // the label must BE a weekday name and name each weekday at most once.
   `Each day's label is the weekday name it is trained on, in English: "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" or "Sunday" (at most ${WORKOUT_PLAN_LIMITS.dayLabelMax} characters). Use one weekday per training day and never use the same weekday twice; spread the days across the week with rest days between hard sessions.`,

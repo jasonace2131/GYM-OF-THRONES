@@ -17,6 +17,7 @@ import { ProgressService } from '../me/progress.service';
 import { MeCheckInsService } from '../me/me-check-ins.service';
 import { GeminiGateway, type GeminiCopy } from '../assistant/gemini-gateway.service';
 import { ASK_BUDGET_MS, remainingMs } from '../assistant/assistant-budget';
+import { GymEquipmentService } from '../gym-equipment/gym-equipment.service';
 import { generationConfigFor } from '../assistant/gemini-models';
 import {
   WORKOUT_PLAN_RESPONSE_SCHEMA,
@@ -90,6 +91,7 @@ export class WorkoutPlansService {
     private readonly progress: ProgressService,
     private readonly checkIns: MeCheckInsService,
     private readonly gemini: GeminiGateway,
+    private readonly equipment: GymEquipmentService,
   ) {}
 
   async suggest(
@@ -103,15 +105,23 @@ export class WorkoutPlansService {
     const progress = await this.progress.memberProgress(actor, memberId, scope, now);
     this.gemini.assertEnabled(PLAN_COPY);
 
-    const [checkIns, account] = await Promise.all([
+    const [checkIns, account, equipment] = await Promise.all([
       this.checkIns.summary(progress.member.id, now),
       // The member's own height (My account) — ahead of a measured one.
       this.prisma.user.findUnique({
         where: { id: progress.member.id },
         select: { heightCm: true },
       }),
+      // The gym's equipment list (Admin → Settings); [] on any failure.
+      this.equipment.forPrompt(),
     ]);
-    const context = buildPlanContext(progress, checkIns, gymToday(now, this.gym.timeZone), account);
+    const context = buildPlanContext(
+      progress,
+      checkIns,
+      gymToday(now, this.gym.timeZone),
+      account,
+      equipment,
+    );
     const prompt = planPrompt(context);
 
     const { model, value, attempts, startedAt } = await this.gemini.rotate(

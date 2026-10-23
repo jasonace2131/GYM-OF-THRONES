@@ -156,6 +156,60 @@ describe('MembershipService.loadBookingSubject', () => {
   });
 });
 
+describe('MembershipService.hasActiveMembership — the member-only feature gate', () => {
+  it('is true inside the term, judged on the gym day', async () => {
+    const { prisma, service } = build();
+    prisma.user.findFirst.mockResolvedValue(userRow(U1, membershipWithHolds([])));
+
+    await expect(
+      service.hasActiveMembership(U1, new Date('2026-10-31T15:00:00.000Z')),
+    ).resolves.toBe(true);
+  });
+
+  it('is false from the first gym day after the term (Manila midnight, not UTC)', async () => {
+    const { prisma, service } = build();
+    prisma.user.findFirst.mockResolvedValue(userRow(U1, membershipWithHolds([])));
+
+    // 16:00Z on 31 Oct is 00:00 on 1 Nov in Manila: grace, which does not count.
+    await expect(
+      service.hasActiveMembership(U1, new Date('2026-10-31T16:00:00.000Z')),
+    ).resolves.toBe(false);
+  });
+
+  it('is false with no membership and for a missing user', async () => {
+    const { prisma, service } = build();
+    prisma.user.findFirst.mockResolvedValueOnce(userRow(U1, null)).mockResolvedValueOnce(null);
+
+    await expect(service.hasActiveMembership(U1)).resolves.toBe(false);
+    await expect(service.hasActiveMembership(U1)).resolves.toBe(false);
+  });
+});
+
+describe('MembershipService.memberAccessFor — GET /me', () => {
+  const NOW = new Date('2026-10-20T04:00:00.000Z');
+
+  it('never reads a membership for staff', async () => {
+    const { prisma, service } = build();
+
+    await expect(service.memberAccessFor({ id: U1, role: 'COACH' }, NOW)).resolves.toBe('FULL');
+    expect(prisma.user.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('is FULL, READ_ONLY or LOCKED for a member', async () => {
+    const { prisma, service } = build();
+    const lapsed = { ...membershipWithHolds([]), status: 'EXPIRED', endsOn: day('2026-09-30') };
+    prisma.user.findFirst
+      .mockResolvedValueOnce(userRow(U1, membershipWithHolds([])))
+      .mockResolvedValueOnce(userRow(U1, lapsed as ReturnType<typeof membershipWithHolds>))
+      .mockResolvedValueOnce(userRow(U1, null));
+
+    const client = { id: U1, role: 'CLIENT' as const };
+    await expect(service.memberAccessFor(client, NOW)).resolves.toBe('FULL');
+    await expect(service.memberAccessFor(client, NOW)).resolves.toBe('READ_ONLY');
+    await expect(service.memberAccessFor(client, NOW)).resolves.toBe('LOCKED');
+  });
+});
+
 describe('MembershipService.loadBookingSubjects', () => {
   it('reads everybody in ONE query, each id once', async () => {
     const { prisma, service } = build();

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 import { WORKOUT_LIBRARY_LIMIT, type MemberWorkoutPlanView } from '@got/shared';
 import { Card, EmptyState, Skeleton } from '@/components/portal/ui';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 import { DeletePlanDialog } from '@/components/workouts/DeletePlanDialog';
 import { DraftBanner } from '@/components/workouts/DraftBanner';
 import { HubToday, PhoneWeekCard } from '@/components/workouts/HubToday';
@@ -41,6 +42,8 @@ export function WorkoutsHub() {
   const [notice, setNotice] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<MemberWorkoutPlanView | null>(null);
   const starter = useSessionStarter();
+  // A lapsed member keeps their library on screen; every change to it is a write.
+  const canWrite = useMemberCanWrite();
 
   const load = useCallback((): void => {
     loadHub(new Date())
@@ -153,7 +156,7 @@ export function WorkoutsHub() {
   const tip = source.kind === 'member' ? tipOfTheDay(source.plan.plan.guidance, today) : null;
   const noPlans = home.plans.length === 0 && home.coachPlan === null;
   const full = home.plans.length >= WORKOUT_LIBRARY_LIMIT;
-  const busy = busyPlan !== null;
+  const busy = busyPlan !== null || !canWrite;
 
   return (
     <div className="@container">
@@ -218,7 +221,7 @@ export function WorkoutsHub() {
                 {home.plans.length} of {WORKOUT_LIBRARY_LIMIT} saved
               </span>
             </div>
-            {home.plans.length === 0 || full ? null : (
+            {home.plans.length === 0 || full || !canWrite ? null : (
               <Link
                 href="/portal/workouts/new"
                 className={buttonClass('gold', 'sm', 'hidden @md:inline-flex')}
@@ -241,7 +244,7 @@ export function WorkoutsHub() {
                 onDelete={setDeleting}
               />
             ))}
-            <CreatePlanCard full={full} />
+            {canWrite ? <CreatePlanCard full={full} /> : null}
           </div>
         </section>
 

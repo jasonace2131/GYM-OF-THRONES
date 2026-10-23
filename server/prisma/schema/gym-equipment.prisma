@@ -1,0 +1,24 @@
+/// The gym's equipment, edited from Admin → Settings (owner, 2026-10-23).
+///
+/// The AI planners (member plan, swap, adjust, and the coach's suggester) get
+/// this list as DATA and plan only with it or bodyweight. An EMPTY list is a
+/// valid state: the planners then keep their old "common gym basics, never
+/// invent equipment" behaviour.
+///
+/// The CHECKs (name 1–80 characters and never blank, detail 1–120 when set,
+/// sortOrder ≥ 0) and the case-insensitive unique index on lower(name) live
+/// only in migration 20261023000000_gym_equipment — Prisma cannot represent
+/// them.
+model GymEquipment {
+  id        String   @id @default(uuid()) @db.Uuid
+  /// "Dumbbells". Unique ignoring case (index on lower(name)).
+  name      String
+  /// Optional, short: "2–40 kg pairs".
+  detail    String?
+  /// The admin's order, 0-based. Ties fall back to name.
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([sortOrder])
+}

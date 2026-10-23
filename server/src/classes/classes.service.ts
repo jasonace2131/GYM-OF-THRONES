@@ -43,6 +43,21 @@ function classNotFound(): DomainException {
 }
 
 /**
+ * Coaches run their own classes (owner, 2026-10-23). A caller holding
+ * `class.manage` at OWN arrives with `ownerId` set to themselves: every class
+ * they create, change or cancel must be one they coach. `null` — `class.manage`
+ * at ALL, the admin — is unrestricted, exactly as before.
+ */
+function assertOwner(ownerId: string | null, coachId: string): void {
+  if (ownerId === null || ownerId === coachId) return;
+  throw new DomainException(
+    'CLASS_NOT_YOURS',
+    'You can only create, change or cancel classes you coach.',
+    HttpStatus.FORBIDDEN,
+  );
+}
+
+/**
  * A start time the admin typed into the past — 06:00 for 18:00, say. The
  * class it would make could never be edited or cancelled afterwards (both
  * refuse a class that has started), so it is refused before it exists.
@@ -122,7 +137,9 @@ export class ClassesService {
     createdById: string,
     dto: CreateClassSessionDto,
     now: Date = new Date(),
+    ownerId: string | null = null,
   ): Promise<ClassSessionDto> {
+    assertOwner(ownerId, dto.coachId);
     const startsAt = new Date(dto.startsAt);
     const endsAt = new Date(dto.endsAt);
 
@@ -192,6 +209,7 @@ export class ClassesService {
     dto: UpdateClassSessionDto,
     actorId: string,
     now: Date = new Date(),
+    ownerId: string | null = null,
   ): Promise<ClassSessionDto> {
     const outcome = await this.prisma.$transaction(async (tx) => {
       if (!(await lockClassSession(tx, id))) throw classNotFound();
@@ -199,6 +217,10 @@ export class ClassesService {
         where: { id },
         include: SESSION_INCLUDE,
       });
+      // Under the lock, so an admin reassigning the class cannot slip between
+      // the check and the write. A coach may not hand their class on either.
+      assertOwner(ownerId, before.coachId);
+      if (dto.coachId !== undefined) assertOwner(ownerId, dto.coachId);
 
       if (before.cancelledAt !== null) {
         throw new DomainException(
@@ -321,13 +343,15 @@ export class ClassesService {
     reason: string,
     actorId: string,
     now: Date = new Date(),
+    ownerId: string | null = null,
   ): Promise<ClassSessionDto> {
     const outcome = await this.prisma.$transaction(async (tx) => {
       if (!(await lockClassSession(tx, id))) throw classNotFound();
       const existing = await tx.classSession.findUniqueOrThrow({
         where: { id },
-        select: { cancelledAt: true, startsAt: true },
+        select: { cancelledAt: true, startsAt: true, coachId: true },
       });
+      assertOwner(ownerId, existing.coachId);
       if (existing.cancelledAt !== null) {
         throw new DomainException(
           'CLASS_ALREADY_CANCELLED',

@@ -19,6 +19,8 @@ import { apiFetch } from '@/lib/api';
 import { classesApi } from '@/lib/classes';
 import { GYM_TIMEZONE, addDays, gymToday } from '@/lib/gymTime';
 import type { ProgressSummary } from '@/lib/progress/types';
+import { getProfile } from '@/lib/account';
+import { keepSuitableGoal, type AccountBody } from '@/lib/workouts/body';
 import { workoutsApi } from '@/lib/workouts/api';
 import { isQuotaExhausted, workoutErrorMessage } from '@/lib/workouts/errors';
 import { bookingHint, gymFacts } from '@/lib/workouts/facts';
@@ -53,6 +55,8 @@ interface Context {
   progress: ProgressSummary | null;
   checkIns: MyCheckInSummary | null;
   bookings: MyBookingWire[];
+  /** The account's height and weight; null when `/me/profile` could not be read. */
+  body: AccountBody | null;
 }
 
 function readSession(): string | null {
@@ -81,6 +85,7 @@ export function IntakeWizard() {
     progress: null,
     checkIns: null,
     bookings: [],
+    body: null,
   });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'warn' | 'danger'; text: React.ReactNode } | null>(
@@ -113,14 +118,20 @@ export function IntakeWizard() {
       apiFetch<MyCheckInSummary>('/me/check-ins/summary'),
       classesApi.myBookings({ from: today, to: addDays(today, 14) }),
       prefill(),
-    ]).then(([home, progress, checkIns, bookings, prefilled]) => {
+      getProfile(),
+    ]).then(([home, progress, checkIns, bookings, prefilled, profile]) => {
       if (cancelled) return;
       const homeValue = home.status === 'fulfilled' ? home.value : null;
+      const body: AccountBody | null =
+        profile.status === 'fulfilled'
+          ? { heightCm: profile.value.heightCm, weightKg: profile.value.weightKg }
+          : null;
       setContext({
         quota: homeValue?.quota ?? null,
         progress: progress.status === 'fulfilled' ? progress.value : null,
         checkIns: checkIns.status === 'fulfilled' ? checkIns.value : null,
         bookings: bookings.status === 'fulfilled' ? bookings.value : [],
+        body,
       });
       const start =
         (prefilled.status === 'fulfilled' ? prefilled.value : null) ??
@@ -128,7 +139,7 @@ export function IntakeWizard() {
         prefillIntake(homeValue?.lastIntake ?? null);
       // Replace the blank state wholesale: a reducer action per field would
       // flash the empty form first.
-      dispatch({ type: 'restore', state: start });
+      dispatch({ type: 'restore', state: keepSuitableGoal(start, body) });
       setReady(true);
     });
 
@@ -229,7 +240,12 @@ export function IntakeWizard() {
             <IntakeSteps state={state} onGoTo={(step) => dispatch({ type: 'goto', step })} />
 
             {state.step === 1 ? (
-              <GoalStep state={state} problem={problem} dispatch={dispatch} />
+              <GoalStep
+                state={state}
+                problem={problem}
+                dispatch={dispatch}
+                body={context.body}
+              />
             ) : state.step === 2 ? (
               <AboutStep state={state} facts={facts} problem={problem} dispatch={dispatch} />
             ) : state.step === 3 ? (
@@ -250,7 +266,12 @@ export function IntakeWizard() {
             )}
 
             <div className="@4xl:hidden">
-              <IntakeRail state={state} facts={facts} quota={context.quota} />
+              <IntakeRail
+                state={state}
+                facts={facts}
+                quota={context.quota}
+                body={context.body}
+              />
             </div>
 
             <IntakeFooter
@@ -265,7 +286,12 @@ export function IntakeWizard() {
           </Panel>
 
           <aside className="hidden @4xl:block">
-            <IntakeRail state={state} facts={facts} quota={context.quota} />
+            <IntakeRail
+              state={state}
+              facts={facts}
+              quota={context.quota}
+              body={context.body}
+            />
           </aside>
         </div>
       </div>

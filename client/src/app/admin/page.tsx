@@ -22,7 +22,7 @@ import { STAFF_QR_PATH } from '@/lib/stationAuth';
  * ─────────────────────────────────────────────────────────────────────────
  * IT ANSWERS THREE QUESTIONS, IN THIS ORDER.
  *
- *   1. What needs me right now?   → the "Needs you" band
+ *   1. What needs me right now?   → the "Today" band
  *   2. How is today going?        → the KPI row
  *   3. What is coming?            → chart, renewals calendar, expiring list
  *
@@ -228,16 +228,8 @@ export default function AdminDashboardPage() {
       verb: string;
     }[] = [];
 
-    if (counters !== undefined && counters.needsYou > 0) {
-      items.push({
-        key: 'denials',
-        tone: 'danger',
-        title: `${counters.needsYou} denied scan${counters.needsYou === 1 ? '' : 's'}`,
-        sub: 'Unresolved at the door',
-        href: '/admin/attendance',
-        verb: 'Resolve',
-      });
-    }
+    // No "denied scans" item (owner, 2026-10-20): a denial stayed listed even
+    // after the member bought a plan.
     if (expiring.data !== null && expiring.data.total > 0) {
       items.push({
         key: 'expiring',
@@ -261,7 +253,7 @@ export default function AdminDashboardPage() {
       });
     }
     return items;
-  }, [counters, expiring.data, longSessions]);
+  }, [expiring.data, longSessions]);
 
   // Clicking a day in the calendar filters the list below it rather than
   // navigating — the point is to answer "who do I call today" without losing
@@ -400,14 +392,14 @@ export default function AdminDashboardPage() {
       {/* ══ 3. NEEDS YOU ══ */}
       <section className="a-attention">
         <div className="a-attention-head">
-          <h2 className="a-attention-title">Needs you</h2>
+          <h2 className="a-attention-title">Today</h2>
           {attention.length > 0 && <span className="a-attention-count">{attention.length}</span>}
         </div>
 
         {attention.length === 0 ? (
           // Keeps its slot when empty. A band that vanishes makes the page jump
           // on every poll, and its absence reads the same as not-yet-loaded.
-          <p className="a-attention-clear">Nothing needs you right now.</p>
+          <p className="a-attention-clear">Nothing to follow up right now.</p>
         ) : (
           <div className="a-attention-row">
             {attention.map((item) => (

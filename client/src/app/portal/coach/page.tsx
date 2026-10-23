@@ -78,6 +78,13 @@ export default function CoachPage() {
   );
 }
 
+/**
+ * The single-column states (no coach, loading, failed) sit centred in the
+ * content area rather than pinned left (owner, 2026-10-23), like
+ * /portal/checkin. The two-column coach + chat layout already fills the width.
+ */
+const COLUMN = { maxWidth: 760, width: '100%', marginInline: 'auto' } as const;
+
 function MyCoachCard() {
   const [data, setData] = useState<MyCoach | null>(null);
   const [failed, setFailed] = useState(false);
@@ -98,18 +105,26 @@ function MyCoachCard() {
 
   if (failed) {
     return (
-      <EmptyState
-        title="We could not load your coach"
-        hint="Check your connection and refresh. The front desk can always tell you who you are assigned to."
-      />
+      <div style={COLUMN}>
+        <EmptyState
+          title="We could not load your coach"
+          hint="Check your connection and refresh. The front desk can always tell you who you are assigned to."
+        />
+      </div>
     );
   }
 
-  if (data === null) return <Skeleton height={220} />;
+  if (data === null) {
+    return (
+      <div style={COLUMN}>
+        <Skeleton height={220} />
+      </div>
+    );
+  }
 
   if (data.coach === null) {
     return (
-      <div style={{ display: 'grid', gap: 16, maxWidth: 760 }}>
+      <div style={{ display: 'grid', gap: 16, ...COLUMN }}>
         <Card>
           <EmptyState
             title="No coach assigned yet"

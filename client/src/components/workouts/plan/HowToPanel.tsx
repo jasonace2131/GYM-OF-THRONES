@@ -1,7 +1,18 @@
 import type { ExerciseGuideView } from '@got/shared';
 import { cn } from '@/lib/utils';
+import { demoVideoUrl } from '@/lib/workouts/demoVideo';
 import { IconCheck, IconWarning } from '../icons';
 import { Bone, Notice, PlainButton } from '../ui';
+
+/** A small play triangle in a circle; decorative. */
+function IconPlay() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+      <path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor" />
+    </svg>
+  );
+}
 
 export type GuideState =
   | { kind: 'loading' }
@@ -14,10 +25,13 @@ export type GuideState =
  */
 export function HowToPanel({
   state,
+  exerciseName,
   onRetry,
   className,
 }: {
   state: GuideState;
+  /** Names the YouTube search behind "Watch a demo". */
+  exerciseName: string;
   onRetry: () => void;
   className?: string;
 }) {
@@ -31,6 +45,21 @@ export function HowToPanel({
       aria-label="How to do it"
       aria-busy={state.kind === 'loading' || undefined}
     >
+      {/* First, and in every state: a video shows form better than any
+          sentence, and the written steps below stay as the backup (owner,
+          2026-10-23). A plain link, so read-only members get it too. */}
+      <div className="@2xl:col-span-2">
+        <a
+          href={demoVideoUrl(exerciseName)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-night px-4 text-[13.5px] font-semibold text-gold-lit no-underline hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        >
+          <IconPlay />
+          Watch a demo
+          <span className="sr-only"> of {exerciseName} on YouTube (opens in a new tab)</span>
+        </a>
+      </div>
       {state.kind === 'error' ? (
         <div className="@2xl:col-span-2">
           <Notice tone="warn" icon={<IconWarning />} role="alert">

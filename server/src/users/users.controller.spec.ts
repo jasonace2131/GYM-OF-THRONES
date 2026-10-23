@@ -2,6 +2,7 @@ import { UsersController } from './users.controller';
 import { PermissionsService } from '../rbac/permissions.service';
 import type { AuthUser } from '../auth/auth.types';
 import type { MyProfileService } from './my-profile.service';
+import type { MembershipService } from '../membership/membership.service';
 
 const USER: AuthUser = {
   id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -25,9 +26,11 @@ describe('UsersController', () => {
     get: jest.fn().mockResolvedValue({ email: USER.email }),
     update: jest.fn().mockResolvedValue({ email: USER.email }),
   };
+  const memberAccessFor = jest.fn().mockResolvedValue('READ_ONLY');
   const controller = new UsersController(
     { getEffectivePermissions } as unknown as PermissionsService,
     profiles as unknown as MyProfileService,
+    { memberAccessFor } as unknown as MembershipService,
   );
 
   it("returns the current user's profile with effective permissions", async () => {
@@ -41,8 +44,12 @@ describe('UsersController', () => {
       heightCm: 175,
       weightKg: 72.4,
       permissions: [{ key: 'checkin.self', scope: 'OWN' }],
+      memberAccess: 'READ_ONLY',
     });
     expect(getEffectivePermissions).toHaveBeenCalledWith(USER);
+    // The membership gate's answer for the member-only features, decided by
+    // the server so the portal never reads a role.
+    expect(memberAccessFor).toHaveBeenCalledWith(USER);
   });
 
   it('does not leak supabaseId or permissionVersion to the client', async () => {

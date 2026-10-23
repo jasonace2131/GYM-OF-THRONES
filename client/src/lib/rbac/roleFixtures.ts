@@ -59,6 +59,8 @@ export const FRONT_DESK_PERMISSIONS = grants([
 
 export const COACH_PERMISSIONS = grants([
   ['class.read', 'ALL'],
+  // Coaches run their own classes (owner, 2026-10-23).
+  ['class.manage', 'OWN'],
   ['booking.read', 'ALL'],
   ['booking.attend', 'ALL'],
   ['member.read', 'OWN'],

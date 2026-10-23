@@ -2,8 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import {
+  GOAL_NOT_SUITABLE_MESSAGE,
   WORKOUT_DRAFT_STALE_MS,
   WORKOUT_LIMITS,
+  bmiOf,
+  isGoalSuitable,
   parseGuidance,
   parseMemberDay,
   parseMemberPlan,
@@ -11,6 +14,7 @@ import {
   type MemberPlanBody,
   type WorkoutAiQuotaView,
   type WorkoutDraftView,
+  type WorkoutGoal,
   type WorkoutIntake,
 } from '@got/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,6 +28,7 @@ import { BookingsService } from '../classes/bookings.service';
 import { GeminiGateway, type AttemptContext } from '../assistant/gemini-gateway.service';
 import { remainingMs } from '../assistant/assistant-budget';
 import { classifyError, generationConfigFor } from '../assistant/gemini-models';
+import { GymEquipmentService } from '../gym-equipment/gym-equipment.service';
 import { WorkoutQuotaService } from './workout-quota.service';
 import {
   DraftGoneError,
@@ -92,6 +97,7 @@ export class WorkoutDraftService {
     private readonly bookings: BookingsService,
     private readonly hours: OpeningHoursService,
     private readonly gemini: GeminiGateway,
+    private readonly equipment: GymEquipmentService,
   ) {}
 
   /** `POST /me/workouts/drafts` — 202 with the RUNNING draft and the quota. */
@@ -116,6 +122,7 @@ export class WorkoutDraftService {
     const parsed = parseWorkoutIntake(body);
     if (!parsed.ok) throw new BadRequestException(parsed.errors);
     const intake = parsed.value;
+    await this.assertGoalSuits(memberId, intake.goal);
 
     // A stuck job must not block the member for ever: time it out here as
     // the poll would, then apply the running rule to what is left.
@@ -270,11 +277,31 @@ export class WorkoutDraftService {
     return { cancelled: count > 0 };
   }
 
+  /**
+   * The backstop for the wizard's BMI rule (owner, 2026-10-23): the account's
+   * height and weight decide, and "Lose fat" under BMI 18.5 is refused before
+   * anything is charged. Missing numbers allow every goal.
+   */
+  private async assertGoalSuits(memberId: string, goal: WorkoutGoal): Promise<void> {
+    const body = await this.prisma.user.findUnique({
+      where: { id: memberId },
+      select: { heightCm: true, weightKg: true },
+    });
+    const bmi = bmiOf(body?.heightCm ?? null, body?.weightKg ?? null);
+    if (!isGoalSuitable(goal, bmi)) {
+      throw new DomainException(
+        'GOAL_NOT_SUITABLE',
+        GOAL_NOT_SUITABLE_MESSAGE,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   // ── The job's pieces ──────────────────────────────────────────────────────
 
   private async facts(memberId: string, intake: WorkoutIntake, now: Date) {
     const today = gymToday(now, this.gym.timeZone);
-    const [progress, checkIns, bookings, hours, account] = await Promise.all([
+    const [progress, checkIns, bookings, hours, account, equipment] = await Promise.all([
       intake.use.measurements ? this.progress.summary(memberId, now) : null,
       intake.use.attendance ? this.checkIns.summary(memberId, now) : null,
       intake.use.bookings
@@ -297,6 +324,8 @@ export class WorkoutDraftService {
           shareMedicalWithPlanner: true,
         },
       }),
+      // The gym's equipment list (Admin → Settings); [] on any failure.
+      this.equipment.forPrompt(),
     ]);
     return {
       progress,
@@ -307,6 +336,7 @@ export class WorkoutDraftService {
       now,
       timeZone: this.gym.timeZone,
       account,
+      equipment,
     };
   }
 

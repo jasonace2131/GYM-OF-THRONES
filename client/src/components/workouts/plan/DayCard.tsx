@@ -121,7 +121,11 @@ export function DayCard(props: DayCardProps) {
                 />
               ) : null}
               {howOpen && guide !== null ? (
-                <HowToPanel state={guide} onRetry={() => props.onRetryGuide(exercise.name)} />
+                <HowToPanel
+                  state={guide}
+                  exerciseName={exercise.name}
+                  onRetry={() => props.onRetryGuide(exercise.name)}
+                />
               ) : null}
             </li>
           );

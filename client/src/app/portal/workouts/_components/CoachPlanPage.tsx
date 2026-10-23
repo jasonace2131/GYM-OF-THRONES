@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { CoachPlanInWorkouts } from '@got/shared';
 import { Card, EmptyState, Skeleton } from '@/components/portal/ui';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 import { CoachDayCard } from '@/components/workouts/coach/CoachDayCard';
 import { IconArrowLeft, IconPerson, IconWarning } from '@/components/workouts/icons';
 import type { GuideState } from '@/components/workouts/plan/HowToPanel';
@@ -35,6 +36,8 @@ export function CoachPlanPage() {
   const [guides, setGuides] = useState<Record<string, GuideState>>({});
   const [highlighted, setHighlighted] = useState<number | null>(null);
   const starter = useSessionStarter();
+  // A lapsed member reads the coach's plan; "Use this plan" is a write.
+  const canWrite = useMemberCanWrite();
 
   const read = useCallback((): void => {
     workoutsApi
@@ -191,7 +194,7 @@ export function CoachPlanPage() {
                 ? 'Today follows this plan. Your coach keeps it up to date.'
                 : 'Written by your coach — ask them to change it. Use it and Today follows it.'}
             </p>
-            {plan.isActive ? null : (
+            {plan.isActive || !canWrite ? null : (
               <PlainButton tone="dark" className="h-11 @md:h-10" disabled={busy} onClick={adopt}>
                 Use this plan
               </PlainButton>

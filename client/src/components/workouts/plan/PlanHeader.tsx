@@ -3,6 +3,7 @@ import type { MemberWorkoutPlanView, WorkoutIntakeSummary } from '@got/shared';
 import { planChips, writtenLine } from '@/lib/workouts/planView';
 import { IconPencil, IconSparkle } from '../icons';
 import { Button, Chip, Panel, Tag, buttonClass } from '../ui';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 
 /**
  * The plan's title card: name, DRAFT / SAVED badge, intake chips, the
@@ -32,6 +33,8 @@ export function PlanHeader({
   /** Draft mode's inline save form, rendered on the right on desktop. */
   save?: React.ReactNode;
 }) {
+  // A lapsed member reads the plan; Regenerate and Edit by hand are writes.
+  const canWrite = useMemberCanWrite();
   return (
     <Panel
       aria-labelledby="wk-plan-h"
@@ -68,24 +71,26 @@ export function PlanHeader({
       </div>
 
       <div className="flex shrink-0 flex-col gap-2.5 @3xl:items-end">
-        <div className="grid grid-cols-2 gap-2 @3xl:flex @3xl:gap-2.5">
-          <Link href={regenerateHref} className={buttonClass('ghost', 'sm', 'text-[13px]')}>
-            <IconSparkle size={16} />
-            Regenerate
-          </Link>
-          {mode === 'saved' ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-[13px]"
-              disabled={busy || editing}
-              onClick={onEdit}
-            >
-              <IconPencil />
-              Edit by hand
-            </Button>
-          ) : null}
-        </div>
+        {canWrite ? (
+          <div className="grid grid-cols-2 gap-2 @3xl:flex @3xl:gap-2.5">
+            <Link href={regenerateHref} className={buttonClass('ghost', 'sm', 'text-[13px]')}>
+              <IconSparkle size={16} />
+              Regenerate
+            </Link>
+            {mode === 'saved' ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[13px]"
+                disabled={busy || editing}
+                onClick={onEdit}
+              >
+                <IconPencil />
+                Edit by hand
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {save === undefined ? null : <div className="hidden @3xl:block">{save}</div>}
       </div>
     </Panel>

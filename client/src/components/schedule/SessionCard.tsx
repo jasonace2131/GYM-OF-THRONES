@@ -22,6 +22,13 @@ interface SessionCardProps {
    */
   onBook?: (session: ClassSession) => void;
   onCancel?: (booking: MyBooking) => void;
+  /**
+   * The coach's own class (owner, 2026-10-23: coaches run their own). The
+   * page passes these only for a class the caller coaches and may still
+   * change; the server checks the same rule.
+   */
+  onEdit?: (session: ClassSession) => void;
+  onCancelClass?: (session: ClassSession) => void;
 }
 
 /** A freed seat after the cutoff is not the queue's (owner, 2026-10-11). */
@@ -33,7 +40,16 @@ function line(...parts: (string | null)[]): string {
 }
 
 /** One class on the timetable, in exactly one of the states in spec §9.2. */
-export function SessionCard({ session, booking, now, busy, onBook, onCancel }: SessionCardProps) {
+export function SessionCard({
+  session,
+  booking,
+  now,
+  busy,
+  onBook,
+  onCancel,
+  onEdit,
+  onCancelClass,
+}: SessionCardProps) {
   const started = new Date(session.startsAt).getTime() <= now.getTime();
   const cancelled = session.cancelledAt !== null;
   const closed = waitlistClosed(session.startsAt, now);
@@ -180,6 +196,26 @@ export function SessionCard({ session, booking, now, busy, onBook, onCancel }: S
           <span className="text-[12.5px] text-ink-3">{footer}</span>
           {action}
         </div>
+
+        {onEdit === undefined && onCancelClass === undefined ? null : (
+          <div className="flex flex-wrap gap-2 border-t border-border pt-2">
+            {onEdit === undefined ? null : (
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => onEdit(session)}>
+                Edit
+              </Button>
+            )}
+            {onCancelClass === undefined ? null : (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => onCancelClass(session)}
+              >
+                Cancel class
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );

@@ -13,7 +13,9 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
+import type { PermissionScope } from '@prisma/client';
 import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
+import { GrantedScope } from '../rbac/decorators/granted-scope.decorator';
 import { Idempotent } from '../common/decorators/idempotent.decorator';
 import { ClassesService } from './classes.service';
 import { BookingsService } from './bookings.service';
@@ -32,6 +34,11 @@ import {
   RemoveFromClassDto,
   UpdateClassSessionDto,
 } from './dto/class-session.dto';
+
+/** OWN: every class written must be the caller's own. ALL: no owner. */
+function ownerFor(user: AuthUser, scope: PermissionScope): string | null {
+  return scope === 'OWN' ? user.id : null;
+}
 
 /**
  * The timetable and the member's own bookings.
@@ -116,24 +123,32 @@ export class AdminClassesController {
     private readonly bookings: BookingsService,
   ) {}
 
+  /**
+   * `class.manage` at ALL (ADMIN) reaches every class; at OWN (COACH, owner
+   * 2026-10-23) only classes the caller coaches — the service refuses any
+   * other with 403 CLASS_NOT_YOURS, under the class lock. Same service, so
+   * the same time, capacity and coach checks either way.
+   */
   @Post()
   @RequirePermission('class.manage')
   @Idempotent()
   async create(
     @CurrentUser() user: AuthUser,
+    @GrantedScope() scope: PermissionScope,
     @Body() dto: CreateClassSessionDto,
   ): Promise<ClassSessionDto> {
-    return this.classes.create(user.id, dto);
+    return this.classes.create(user.id, dto, undefined, ownerFor(user, scope));
   }
 
   @Patch(':id')
   @RequirePermission('class.manage')
   async update(
     @CurrentUser() user: AuthUser,
+    @GrantedScope() scope: PermissionScope,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: UpdateClassSessionDto,
   ): Promise<ClassSessionDto> {
-    return this.classes.update(id, dto, user.id);
+    return this.classes.update(id, dto, user.id, undefined, ownerFor(user, scope));
   }
 
   /** Cancels rather than deletes — the bookings stay, and so does the reason. */
@@ -141,10 +156,11 @@ export class AdminClassesController {
   @RequirePermission('class.manage')
   async cancelSession(
     @CurrentUser() user: AuthUser,
+    @GrantedScope() scope: PermissionScope,
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: CancelClassSessionDto,
   ): Promise<ClassSessionDto> {
-    return this.classes.cancel(id, dto.reason, user.id);
+    return this.classes.cancel(id, dto.reason, user.id, undefined, ownerFor(user, scope));
   }
 
   /**

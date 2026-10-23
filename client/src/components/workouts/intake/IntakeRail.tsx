@@ -1,4 +1,5 @@
 import type { WorkoutAiQuotaView } from '@got/shared';
+import type { AccountBody } from '@/lib/workouts/body';
 import { summaryRows, whatAiSees, type GymFacts, type IntakeState } from '@/lib/workouts/intake';
 import { canSpend, generateNote } from '@/lib/workouts/quota';
 import { IconCheck, IconLock, IconSparkle } from '../icons';
@@ -12,12 +13,15 @@ export function IntakeRail({
   state,
   facts,
   quota,
+  body,
 }: {
   state: IntakeState;
   facts: GymFacts;
   quota: WorkoutAiQuotaView | null;
+  /** The account's height and weight, for the Body row. */
+  body: AccountBody | null;
 }) {
-  const rows = summaryRows(state);
+  const rows = summaryRows(state, body);
   const sees = whatAiSees(state, facts);
   return (
     <>

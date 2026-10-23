@@ -9,6 +9,7 @@ import { Bone, Notice, buttonClass } from '../ui';
 import { BAR_INNER } from '../session/bars';
 import { FocusOverlay } from '../session/FocusOverlay';
 import { FeelingPicker, NewBests, StatTiles, WhatYouDid } from './SummaryParts';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 
 const COLUMN = 'mx-auto w-full max-w-[560px]';
 const HUB = '/portal/workouts';
@@ -30,6 +31,9 @@ export function FinishScreen({
   feelingError: string | null;
   onFeeling: (feeling: WorkoutFeeling) => void;
 }) {
+  // Saving the feeling is a write (PATCH sessions/:id): a lapsed member sees
+  // the picker, disabled, so the screen keeps its shape.
+  const canWrite = useMemberCanWrite();
   return (
     <FocusOverlay labelledBy="wk-finish-h">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -49,7 +53,11 @@ export function FinishScreen({
 
           <StatTiles summary={summary} />
           <NewBests summary={summary} />
-          <FeelingPicker value={summary.feeling} busy={feelingBusy} onChange={onFeeling} />
+          <FeelingPicker
+            value={summary.feeling}
+            busy={feelingBusy || !canWrite}
+            onChange={onFeeling}
+          />
           {feelingError === null ? null : (
             <Notice tone="warn" role="alert" icon={<IconWarning />}>
               {feelingError}

@@ -321,6 +321,86 @@ describe('buildContext', () => {
   });
 });
 
+describe('gym equipment (owner, 2026-10-23)', () => {
+  const LIST = ['Dumbbells (2–40 kg pairs)', 'Flat bench'];
+  const base = {
+    exercise: { name: 'Back squat', muscles: 'Legs', sets: 3, reps: '8', restSeconds: 90 },
+    focus: 'Lower body',
+    experience: 'NEW' as const,
+    healthFlag: false,
+    easyOn: [],
+  };
+  const day = {
+    weekday: 1,
+    title: 'Full body A',
+    focus: 'Legs',
+    minutes: 45,
+    warmUp: 'Bike',
+    coolDown: 'Walk',
+    exercises: [{ name: 'Goblet squat', muscles: 'Legs', sets: 3, reps: '10', restSeconds: 60 }],
+  };
+  const summary = {
+    goal: 'MUSCLE' as const,
+    experience: 'SOME' as const,
+    sessionMinutes: 45 as const,
+    healthFlag: false,
+    easyOn: [],
+  };
+
+  it('puts the list in the plan context as data, and nothing when it is empty', () => {
+    expect(buildContext(intake(), facts({ equipment: LIST })).gymEquipment).toEqual(LIST);
+    expect(buildContext(intake(), facts({ equipment: [] }))).not.toHaveProperty('gymEquipment');
+    expect(buildContext(intake(), facts())).not.toHaveProperty('gymEquipment');
+    expect(userPrompt(buildContext(intake(), facts({ equipment: LIST })))).toContain(
+      '"gymEquipment":["Dumbbells (2–40 kg pairs)","Flat bench"]',
+    );
+  });
+
+  it('sends it with a swap and an adjust, and nothing when it is empty', () => {
+    expect(swapPrompt({ ...base, gymEquipment: LIST })).toContain('"gymEquipment":[');
+    expect(swapPrompt({ ...base, gymEquipment: [] })).not.toContain('gymEquipment');
+    expect(adjustPrompt({ day, summary, preset: 'SHORTER', gymEquipment: LIST })).toContain(
+      '"gymEquipment":[',
+    );
+    expect(adjustPrompt({ day, summary, preset: 'SHORTER' })).not.toContain('gymEquipment');
+  });
+
+  it('tells every planner to use only that equipment or bodyweight, and keeps the old rule', () => {
+    for (const prompt of [SYSTEM_PROMPT, SWAP_SYSTEM_PROMPT, ADJUST_SYSTEM_PROMPT]) {
+      const line = prompt.split('\n').find((l) => l.includes('"gymEquipment"'));
+      expect(line).toMatch(/only/i);
+      expect(line).toMatch(/bodyweight/i);
+      expect(line).toMatch(/not instructions/i);
+    }
+    expect(SYSTEM_PROMPT).toMatch(/Never invent injuries, conditions or equipment/);
+  });
+
+  /**
+   * With a list, the list governs; the "commercial gym basics" preference is
+   * for when there is none — never a rival line beside the list rule.
+   */
+  it('prefers common gym equipment ONLY when no list is given', () => {
+    for (const prompt of [SYSTEM_PROMPT, SWAP_SYSTEM_PROMPT, ADJUST_SYSTEM_PROMPT]) {
+      const preferring = prompt
+        .split('\n')
+        .filter((l) => /barbells|commercial gym has|common gym/i.test(l));
+      for (const line of preferring) {
+        expect(line).toContain('"gymEquipment"');
+        expect(line.indexOf('absent')).toBeGreaterThan(-1);
+        expect(line.search(/barbells|common gym/i)).toBeGreaterThan(line.indexOf('absent'));
+      }
+    }
+    // Which branch applies is decided by the data the model is given.
+    expect(userPrompt(buildContext(intake(), facts({ equipment: LIST })))).toContain(
+      '"gymEquipment"',
+    );
+    expect(userPrompt(buildContext(intake(), facts({ equipment: [] })))).not.toContain(
+      'gymEquipment',
+    );
+    expect(SYSTEM_PROMPT).toMatch(/barbells, dumbbells, cables, machines/);
+  });
+});
+
 describe('userPrompt and SYSTEM_PROMPT', () => {
   it('sends the context as JSON data, and the notes as data rather than instructions', () => {
     const prompt = userPrompt(buildContext(intake(), facts()));

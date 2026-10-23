@@ -4,6 +4,9 @@ import type { Server } from 'http';
 import { createTestApp, type TestApp } from './support/test-app';
 import { FIXTURE_IDS } from './support/auth-fixture';
 import { resetDatabase } from './support/db';
+import { makeActiveMembers } from './support/membership-fixtures';
+import { GymConfigService } from '../src/config/gym.config';
+import { gymToday } from '../src/common/time/gym-time';
 import { RealtimeBroadcastService } from '../src/chat/realtime-broadcast.service';
 import type { BroadcastMessage } from '../src/chat/chat-broadcast';
 
@@ -130,6 +133,15 @@ describe('coach-member chat (e2e)', () => {
     coachAId = await ctx.fixture.userIdFor(FIXTURE_IDS.COACH_A);
     clientAId = await ctx.fixture.userIdFor(FIXTURE_IDS.CLIENT_A);
     minorId = await ctx.fixture.userIdFor(MINOR_SUPABASE_ID);
+
+    // A member's send needs an ACTIVE membership (owner, 2026-10-17); a
+    // coach's never does. Every member here is active, so each refusal below
+    // is the chat's own, not the membership gate's.
+    await makeActiveMembers(
+      ctx.prisma,
+      [clientAId, await ctx.fixture.userIdFor(FIXTURE_IDS.CLIENT_B), minorId],
+      gymToday(new Date(), ctx.app.get(GymConfigService, { strict: false }).timeZone),
+    );
 
     // Owner decision: under 18 by date of birth — no 1:1 chat.
     const fifteenYearsAgo = new Date();

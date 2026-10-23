@@ -12,6 +12,7 @@ import type {
 import { createTestApp, type TestApp } from './support/test-app';
 import { FIXTURE_IDS } from './support/auth-fixture';
 import { resetDatabase } from './support/db';
+import { makeActiveMembers } from './support/membership-fixtures';
 import { GeminiGateway } from '../src/assistant/gemini-gateway.service';
 import { GymConfigService } from '../src/config/gym.config';
 import { gymToday } from '../src/common/time/gym-time';
@@ -156,6 +157,13 @@ describe('workout sessions (e2e)', () => {
     adminToken = await ctx.fixture.tokenFor('ADMIN', { supabaseId: FIXTURE_IDS.ADMIN });
     clientAId = await ctx.fixture.userIdFor(FIXTURE_IDS.CLIENT_A);
     coachId = await ctx.fixture.userIdFor(FIXTURE_IDS.COACH_A);
+
+    // Starting and logging a workout needs an ACTIVE membership (owner, 2026-10-17).
+    await makeActiveMembers(
+      ctx.prisma,
+      [clientAId, await ctx.fixture.userIdFor(FIXTURE_IDS.CLIENT_B)],
+      gymToday(new Date(), timeZone),
+    );
 
     // Plans are written straight to the database: generating one is the
     // planner's suite, and this one must spend no AI.

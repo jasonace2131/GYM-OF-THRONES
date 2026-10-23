@@ -370,6 +370,9 @@ enum AuditAction {
   ASSISTANT_INSTRUCTIONS_RESET
   // Staff corrected the email of a member who has never signed in (counter sign-up).
   MEMBER_EMAIL_CHANGED
+  // ── Gym equipment list (owner, 2026-10-23) ──
+  // An admin added, edited, removed or reordered equipment ({ change, before?, after? }).
+  GYM_EQUIPMENT_CHANGED
 }
 
 // ── GCash proof submissions ──────────────────────────────────────────────

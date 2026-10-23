@@ -7,6 +7,7 @@ import { canDeleteMessage, threadTimeline, type TimelineItem } from '@/lib/chat/
 import { initialsOf, messageTime, otherParty } from '@/lib/chat/format';
 import { groupTimeline } from '@/lib/chat/groups';
 import { useChat } from './RealtimeProvider';
+import { useMemberCanWrite } from '@/components/portal/MembershipGate';
 
 /**
  * One conversation: its history, a composer, and the states around them.
@@ -44,6 +45,9 @@ export function ChatPanel({
   embedded?: boolean;
 }) {
   const chat = useChat();
+  // A lapsed member reads the conversation but may not send (owner,
+  // 2026-10-17). Always true for a coach: no membership gate wraps the inbox.
+  const canWrite = useMemberCanWrite();
   const openThread = chat?.openThread;
   const closeThread = chat?.closeThread;
 
@@ -278,6 +282,8 @@ export function ChatPanel({
         <div className="p-chat-notice">
           This coaching has ended, so the conversation is kept as read-only history.
         </div>
+      ) : !canWrite ? (
+        <div className="p-chat-notice">Renew your membership to message your coach again.</div>
       ) : (
         <form
           className="p-chat-compose"

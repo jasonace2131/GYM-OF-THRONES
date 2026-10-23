@@ -27,6 +27,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { Idempotent } from '../common/decorators/idempotent.decorator';
 import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
+import { RequireActiveMembership } from '../membership/require-active-membership.decorator';
 import { WorkoutDraftService } from './workout-draft.service';
 import { MemberWorkoutsService } from './member-workouts.service';
 import { ExerciseGuidesService } from './exercise-guides.service';
@@ -70,6 +71,7 @@ export class WorkoutsController {
   /** Charges one AI action, starts the job, answers 202 at once. */
   @Post('drafts')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   @HttpCode(HttpStatus.ACCEPTED)
   async startDraft(
@@ -89,6 +91,7 @@ export class WorkoutsController {
   /** Discard. A running job's later writes match nothing. No refund. */
   @Delete('draft')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async cancelDraft(@CurrentUser() user: AuthUser): Promise<{ cancelled: boolean }> {
     return this.drafts.cancel(user.id);
   }
@@ -96,6 +99,7 @@ export class WorkoutsController {
   /** Saves the READY draft as a plan and deletes the draft. */
   @Post('plans')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   async savePlan(
     @CurrentUser() user: AuthUser,
@@ -115,6 +119,7 @@ export class WorkoutsController {
 
   @Patch('plans/:id')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async patchPlan(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -126,6 +131,7 @@ export class WorkoutsController {
   /** Hand edits and kept Swap/Adjust results. Sets `source = EDITED`. */
   @Put('plans/:id/body')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async putPlanBody(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -136,6 +142,7 @@ export class WorkoutsController {
 
   @Delete('plans/:id')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   async deletePlan(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -146,6 +153,7 @@ export class WorkoutsController {
   /** Three alternatives for one exercise. One AI action. */
   @Post('plans/:id/swap')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   @HttpCode(HttpStatus.OK)
   async swap(
@@ -159,6 +167,7 @@ export class WorkoutsController {
   /** A rewritten day, same weekday. One AI action. Keep = PUT …/body. */
   @Post('plans/:id/adjust')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   @HttpCode(HttpStatus.OK)
   async adjust(
@@ -180,6 +189,7 @@ export class WorkoutsController {
    */
   @Post('coach-plan/use')
   @RequirePermission('workout.member')
+  @RequireActiveMembership()
   @Idempotent()
   @HttpCode(HttpStatus.OK)
   async useCoachPlan(@CurrentUser() user: AuthUser): Promise<CoachPlanInWorkouts> {
@@ -189,6 +199,10 @@ export class WorkoutsController {
   /**
    * Cached How-to. Free for the member, but a miss is one Gemini call from
    * the shared quota, so it is throttled well below the assistant's own.
+   *
+   * NOT `@RequireActiveMembership()`: a lapsed member keeps How-to for what
+   * is already cached. The service refuses them the miss (403
+   * MEMBERSHIP_REQUIRED) before any Gemini call.
    */
   @Get('guides')
   @RequirePermission('workout.member')
@@ -197,6 +211,6 @@ export class WorkoutsController {
     @CurrentUser() user: AuthUser,
     @Query() query: GuideQueryDto,
   ): Promise<ExerciseGuideView> {
-    return this.guides.guide(user.id, query.exercise);
+    return this.guides.guide(user, query.exercise);
   }
 }

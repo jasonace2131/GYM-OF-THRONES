@@ -1,9 +1,11 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Role } from '@prisma/client';
 import { exerciseSlug, type ExerciseGuideView } from '@got/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { DomainException } from '../common/exceptions/domain.exception';
 import { GeminiGateway } from '../assistant/gemini-gateway.service';
+import { MembershipService } from '../membership/membership.service';
+import { isMembershipGated, MEMBERSHIP_REQUIRED_MESSAGE } from '../membership/membership-gate';
 import { ASK_BUDGET_MS, remainingMs } from '../assistant/assistant-budget';
 import { generationConfigFor } from '../assistant/gemini-models';
 import { UnusableReplyError, rotateForMember } from './member-workout-gemini';
@@ -58,9 +60,16 @@ export class ExerciseGuidesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gemini: GeminiGateway,
+    private readonly memberships: MembershipService,
   ) {}
 
-  async guide(memberId: string, exercise: string): Promise<ExerciseGuideView> {
+  /**
+   * `caller` is the token's user. A cached guide is served to anyone who may
+   * ask; a MISS spends Gemini, so a member (CLIENT) needs an ACTIVE
+   * membership for it (owner, 2026-10-17) — staff are never asked.
+   */
+  async guide(caller: { id: string; role: Role }, exercise: string): Promise<ExerciseGuideView> {
+    const memberId = caller.id;
     const name = exercise.trim();
     const slug = exerciseSlug(name);
     if (slug === '' || !(await this.isMembersExercise(memberId, name))) {
@@ -76,6 +85,15 @@ export class ExerciseGuidesService {
       const parsed = parseGuideReply(cached.body);
       if (parsed.ok) return { name: cached.name, ...parsed.value };
       this.logger.error(`exercise guide ${slug} fails the guide schema — regenerating`);
+    }
+
+    // The miss: refused before any Gemini call for a lapsed member.
+    if (isMembershipGated(caller.role) && !(await this.memberships.hasActiveMembership(memberId))) {
+      throw new DomainException(
+        'MEMBERSHIP_REQUIRED',
+        MEMBERSHIP_REQUIRED_MESSAGE,
+        HttpStatus.FORBIDDEN,
+      );
     }
 
     const prompt = guidePrompt(name);

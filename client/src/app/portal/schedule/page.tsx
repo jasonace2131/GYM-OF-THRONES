@@ -5,7 +5,16 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { CLASS_BOOKING_WINDOW_DAYS, PERMISSIONS } from '@got/shared';
-import { usePermission } from '@/components/rbac/MeProvider';
+import { useMe, usePermission } from '@/components/rbac/MeProvider';
+import { adminApi } from '@/lib/adminApi';
+import { ApiError } from '@/lib/api';
+import {
+  canCancelClass,
+  canEditClass,
+  createBody,
+  patchFor,
+  type ClassDraft,
+} from '@/lib/schedule/coachClasses';
 import { classesApi, type ClassSession, type MyBooking, type MyBookingWindow } from '@/lib/classes';
 import { bookingErrorMessage, isBookingRefusal } from '@/lib/schedule/bookingErrors';
 import { bookingState, holdsPlace } from '@/lib/schedule/bookingState';
@@ -18,6 +27,7 @@ import { EmptyState } from '@/components/portal/ui';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CancelBookingDialog } from '@/components/schedule/CancelBookingDialog';
+import { CoachCancelClassDialog, CoachClassSheet } from '@/components/schedule/CoachClassSheet';
 import { DateStrip } from '@/components/schedule/DateStrip';
 import { ScheduleFilters, type CoachOption } from '@/components/schedule/ScheduleFilters';
 import { SessionCard } from '@/components/schedule/SessionCard';
@@ -110,6 +120,21 @@ function Schedule() {
   const canBook = usePermission(PERMISSIONS.BOOKING_CREATE);
   // The banner's "Renew" goes to My Subscription, which is CLIENT-only.
   const canSelfServe = usePermission(PERMISSIONS.MEMBERSHIP_SELF);
+  // Coaches run their own classes (owner, 2026-10-23): `class.manage`, which
+  // COACH holds at OWN. The page offers New class, and Edit / Cancel class on
+  // classes the caller coaches; the server refuses anybody else's. ONLY at OWN:
+  // an admin holds it at ALL, runs classes from the CRM, and is not a coach, so
+  // "New class" with themselves as coach would only fail here.
+  const holdsClassManage = usePermission(PERMISSIONS.CLASS_MANAGE);
+  const holdsClassManageAll = usePermission(PERMISSIONS.CLASS_MANAGE, { scope: 'ALL' });
+  const canManageClasses = holdsClassManage && !holdsClassManageAll;
+  const { me } = useMe();
+  const meId = canManageClasses ? (me?.id ?? null) : null;
+  /** `undefined` closed · `null` a new class · a class to edit. */
+  const [composing, setComposing] = useState<ClassSession | null | undefined>(undefined);
+  const [cancellingClass, setCancellingClass] = useState<ClassSession | null>(null);
+  const [classBusy, setClassBusy] = useState(false);
+  const [classError, setClassError] = useState<string | null>(null);
 
   /**
    * The window first, then the timetable over exactly the days the strip
@@ -230,6 +255,51 @@ function Schedule() {
     }
   };
 
+  /** The server's own sentence for a refused class write — they are written for people. */
+  const classFailure = (caught: unknown): string =>
+    caught instanceof ApiError ? caught.message : 'That did not save. Try again.';
+
+  const saveClass = async (draft: ClassDraft): Promise<void> => {
+    if (meId === null || composing === undefined) return;
+    setClassBusy(true);
+    setClassError(null);
+    try {
+      if (composing === null) {
+        const created = await adminApi.createClassSession(createBody(draft, meId));
+        toast.success(`${created.title} is on the timetable.`);
+      } else {
+        const patch = patchFor(composing, draft);
+        // Nothing changed: close without a request, which would still tell
+        // everybody booked that the class "changed".
+        if (Object.keys(patch).length > 0) {
+          await adminApi.updateClassSession(composing.id, patch);
+          toast.success('Class updated.');
+        }
+      }
+      setComposing(undefined);
+      await refresh();
+    } catch (caught) {
+      setClassError(classFailure(caught));
+    } finally {
+      setClassBusy(false);
+    }
+  };
+
+  const cancelClass = async (target: ClassSession, reason: string): Promise<void> => {
+    setClassBusy(true);
+    setClassError(null);
+    try {
+      await adminApi.cancelClassSession(target.id, reason);
+      toast.success(`${target.title} is cancelled. Everybody booked has been told.`);
+      setCancellingClass(null);
+      await refresh();
+    } catch (caught) {
+      setClassError(classFailure(caught));
+    } finally {
+      setClassBusy(false);
+    }
+  };
+
   if (failed) {
     return (
       <EmptyState title="Could not load the timetable" hint="Check your connection and refresh." />
@@ -260,12 +330,25 @@ function Schedule() {
 
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-display text-base font-semibold">{longDay(day)}</h2>
-        <Link
-          href="/portal/book"
-          className="font-display text-sm font-semibold text-gold-deep hover:underline"
-        >
-          My bookings · {liveCount} →
-        </Link>
+        {meId === null ? (
+          <Link
+            href="/portal/book"
+            className="font-display text-sm font-semibold text-gold-deep hover:underline"
+          >
+            My bookings · {liveCount} →
+          </Link>
+        ) : (
+          // A coach has no bookings of their own; they have classes to run.
+          <Button
+            size="sm"
+            onClick={() => {
+              setClassError(null);
+              setComposing(null);
+            }}
+          >
+            New class
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-1">
@@ -318,9 +401,47 @@ function Schedule() {
               busy={busyId === item.id}
               onBook={canBook ? (target) => void book(target) : undefined}
               onCancel={canBook ? openCancel : undefined}
+              onEdit={
+                canEditClass(item, meId, now)
+                  ? (target) => {
+                      setClassError(null);
+                      setComposing(target);
+                    }
+                  : undefined
+              }
+              onCancelClass={
+                canCancelClass(item, meId, now)
+                  ? (target) => {
+                      setClassError(null);
+                      setCancellingClass(target);
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>
+      )}
+
+      {meId === null ? null : (
+        <>
+          <CoachClassSheet
+            open={composing !== undefined}
+            session={composing ?? null}
+            day={day}
+            coachName={me === null ? 'You' : `${me.firstName} ${me.lastName}`.trim()}
+            busy={classBusy}
+            error={classError}
+            onSave={(draft) => void saveClass(draft)}
+            onClose={() => setComposing(undefined)}
+          />
+          <CoachCancelClassDialog
+            session={cancellingClass}
+            busy={classBusy}
+            error={classError}
+            onConfirm={(target, reason) => void cancelClass(target, reason)}
+            onClose={() => setCancellingClass(null)}
+          />
+        </>
       )}
 
       <CancelBookingDialog

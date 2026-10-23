@@ -15,6 +15,7 @@ import type { WorkoutQuotaService } from './workout-quota.service';
 import { MEMBER_COPY } from './member-workout-gemini';
 import { EMPTY_PLAN } from './workouts.presenter';
 import { WorkoutDraftService } from './workout-draft.service';
+import type { GymEquipmentService } from '../gym-equipment/gym-equipment.service';
 
 jest.mock('@google/generative-ai', () => {
   const actual =
@@ -96,6 +97,7 @@ describe('WorkoutDraftService', () => {
   };
   let quota: { charge: jest.Mock; refund: jest.Mock; view: jest.Mock };
   let logs: string[];
+  let equipment: { forPrompt: jest.Mock };
 
   const build = (apiKey: string | null = 'configured'): WorkoutDraftService => {
     const gym = { timeZone: 'Asia/Manila' } as unknown as GymConfigService;
@@ -133,6 +135,7 @@ describe('WorkoutDraftService', () => {
       { mine: jest.fn().mockResolvedValue([]) } as unknown as BookingsService,
       { week: jest.fn().mockResolvedValue([]) } as unknown as OpeningHoursService,
       gateway,
+      equipment as unknown as GymEquipmentService,
     );
   };
 
@@ -178,6 +181,7 @@ describe('WorkoutDraftService', () => {
       view: jest.fn().mockResolvedValue({ used: 0, limit: 8, remaining: 8, resetsAt: 'x' }),
     };
     logs = [];
+    equipment = { forPrompt: jest.fn().mockResolvedValue([]) };
     for (const level of ['log', 'warn', 'error'] as const) {
       jest.spyOn(Logger.prototype, level).mockImplementation((...args: unknown[]) => {
         logs.push(String(args[0]));
@@ -202,6 +206,33 @@ describe('WorkoutDraftService', () => {
       const caught = await failure(build().start(MEMBER, intake({ weekdays: [1, 1] }), NOW));
       expect(caught).toBeInstanceOf(BadRequestException);
       expect(quota.charge).not.toHaveBeenCalled();
+    });
+
+    it('refuses Lose fat under BMI 18.5 with 400 GOAL_NOT_SUITABLE, without charging', async () => {
+      prisma.user.findUnique.mockResolvedValue({ heightCm: 180, weightKg: 55 });
+      const caught = await failure(build().start(MEMBER, intake({ goal: 'FAT_LOSS' }), NOW));
+      expect(caught).toMatchObject({
+        code: 'GOAL_NOT_SUITABLE',
+        message: "Lose fat isn't offered at your current BMI.",
+      });
+      expect((caught as DomainException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: MEMBER },
+        select: { heightCm: true, weightKg: true },
+      });
+      expect(quota.charge).not.toHaveBeenCalled();
+    });
+
+    it('allows every other goal under BMI 18.5, and Lose fat when the numbers are missing', async () => {
+      prisma.user.findUnique.mockResolvedValue({ heightCm: 180, weightKg: 55 });
+      const service = build();
+      jest.spyOn(service, 'run').mockReturnValue(new Promise(() => undefined));
+      await expect(service.start(MEMBER, intake({ goal: 'MUSCLE' }), NOW)).resolves.toBeDefined();
+
+      prisma.user.findUnique.mockResolvedValue({ heightCm: null, weightKg: 55 });
+      await expect(
+        service.start(MEMBER, intake({ goal: 'FAT_LOSS' }), NOW),
+      ).resolves.toBeDefined();
     });
 
     it('answers 409 WORKOUT_DRAFT_RUNNING while a job is running, without charging', async () => {
@@ -320,6 +351,21 @@ describe('WorkoutDraftService', () => {
       });
       const [prompt] = generateContentStream.mock.calls[0] as [string];
       expect(prompt).toContain('"medicalNotes":"Bad left knee"');
+    });
+
+    it("sends the gym's equipment list as data, and nothing when it is empty", async () => {
+      generateContentStream.mockImplementation(() =>
+        Promise.resolve(streamOf(GOOD_LINES.join('\n'))),
+      );
+      equipment.forPrompt.mockResolvedValue(['Dumbbells (2–40 kg pairs)']);
+      await build().run(MEMBER, 'job-1', parsedIntake(), STARTED);
+      expect((generateContentStream.mock.calls[0] as [string])[0]).toContain(
+        '"gymEquipment":["Dumbbells (2–40 kg pairs)"]',
+      );
+
+      equipment.forPrompt.mockResolvedValue([]);
+      await build().run(MEMBER, 'job-1', parsedIntake(), STARTED);
+      expect((generateContentStream.mock.calls[1] as [string])[0]).not.toContain('gymEquipment');
     });
 
     it('resets the partial plan and rotates to the next model after a bad line', async () => {

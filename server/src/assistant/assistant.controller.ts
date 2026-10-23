@@ -3,6 +3,7 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { RequirePermission } from '../rbac/decorators/require-permission.decorator';
+import { RequireActiveMembership } from '../membership/require-active-membership.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { AssistantService } from './assistant.service';
 import { AskAssistantDto } from './dto/ask-assistant.dto';
@@ -34,6 +35,7 @@ export class AssistantController {
    */
   @Post('messages')
   @RequirePermission('ai.chat.use')
+  @RequireActiveMembership()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async ask(
     @CurrentUser() user: AuthUser,

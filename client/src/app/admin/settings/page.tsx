@@ -12,6 +12,7 @@ import { PlanEditorModal } from '@/components/admin/actions/PlanEditorModal';
 import { ConfirmActionModal } from '@/components/admin/actions/ConfirmActionModal';
 import { OpeningHoursCard } from '@/components/admin/OpeningHoursCard';
 import { AssistantSettingsCard } from '@/components/admin/AssistantSettingsCard';
+import { EquipmentCard } from '@/components/admin/EquipmentCard';
 
 /**
  * Settings.
@@ -85,6 +86,8 @@ export default function AdminSettingsPage() {
           regression is back. */}
       <OpeningHoursCard canManage={canManage} />
       {canConfigureAssistant ? <AssistantSettingsCard /> : null}
+      {/* What the AI planners may plan with — the same key as the assistant. */}
+      {canConfigureAssistant ? <EquipmentCard /> : null}
 
       <Card padded={false}>
         <div style={{ padding: '18px 18px 0' }}>

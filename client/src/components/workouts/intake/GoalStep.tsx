@@ -1,31 +1,57 @@
-import { WORKOUT_GOALS, WORKOUT_LIMITS } from '@got/shared';
+import Link from 'next/link';
+import { WORKOUT_LIMITS } from '@got/shared';
+import { BODY_COPY, accountBodyLine, goalChoice, type AccountBody } from '@/lib/workouts/body';
 import type { IntakeAction, IntakeState } from '@/lib/workouts/intake';
 import { GOAL_LABEL } from '@/lib/workouts/labels';
 import { RadioCard } from '../ui';
 import { StepHeading, StepProblem } from './StepHeading';
 
-/** Step 1 — What's your main goal? */
+/**
+ * Step 1 — What's your main goal?
+ *
+ * `body` is the account's height and weight (`GET /me/profile`), or null when
+ * it could not be read — then no reminder line, and every goal is offered.
+ * Under BMI 18.5 "Lose fat" is not offered (owner, 2026-10-23); the API
+ * refuses it too.
+ */
 export function GoalStep({
   state,
   problem,
   dispatch,
+  body,
 }: {
   state: IntakeState;
   problem: string | null;
   dispatch: (action: IntakeAction) => void;
+  body: AccountBody | null;
 }) {
+  const { goals, hiddenNote } = goalChoice(body);
   return (
     <div className="flex flex-col gap-5">
       <StepHeading
         title="What’s your main goal?"
         sub="Pick one. The AI builds the whole week around it."
       />
+      {body === null ? null : (
+        <div className="flex flex-col gap-1 text-[13px] leading-[1.45]">
+          <p className="m-0 text-ink-2">
+            {accountBodyLine(body)}{' '}
+            <Link
+              href="/portal/account"
+              className="font-semibold whitespace-nowrap text-gold-deep underline underline-offset-2"
+            >
+              {BODY_COPY.editLink}
+            </Link>
+          </p>
+          {hiddenNote === null ? null : <p className="m-0 text-ink-3">{hiddenNote}</p>}
+        </div>
+      )}
       <div
         role="radiogroup"
         aria-label="Main goal"
         className="grid grid-cols-2 gap-3 @2xl:grid-cols-3"
       >
-        {WORKOUT_GOALS.map((goal) => (
+        {goals.map((goal) => (
           <RadioCard
             key={goal}
             checked={state.goal === goal}

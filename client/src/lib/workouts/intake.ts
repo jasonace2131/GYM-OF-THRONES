@@ -15,6 +15,7 @@ import {
   type WorkoutSessionMinutes,
   type WorkoutTimeOfDay,
 } from '@got/shared';
+import { bodySummary, type AccountBody } from './body';
 import { GOAL_LABEL, LEVEL_LABEL, TIME_LABEL, easyOnPhrase, weekdayList } from './labels';
 
 /**
@@ -277,7 +278,10 @@ export function restoreIntake(json: string | null): IntakeState | null {
 }
 
 /** YOUR PLAN SO FAR. */
-export function summaryRows(state: IntakeState): [string, string][] {
+export function summaryRows(
+  state: IntakeState,
+  body: AccountBody | null = null,
+): [string, string][] {
   return [
     ['Goal', state.goal === null ? 'Not picked yet' : GOAL_LABEL[state.goal].title],
     ['Level', state.experience === null ? 'Not picked yet' : LEVEL_LABEL[state.experience].title],
@@ -285,6 +289,7 @@ export function summaryRows(state: IntakeState): [string, string][] {
     ['Sessions', `${state.sessionMinutes} min · ${TIME_LABEL[state.timeOfDay]}`],
     ['Health', healthFlag(state) ? 'Keep it gentle' : 'No flags'],
     ['Go easy on', state.easyOn.length === 0 ? 'Nothing' : easyOnPhrase(state.easyOn)],
+    ['Body', bodySummary(body)],
   ];
 }
 
