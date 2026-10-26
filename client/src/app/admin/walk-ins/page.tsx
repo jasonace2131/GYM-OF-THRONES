@@ -217,6 +217,10 @@ export default function AdminWalkInsPage() {
             {/* Filters on their own row, not squeezed into the header — the
                 header keeps one primary action, the toolbar keeps the chips. */}
             <div className="a-toolbar" style={{ paddingBottom: 12, flexWrap: 'wrap' }}>
+              {/* Two chip groups, not one row with a spacer span: on a phone
+                  each group wraps as a unit, so "Today" never lands beside
+                  "Walk-ins" as if they were one choice. */}
+              <div className="a-chip-group" role="group" aria-label="Range">
               {(
                 [
                   ['today', 'Today'],
@@ -236,7 +240,8 @@ export default function AdminWalkInsPage() {
                   {label}
                 </button>
               ))}
-              <span style={{ width: 10 }} />
+              </div>
+              <div className="a-chip-group" role="group" aria-label="Entry type">
               {(
                 [
                   ['WALK_IN', 'Walk-ins'],
@@ -256,6 +261,7 @@ export default function AdminWalkInsPage() {
                   {label}
                 </button>
               ))}
+              </div>
             </div>
           </div>
 
@@ -268,7 +274,7 @@ export default function AdminWalkInsPage() {
               onRetry={register.reload}
             >
               <div className="a-scroll">
-                <table className="p-table">
+                <table className="p-table" data-stack>
                   <thead>
                     <tr>
                       <th>Person</th>
@@ -283,7 +289,7 @@ export default function AdminWalkInsPage() {
                   <tbody>
                     {register.data?.items.map((row) => (
                       <tr key={row.checkInId}>
-                        <td>
+                        <td data-card="title">
                           <Person
                             firstName={row.member.firstName}
                             lastName={row.member.lastName}
@@ -291,27 +297,27 @@ export default function AdminWalkInsPage() {
                             avatarUrl={row.member.avatarUrl}
                           />
                         </td>
-                        <td>
+                        <td data-label="Who" data-card="meta">
                           <Badge tone={row.member.userId === null ? 'warn' : 'neutral'}>
                             {row.member.userId === null ? 'Guest' : 'Member'}
                           </Badge>
                         </td>
-                        <td>{gymTime(row.occurredAt)}</td>
-                        <td className="p-muted">
+                        <td data-label="In">{gymTime(row.occurredAt)}</td>
+                        <td className="p-muted" data-label="Out">
                           {row.endedAt === null ? 'still in' : gymTime(row.endedAt)}
                         </td>
-                        <td className="p-num">
+                        <td className="p-num" data-label="Stayed">
                           {/* duration() is typed number, not number|null —
                               the guard matters. */}
                           {row.durationMinutes === null ? '—' : duration(row.durationMinutes)}
                         </td>
-                        <td>
+                        <td data-label="Entry" data-card="meta">
                           <Badge tone="neutral">
                             {row.entryType === 'GUEST_PASS' ? 'guest pass' : 'walk-in'}
                           </Badge>
                         </td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <td data-card="actions">
+                          <div className="a-btn-row a-btn-row--end">
                             {canCheckOut && row.endedAt === null && row.voidedAt === null && (
                               <button
                                 type="button"

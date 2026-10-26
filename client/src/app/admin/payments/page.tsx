@@ -220,7 +220,7 @@ function PaymentsPage() {
       >
         <Card padded={false}>
           <div className="a-scroll">
-            <table className="p-table">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>Payer</th>
@@ -263,21 +263,32 @@ function PaymentsPage() {
                         open();
                       }}
                     >
-                      <td>
+                      <td data-card="title">
                         {row.userId === null ? (
                           <span className="p-muted">Walk-in guest</span>
                         ) : (
                           payerName
                         )}
                       </td>
-                      <td>
+                      <td data-label="For">
                         {row.planName}
                         {row.reference === null ? null : (
                           <div className="a-person-sub">ref {row.reference}</div>
                         )}
                       </td>
-                      <td className="p-num">{peso(row.grossCentavos, { decimals: true })}</td>
-                      <td className="p-num">
+                      {/* On a card, Gross only says something when a discount was taken. */}
+                      <td
+                        className="p-num"
+                        data-label="Gross"
+                        data-card={row.discountCentavos === 0 ? 'hide' : undefined}
+                      >
+                        {peso(row.grossCentavos, { decimals: true })}
+                      </td>
+                      <td
+                        className="p-num"
+                        data-label="Discount"
+                        data-card={row.discountCentavos === 0 ? 'hide' : undefined}
+                      >
                         {row.discountCentavos === 0 ? (
                           <span className="p-muted">—</span>
                         ) : (
@@ -292,14 +303,16 @@ function PaymentsPage() {
                           </>
                         )}
                       </td>
-                      <td className="p-num">
+                      <td className="p-num" data-label="Net" data-card="value">
                         <strong>{peso(row.netCentavos, { decimals: true })}</strong>
                       </td>
-                      <td>
+                      <td data-label="Method" data-card="meta">
                         <Badge tone={row.method === 'CASH' ? 'warn' : 'info'}>{row.method}</Badge>
                       </td>
-                      <td className="p-muted">{gymDateTime(row.receivedAt)}</td>
-                      <td>
+                      <td className="p-muted" data-label="When" data-card="meta">
+                        {gymDateTime(row.receivedAt)}
+                      </td>
+                      <td data-label="Status" data-card="meta">
                         <Badge tone={row.status === 'VOIDED' ? 'danger' : 'ok'}>{row.status}</Badge>
                         {row.voidKind === null ? null : (
                           <div className="a-person-sub">{row.voidKind}</div>
@@ -307,7 +320,7 @@ function PaymentsPage() {
                       </td>
                       {/* The one interactive descendant left. Its cell stops the
                           click so printing a slip does not also open the drawer. */}
-                      <td onClick={(event) => event.stopPropagation()}>
+                      <td data-card="actions" onClick={(event) => event.stopPropagation()}>
                         <PrintSlipButton paymentId={row.id} copy />
                       </td>
                     </tr>

@@ -132,7 +132,7 @@ export function OpeningHoursCard({ canManage }: { canManage: boolean }) {
         onRetry={query.reload}
       >
         <div className="a-scroll">
-          <table className="p-table">
+          <table className="p-table" data-stack>
             <thead>
               <tr>
                 <th>Day</th>
@@ -144,7 +144,7 @@ export function OpeningHoursCard({ canManage }: { canManage: boolean }) {
             <tbody>
               {rows.map((day) => (
                 <tr key={day.dayOfWeek}>
-                  <td>
+                  <td data-card="title">
                     {DAYS[day.dayOfWeek]}
                     {/* The pickers below are native <input type="time">, whose
                         clock format follows the BROWSER's locale and cannot be
@@ -157,7 +157,7 @@ export function OpeningHoursCard({ canManage }: { canManage: boolean }) {
                         : `${hhmmTo12h(day.opensAt)} – ${hhmmTo12h(day.closesAt)}`}
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Opens">
                     <input
                       type="time"
                       className="a-input"
@@ -168,7 +168,7 @@ export function OpeningHoursCard({ canManage }: { canManage: boolean }) {
                       aria-label={`${DAYS[day.dayOfWeek]} opening time`}
                     />
                   </td>
-                  <td>
+                  <td data-label="Closes">
                     <input
                       type="time"
                       className="a-input"
@@ -179,13 +179,13 @@ export function OpeningHoursCard({ canManage }: { canManage: boolean }) {
                       aria-label={`${DAYS[day.dayOfWeek]} closing time`}
                     />
                   </td>
-                  <td>
+                  <td data-label="Closed all day">
                     <input
                       type="checkbox"
                       checked={day.isClosed}
                       disabled={!canManage || busy}
                       onChange={(event) => edit(day.dayOfWeek, { isClosed: event.target.checked })}
-                      style={{ width: 15, height: 15, accentColor: 'var(--gold)' }}
+                      className="a-check"
                       aria-label={`${DAYS[day.dayOfWeek]} closed all day`}
                     />
                   </td>

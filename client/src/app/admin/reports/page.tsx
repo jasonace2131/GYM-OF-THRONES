@@ -503,7 +503,7 @@ function Reports() {
                 onRetry={walkIns.reload}
               >
                 <div className="a-scroll">
-                  <table className="p-table">
+                  <table className="p-table" data-stack>
                     <thead>
                       <tr>
                         <th>Day</th>
@@ -515,12 +515,16 @@ function Reports() {
                     <tbody>
                       {walkIns.data?.byDay.map((row) => (
                         <tr key={row.weekday}>
-                          <td>{row.weekday}</td>
-                          <td className="p-num">{row.count}</td>
-                          <td className="p-num">
+                          <td data-card="title">{row.weekday}</td>
+                          <td className="p-num" data-label="Count">
+                            {row.count}
+                          </td>
+                          <td className="p-num" data-card="value">
                             {peso(row.revenueCentavos, { decimals: true })}
                           </td>
-                          <td className="p-muted">{row.peakHour ?? '—'}</td>
+                          <td className="p-muted" data-label="Peak hour">
+                            {row.peakHour ?? '—'}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -556,7 +560,7 @@ function Reports() {
               onRetry={attendance.reload}
             >
               <div className="a-scroll">
-                <table className="p-table">
+                <table className="p-table" data-stack>
                   <thead>
                     <tr>
                       <th>Member</th>
@@ -570,7 +574,7 @@ function Reports() {
                   <tbody>
                     {attendance.data?.items.map((row) => (
                       <tr key={row.checkInId}>
-                        <td>
+                        <td data-card="title">
                           <Person
                             firstName={row.member.firstName}
                             lastName={row.member.lastName}
@@ -578,15 +582,17 @@ function Reports() {
                             avatarUrl={row.member.avatarUrl}
                           />
                         </td>
-                        <td className="p-muted">{gymDateTime(row.occurredAt).split(',')[0]}</td>
-                        <td>{gymTime(row.occurredAt)}</td>
-                        <td className="p-muted">
+                        <td className="p-muted" data-label="Date" data-card="meta">
+                          {gymDateTime(row.occurredAt).split(',')[0]}
+                        </td>
+                        <td data-label="In">{gymTime(row.occurredAt)}</td>
+                        <td className="p-muted" data-label="Out">
                           {row.endedAt === null ? 'still in' : gymTime(row.endedAt)}
                         </td>
-                        <td className="p-num">
+                        <td className="p-num" data-label="For">
                           {row.durationMinutes === null ? '—' : duration(row.durationMinutes)}
                         </td>
-                        <td>
+                        <td data-label="Entry" data-card="meta">
                           <Badge tone="neutral">
                             {row.entryType === 'MEMBERSHIP'
                               ? 'member'
@@ -632,7 +638,7 @@ function Reports() {
               onRetry={memberships.reload}
             >
               <div className="a-scroll">
-                <table className="p-table">
+                <table className="p-table" data-stack>
                   <thead>
                     <tr>
                       <th>Member</th>
@@ -646,7 +652,7 @@ function Reports() {
                   <tbody>
                     {memberships.data?.items.map((row) => (
                       <tr key={row.eventId}>
-                        <td>
+                        <td data-card="title">
                           <Person
                             firstName={row.memberName.split(' ')[0] ?? row.memberName}
                             lastName={row.memberName.split(' ').slice(1).join(' ')}
@@ -654,17 +660,19 @@ function Reports() {
                             avatarUrl={null}
                           />
                         </td>
-                        <td>
+                        <td data-label="Event" data-card="meta">
                           <Badge tone={EVENT_TONE[row.type]}>{EVENT_LABEL[row.type]}</Badge>
                         </td>
                         {/* The plan AS SOLD, from the joined Payment — not the
                             member's plan today. */}
-                        <td>{row.planName}</td>
-                        <td className="p-muted">{formatCivilDate(row.businessDate)}</td>
-                        <td className="p-muted">
+                        <td data-label="Plan">{row.planName}</td>
+                        <td className="p-muted" data-label="Date" data-card="meta">
+                          {formatCivilDate(row.businessDate)}
+                        </td>
+                        <td className="p-muted" data-label="Term now ends">
                           {row.newEndsOn === null ? '—' : formatCivilDate(row.newEndsOn)}
                         </td>
-                        <td className="p-num">
+                        <td className="p-num" data-card="value">
                           {row.netCentavos === null
                             ? '—'
                             : peso(row.netCentavos, { decimals: true })}
@@ -778,7 +786,7 @@ function Reports() {
                 onRetry={revenue.reload}
               >
                 <div className="a-scroll">
-                  <table className="p-table">
+                  <table className="p-table" data-stack>
                     <thead>
                       <tr>
                         <th>{groupBy === 'month' ? 'Month' : 'Group'}</th>
@@ -791,12 +799,12 @@ function Reports() {
                     <tbody>
                       {(revenue.data?.series ?? []).map((row) => (
                         <tr key={row.key}>
-                          <td>{row.label}</td>
+                          <td data-card="title">{row.label}</td>
                           {/* A bar in the row rather than a chart above it:
                               the comparison people actually make is between
                               adjacent rows, and this keeps the number beside
                               its own bar. */}
-                          <td style={{ width: '38%', minWidth: 120 }}>
+                          <td data-card="bar" style={{ width: '38%', minWidth: 120 }}>
                             <div
                               aria-hidden
                               style={{
@@ -808,15 +816,17 @@ function Reports() {
                               }}
                             />
                           </td>
-                          <td className="p-num">{row.count}</td>
-                          <td className="p-num">
+                          <td className="p-num" data-label="Sales">
+                            {row.count}
+                          </td>
+                          <td className="p-num" data-label="Discounts">
                             {row.discountCentavos === 0 ? (
                               <span className="p-muted">—</span>
                             ) : (
                               peso(row.discountCentavos)
                             )}
                           </td>
-                          <td className="p-num">
+                          <td className="p-num" data-card="value">
                             <strong>{peso(row.centavos)}</strong>
                           </td>
                         </tr>
@@ -824,12 +834,16 @@ function Reports() {
                     </tbody>
                     <tfoot>
                       <tr>
-                        <td colSpan={2}>
+                        <td colSpan={2} data-card="title">
                           <strong>Total</strong>
                         </td>
-                        <td className="p-num">{revenue.data?.totalCount ?? 0}</td>
-                        <td className="p-num">{peso(revenue.data?.totalDiscountCentavos ?? 0)}</td>
-                        <td className="p-num">
+                        <td className="p-num" data-label="Sales">
+                          {revenue.data?.totalCount ?? 0}
+                        </td>
+                        <td className="p-num" data-label="Discounts">
+                          {peso(revenue.data?.totalDiscountCentavos ?? 0)}
+                        </td>
+                        <td className="p-num" data-card="value">
                           <strong>{peso(revenue.data?.totalCentavos ?? 0)}</strong>
                         </td>
                       </tr>

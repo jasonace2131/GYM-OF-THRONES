@@ -142,7 +142,7 @@ export default function StaffAccessPage() {
           onRetry={staff.reload}
         >
           <div className="a-scroll">
-            <table className="p-table" data-clickable>
+            <table className="p-table" data-clickable data-stack>
               <thead>
                 <tr>
                   <th>Name</th>
@@ -164,7 +164,7 @@ export default function StaffAccessPage() {
                       }
                     }}
                   >
-                    <td>
+                    <td data-card="title">
                       <Person
                         firstName={row.firstName}
                         lastName={row.lastName}
@@ -172,10 +172,10 @@ export default function StaffAccessPage() {
                         avatarUrl={row.avatarUrl}
                       />
                     </td>
-                    <td>
+                    <td data-label="Role" data-card="meta">
                       <Badge tone={ROLE_TONE[row.role] ?? 'neutral'}>{roleLabel(row.role)}</Badge>
                     </td>
-                    <td>
+                    <td data-label="Account" data-card="meta">
                       <Badge tone={row.status === 'ACTIVE' ? 'ok' : 'danger'}>
                         {row.status === 'ACTIVE'
                           ? 'Active'
@@ -184,7 +184,9 @@ export default function StaffAccessPage() {
                             : 'Closed'}
                       </Badge>
                     </td>
-                    <td className="p-muted">{civilDate(row.joinedOn)}</td>
+                    <td className="p-muted" data-label="Since">
+                      {civilDate(row.joinedOn)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

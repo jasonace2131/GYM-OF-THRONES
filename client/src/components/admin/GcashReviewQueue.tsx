@@ -131,9 +131,11 @@ export function GcashReviewQueue() {
           BOUNDED, so a busy Monday cannot push the payment register off the
           screen. About eight rows before it scrolls in place — enough to see
           the shape of the workload without the queue taking over the page.
+          On a phone the rows are cards and the page itself scrolls; a scroll
+          box inside a scrolling page is a thumb trap (admin.css).
         */}
-        <div style={{ maxHeight: 460, overflowY: 'auto' }}>
-          <table className="p-table">
+        <div className="a-gcash-scroll">
+          <table className="p-table a-gcash-table" data-stack>
             <thead>
               <tr>
                 <th>Member</th>
@@ -210,14 +212,14 @@ function SubmissionRow({
   return (
     <>
       <tr>
-        <td>
+        <td data-card="title">
           <strong>
             {row.member.firstName} {row.member.lastName}
           </strong>
           <div className="a-person-sub">{row.planName ?? row.planCode}</div>
         </td>
 
-        <td className="p-num">
+        <td className="p-num" data-card="value">
           {peso(row.amountCentavos, { decimals: true })}
           {short > 0 ? (
             <div className="a-person-sub" style={{ color: 'var(--p-danger)' }}>
@@ -226,7 +228,7 @@ function SubmissionRow({
           ) : null}
         </td>
 
-        <td>
+        <td data-label="Reference">
           {/* Selectable in one gesture: staff paste this straight into the
               GCash app's search, and a number they retype by eye is a number
               they will eventually mistype. */}
@@ -236,13 +238,14 @@ function SubmissionRow({
         </td>
 
         <td
+          data-label="Waiting"
           className={stale ? undefined : 'p-muted'}
           style={stale ? { color: 'var(--p-danger)', fontWeight: 600 } : undefined}
         >
           {waited(row.submittedAt)}
         </td>
 
-        <td>
+        <td data-card="actions">
           <button
             type="button"
             className="p-btn p-btn-ghost p-btn-sm"
@@ -253,13 +256,13 @@ function SubmissionRow({
           </button>
         </td>
 
-        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+        <td className="a-cell-actions" data-card="actions">
           {row.status !== 'PENDING' ? (
             <Badge tone={row.status === 'APPROVED' ? 'ok' : 'danger'}>
               {row.status === 'APPROVED' ? 'Linked' : 'Refused'}
             </Badge>
           ) : (
-            <span style={{ display: 'inline-flex', gap: 6 }}>
+            <span className="a-btn-row">
               <button
                 type="button"
                 className="p-btn p-btn-gold p-btn-sm"

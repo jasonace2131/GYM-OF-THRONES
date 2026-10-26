@@ -137,7 +137,7 @@ export default function AdminLeadsPage() {
           onRetry={leads.reload}
         >
           <div className="a-scroll">
-            <table className="p-table">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>Name</th>
@@ -151,7 +151,7 @@ export default function AdminLeadsPage() {
               <tbody>
                 {(leads.data ?? []).map((lead) => (
                   <tr key={lead.id}>
-                    <td>
+                    <td data-card="title">
                       <strong>{lead.name}</strong>
                       {!lead.emailSent && (
                         <div
@@ -163,7 +163,7 @@ export default function AdminLeadsPage() {
                         </div>
                       )}
                     </td>
-                    <td>
+                    <td data-label="Contact" className="a-wrap">
                       {/* Both clickable. Staff reply from the phone at the
                           counter, so a number they have to retype is a number
                           that does not get called. */}
@@ -178,18 +178,20 @@ export default function AdminLeadsPage() {
                         </div>
                       )}
                     </td>
-                    <td style={{ maxWidth: 320 }}>
+                    <td className="a-col-message" data-label="Message">
                       <span className="p-muted" style={{ fontSize: 13 }}>
                         {lead.message ?? '—'}
                       </span>
                     </td>
-                    <td className="p-num">{ago(lead.createdAt)}</td>
-                    <td>
+                    <td className="p-num" data-label="Received" data-card="meta">
+                      {ago(lead.createdAt)}
+                    </td>
+                    <td data-label="Status" data-card="meta">
                       <Badge tone={TONE[lead.status]}>{lead.status}</Badge>
                     </td>
                     {canWork && (
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <td data-card="actions">
+                        <div className="a-btn-row a-btn-row--end">
                           {lead.status === 'NEW' && (
                             <button
                               type="button"

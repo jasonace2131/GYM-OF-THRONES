@@ -5,6 +5,7 @@ import { TZDate } from '@date-fns/tz';
 import { Calendar } from '@/components/ui/calendar';
 import { GYM_TIMEZONE, type CivilDate } from '@/lib/gymTime';
 import { applyRangeClick, type RangeDraft } from '@/lib/reportRange';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 
 /**
  * A two-month range grid for the reports window.
@@ -27,7 +28,8 @@ import { applyRangeClick, type RangeDraft } from '@/lib/reportRange';
  * ── COLOURS ──
  * Nothing here carries a hex. shadcn's variables are defined under
  * `.portal-root`, and the CRM shell is `.portal-root .admin-root`, so
- * `--primary` is already the gym's gold and `--accent` its gold film. The
+ * `--primary` is the Style A ink (since 2026-10-26) and `--accent` the gold
+ * film. The
  * range fill and the two endpoints come from `components/ui/calendar.tsx`'s
  * `data-range-*` attributes, which is also why the endpoint styling is NOT
  * re-derived here: react-day-picker puts `modifiersClassNames` on the day
@@ -67,6 +69,11 @@ function previousMonthOf(day: string): string {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+/** The anchor `months` months after `anchor` (noon on the 1st, as above). */
+function shiftMonth(anchor: Date, months: number): Date {
+  return new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() + months, 1, 12));
+}
+
 /** The gym-local civil day of a Date, never `toISOString().slice(0, 10)`. */
 function toDay(value: Date): CivilDate {
   return new Intl.DateTimeFormat('en-CA', {
@@ -91,15 +98,21 @@ export function RangeCalendar({ draft, onDraft, today }: RangeCalendarProps) {
   // future, and every future day is disabled — a dead half of the widget.
   const [month, setMonth] = useState(() => monthAnchor(previousMonthOf(draft.to ?? draft.from)));
 
+  // A phone sheet has room for ONE month at a thumb-sized 44px cell (7 x
+  // 44 = 308px), not two at 32px. It shows the RIGHT pane's month — the one
+  // holding the end of the range — and `month` keeps meaning the left pane,
+  // so resizing never jumps the view.
+  const narrow = useMediaQuery('(max-width: 620px)');
+
   return (
     <Calendar
       mode="range"
       timeZone={GYM_TIMEZONE}
       weekStartsOn={1}
-      numberOfMonths={2}
+      numberOfMonths={narrow ? 1 : 2}
       showOutsideDays={false}
-      month={month}
-      onMonthChange={setMonth}
+      month={narrow ? shiftMonth(month, 1) : month}
+      onMonthChange={(next) => setMonth(narrow ? shiftMonth(next, -1) : next)}
       // Future days cannot be part of a report window: `averagePerDay`
       // divides by the days in range, so a range running past today divides
       // by days that have not happened.
@@ -115,7 +128,7 @@ export function RangeCalendar({ draft, onDraft, today }: RangeCalendarProps) {
         if (modifiers.disabled === true) return;
         onDraft(applyRangeClick(draft, toDay(day)));
       }}
-      className="w-full p-0 [--cell-size:2rem]"
+      className={narrow ? 'w-full p-0 [--cell-size:2.75rem]' : 'w-full p-0 [--cell-size:2rem]'}
       // `relative` is NOT decoration and must not be dropped from this
       // override: react-day-picker's month nav is `absolute inset-x-0 top-0`,
       // so without a positioned ancestor here the two chevrons escape the

@@ -51,8 +51,9 @@
   /* Style A (owner, 2026-10-23): on MEMBER surfaces a primary action is
      flat ink with light text, and gold is only a flat accent — the active
      day, the active nav item's indicator, badges, the focus ring. No gold
-     gradients, no gold glow. The Admin CRM (.portal-root.admin-root) keeps
-     its gold buttons; the overrides at the end of this file exclude it.
+     gradients, no gold glow. Since 2026-10-26 the Admin CRM
+     (.portal-root.admin-root) follows the same rule; the overrides at the
+     end of this file reach both.
      --p-night is the warm near-black that sits ON gold (the selected-day
      ink, the `night` Tailwind colour). */
   --p-night: #14100a;
@@ -2258,58 +2259,61 @@ html:has(.portal-root) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   Style A — member surfaces only (owner, 2026-10-23).
+   Style A — member portal (owner, 2026-10-23) and Admin CRM (owner,
+   2026-10-26).
 
-   Every rule is scoped `.portal-root:not(.admin-root)`: the CRM shell
-   carries both classes on one element, so this never reaches it. Colours
-   come from the tokens on .portal-root; nothing here has its own hex.
+   Scoped `.portal-root`, which the CRM shell also carries (`.portal-root
+   .admin-root` on one element), so both surfaces get the same ink buttons
+   and flat gold accent. The desk (`.desk-root`) is a separate root and is
+   never reached. Colours come from the tokens on .portal-root; nothing here
+   has its own hex.
    ══════════════════════════════════════════════════════════ */
 
-.portal-root:not(.admin-root) .p-btn-gold {
+.portal-root .p-btn-gold {
   background: var(--p-primary);
   color: var(--p-on-primary);
   box-shadow: none;
 }
 
-.portal-root:not(.admin-root) .p-btn-gold:hover {
+.portal-root .p-btn-gold:hover {
   background: var(--p-primary-hover);
   box-shadow: none;
 }
 
 /* The shine sweep was a gold-button effect; an ink button does not shine. */
-.portal-root:not(.admin-root) .p-btn-gold::after {
+.portal-root .p-btn-gold::after {
   display: none;
 }
 
 /* Active nav item: the sidebar is already ink, so it is a lighter flat fill
    with a thin gold indicator and gold-lit text (~10:1 on the sidebar). */
-.portal-root:not(.admin-root) .p-link[data-active='true'] {
+.portal-root .p-link[data-active='true'] {
   background: rgba(255, 255, 255, 0.07);
   color: var(--gold-lit);
   box-shadow: inset 3px 0 0 var(--gold);
 }
 
-.portal-root:not(.admin-root) .p-link[data-active='true'] .p-nav-badge {
+.portal-root .p-link[data-active='true'] .p-nav-badge {
   background: var(--p-danger);
   color: #fff;
 }
 
 /* Phone tab bar: a thin gold bar over the active tab. */
-.portal-root:not(.admin-root) .p-tab[data-active='true'] {
+.portal-root .p-tab[data-active='true'] {
   box-shadow: inset 0 2px 0 var(--gold);
 }
 
-.portal-root:not(.admin-root) .p-avatar {
+.portal-root .p-avatar {
   background: var(--gold);
   color: var(--p-night);
 }
 
-.portal-root:not(.admin-root) .p-msg[data-mine='true'] .p-bubble {
+.portal-root .p-msg[data-mine='true'] .p-bubble {
   background: var(--p-primary);
   color: var(--p-on-primary);
 }
 
-.portal-root:not(.admin-root) .p-chat-send {
+.portal-root .p-chat-send {
   background: var(--p-primary);
   color: var(--p-on-primary);
 }

@@ -116,7 +116,7 @@ export default function AdminSettingsPage() {
           onRetry={plans.reload}
         >
           <div className="a-scroll">
-            <table className="p-table">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>Code</th>
@@ -136,24 +136,30 @@ export default function AdminSettingsPage() {
                         not a number, and the `Code` header above it was never
                         marked numeric either. It had been right-aligning
                         against a left-aligned header. */}
-                    <td>{plan.code}</td>
-                    <td>{plan.name}</td>
-                    <td>{plan.kind === 'WALK_IN' ? 'Walk-in' : 'Term'}</td>
+                    <td data-label="Code" className="a-wrap">
+                      {plan.code}
+                    </td>
+                    <td data-card="title">{plan.name}</td>
+                    <td data-label="Kind">{plan.kind === 'WALK_IN' ? 'Walk-in' : 'Term'}</td>
                     {/* Integer centavos on the wire; the peso sign is rendered
                         here, never on the server. */}
-                    <td className="p-num">{peso(plan.priceCentavos)}</td>
-                    <td className="p-num">
+                    <td className="p-num" data-card="value">
+                      {peso(plan.priceCentavos)}
+                    </td>
+                    <td className="p-num" data-label="Term">
                       {plan.termMonths === null ? '—' : `${plan.termMonths} mo`}
                     </td>
-                    <td className="p-num">{plan.graceDays}d</td>
-                    <td>
+                    <td className="p-num" data-label="Grace">
+                      {plan.graceDays}d
+                    </td>
+                    <td data-label="State" data-card="meta">
                       <Badge tone={plan.isActive ? 'ok' : 'neutral'}>
                         {plan.isActive ? 'On sale' : 'Archived'}
                       </Badge>
                     </td>
                     {canManage && (
-                      <td>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <td data-card="actions">
+                        <div className="a-btn-row a-btn-row--end">
                           <button
                             type="button"
                             className="p-btn p-btn-ghost p-btn-sm"
@@ -302,8 +308,15 @@ export default function AdminSettingsPage() {
 function ParamRow({ name, what }: { name: string; what: string }) {
   return (
     <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-      <code style={{ fontSize: 12, color: 'var(--p-ink)', minWidth: 230 }}>{name}</code>
-      <span style={{ flex: 1, minWidth: 200 }}>{what}</span>
+      {/* `min(…, 100%)` and `anywhere`: a 230px env-var name in a 300px
+          phone card would otherwise push the page sideways. */}
+      <code
+        className="a-wrap"
+        style={{ fontSize: 12, color: 'var(--p-ink)', minWidth: 'min(230px, 100%)' }}
+      >
+        {name}
+      </code>
+      <span style={{ flex: 1, minWidth: 'min(200px, 100%)' }}>{what}</span>
     </div>
   );
 }

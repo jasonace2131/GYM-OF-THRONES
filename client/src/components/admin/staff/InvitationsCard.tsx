@@ -62,7 +62,7 @@ export function InvitationsCard({
 
   const rows = (list: StaffInvitationView[], withActions: boolean) => (
     <div className="a-scroll">
-      <table className="p-table">
+      <table className="p-table" data-stack>
         <thead>
           <tr>
             <th>Invited</th>
@@ -78,20 +78,21 @@ export function InvitationsCard({
             const actions = invitationActions(invitation, callerRole);
             return (
               <tr key={invitation.id}>
-                <td>
+                <td data-card="title" className="a-wrap">
                   <strong>{invitation.email}</strong>
                   <div className="a-person-sub">{invitationTimeline(invitation, now)}</div>
                 </td>
-                <td>{roleLabel(invitation.role)}</td>
-                <td>
+                <td data-label="Role">{roleLabel(invitation.role)}</td>
+                <td data-label="Status" data-card="meta">
                   <Badge tone={badge.tone}>{badge.label}</Badge>
                 </td>
-                <td className="p-muted">
+                <td className="p-muted" data-label="Sent by">
                   {invitation.invitedBy.name}
                   <div className="a-person-sub">{civilDate(invitation.createdAt.slice(0, 10))}</div>
                 </td>
                 {withActions ? (
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="a-cell-actions" data-card="actions">
+                    <span className="a-btn-row">
                     {actions.resend ? (
                       <button
                         type="button"
@@ -100,7 +101,7 @@ export function InvitationsCard({
                       >
                         Resend
                       </button>
-                    ) : null}{' '}
+                    ) : null}
                     {actions.revoke ? (
                       <button
                         type="button"
@@ -110,6 +111,7 @@ export function InvitationsCard({
                         Withdraw
                       </button>
                     ) : null}
+                    </span>
                   </td>
                 ) : null}
               </tr>

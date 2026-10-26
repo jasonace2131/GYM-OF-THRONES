@@ -96,7 +96,8 @@ export function DateRangeModal({ open, initial, today, onClose, onApply }: DateR
       }
     >
       <div style={{ display: 'grid', gap: 16 }}>
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
+        {/* Side by side; one column on a narrow phone (admin.css). */}
+        <div className="a-grid-2">
           <div className="a-field">
             <label className="a-field-label" htmlFor="range-from">
               From

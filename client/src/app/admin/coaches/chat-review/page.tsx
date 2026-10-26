@@ -156,8 +156,9 @@ function ChatReview() {
           emptyHint="Conversations appear here once a coach or a member has written in one."
           onRetry={threads.reload}
         >
-          <div className="p-scroll-x" style={{ padding: '0 18px 18px' }}>
-            <table className="p-table">
+          <div style={{ padding: '0 18px 18px' }}>
+            <div className="a-scroll">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>Coach</th>
@@ -172,20 +173,22 @@ function ChatReview() {
               <tbody>
                 {(threads.data?.items ?? []).map((row) => (
                   <tr key={row.id}>
-                    <td>
+                    <td data-label="Coach" data-card="title">
                       {row.coach.firstName} {row.coach.lastName}
                     </td>
-                    <td>
+                    <td data-label="Member">
                       {row.member.firstName} {row.member.lastName}
                     </td>
-                    <td className="p-num">{row.messageCount}</td>
-                    <td className="p-muted">
+                    <td className="p-num" data-label="Messages">
+                      {row.messageCount}
+                    </td>
+                    <td className="p-muted" data-label="Last message">
                       {row.lastMessageAt === null ? '—' : gymDateTime(row.lastMessageAt)}
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td className="a-cell-actions" data-card="actions">
                       {asking === row.id ? (
                         <form
-                          style={{ display: 'grid', gap: 6, minWidth: 240 }}
+                          className="a-review-form"
                           onSubmit={(event) => {
                             event.preventDefault();
                             void open(row.id);
@@ -207,7 +210,7 @@ function ChatReview() {
                               {failure}
                             </span>
                           )}
-                          <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <span className="a-btn-row a-btn-row--end">
                             <button
                               type="button"
                               className="p-btn p-btn-ghost p-btn-sm"
@@ -246,6 +249,7 @@ function ChatReview() {
                 ))}
               </tbody>
             </table>
+            </div>
             {threads.data !== null ? (
               <Pager page={page} limit={PAGE_SIZE} total={threads.data.total} onPage={setPage} />
             ) : null}

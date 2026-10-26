@@ -214,7 +214,7 @@ export default function AdminStationsPage() {
                   </span>
                 ) : (
                   <div className="a-scroll">
-                    <table className="p-table" style={{ minWidth: 0 }}>
+                    <table className="p-table a-table-fit" data-stack>
                       <thead>
                         <tr>
                           <th>Label</th>
@@ -227,19 +227,21 @@ export default function AdminStationsPage() {
                       <tbody>
                         {station.credentials.map((credential) => (
                           <tr key={credential.id}>
-                            <td>{credential.label}</td>
-                            <td className="p-muted">
+                            <td data-card="title">{credential.label}</td>
+                            <td className="p-muted" data-label="Last seen">
                               {credential.lastUsedAt === null
                                 ? 'never'
                                 : gymDateTime(credential.lastUsedAt)}
                             </td>
-                            <td className="p-muted">{gymDateTime(credential.createdAt)}</td>
-                            <td>
+                            <td className="p-muted" data-label="Provisioned">
+                              {gymDateTime(credential.createdAt)}
+                            </td>
+                            <td data-label="State" data-card="meta">
                               <Badge tone={credential.isActive ? 'ok' : 'neutral'}>
                                 {credential.isActive ? 'Active' : 'Revoked'}
                               </Badge>
                             </td>
-                            <td>
+                            <td data-card="actions">
                               {credential.isActive ? (
                                 <ConfirmButton
                                   busy={busy}

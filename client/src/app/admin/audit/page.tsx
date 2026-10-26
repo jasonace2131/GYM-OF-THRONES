@@ -234,7 +234,7 @@ export default function AdminAuditPage() {
           onRetry={entries.reload}
         >
           <div className="a-scroll">
-            <table className="p-table">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>When</th>
@@ -250,26 +250,26 @@ export default function AdminAuditPage() {
 
                   return (
                     <tr key={row.id}>
-                      <td className="p-muted" style={{ whiteSpace: 'nowrap' }}>
+                      <td className="p-muted" style={{ whiteSpace: 'nowrap' }} data-card="meta">
                         {gymDateTime(row.occurredAt)}
                       </td>
-                      <td>
+                      <td data-label="Action" data-card="meta">
                         <Badge tone={TONE[row.action]}>{ACTION_LABELS[row.action]}</Badge>
                       </td>
-                      <td>
+                      <td data-label="Who" data-card="title">
                         <strong>{row.actorName}</strong>
                         {/* The role AT THE TIME. A later promotion must not
                             rewrite what somebody was when they did it. */}
                         <div className="a-person-sub">{row.actorRole} at the time</div>
                       </td>
-                      <td>
+                      <td data-label="What">
                         {row.subjectLabel ?? row.subjectType}
                         <div className="a-person-sub">
                           {row.subjectType}
                           {changes === null ? '' : ` · ${changes}`}
                         </div>
                       </td>
-                      <td className="p-muted" style={{ maxWidth: 260 }}>
+                      <td className="p-muted a-col-why" data-label="Why">
                         {row.reason ?? '—'}
                       </td>
                     </tr>

@@ -169,7 +169,7 @@ function ClassesScreen() {
     // `minmax(0, 1fr)`: an `auto` column grows to its widest child's
     // min-content and pushes the page past a phone's width.
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 18 }}>
-      <div className="a-toolbar">
+      <div className="a-toolbar a-class-toolbar">
         {canManage && !composing ? (
           <button
             ref={scheduleRef}
@@ -184,11 +184,7 @@ function ClassesScreen() {
           </button>
         ) : null}
 
-        <div
-          role="group"
-          aria-label="Days shown"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}
-        >
+        <div role="group" aria-label="Days shown" className="a-class-days">
           <button
             type="button"
             className="p-btn p-btn-ghost p-btn-sm"
@@ -211,15 +207,12 @@ function ClassesScreen() {
           >
             Later<span aria-hidden> ›</span>
           </button>
-          <span
-            aria-live="polite"
-            style={{ marginLeft: 4, fontSize: 13.5, fontWeight: 600, color: 'var(--p-ink2)' }}
-          >
+          <span aria-live="polite" className="a-class-days-label">
             {shortDay(from)} – {shortDay(to)}
           </span>
         </div>
 
-        <label style={{ marginLeft: 'auto' }}>
+        <label className="a-class-coach">
           <span className="a-person-sub">COACH</span>
           <select
             className="a-input"
@@ -454,7 +447,7 @@ function SessionRow({
           ) : null}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="a-class-actions">
           {/* Not for a class the gym called off: there is nothing to mark,
               and the server refuses every mark with CLASS_CANCELLED. */}
           {cancelled ? null : (
@@ -689,17 +682,7 @@ function Register({
             (entry.status === 'BOOKED' || entry.status === 'WAITLISTED');
 
           return (
-            <div
-              key={entry.bookingId}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                flexWrap: 'wrap',
-                paddingTop: 8,
-                borderTop: '1px solid var(--p-border)',
-              }}
-            >
+            <div key={entry.bookingId} className="a-register-row">
               <span style={{ flex: '1 1 160px', minWidth: 0, fontSize: 14 }}>
                 {name}
                 {entry.member.memberCode === null ? null : (
@@ -721,7 +704,7 @@ function Register({
 
               {entry.status === 'WAITLISTED' ? null : markable ? (
                 // A marked entry offers only the other mark: the correction.
-                <span style={{ display: 'inline-flex', gap: 6 }}>
+                <span className="a-register-marks">
                   {entry.status === 'ATTENDED' ? null : (
                     <button
                       type="button"
@@ -1105,7 +1088,7 @@ function Composer({
             </select>
           </label>
 
-          <div className="a-toolbar">
+          <div className="a-toolbar a-class-when">
             <label>
               <span className="a-person-sub">DATE</span>
               <input

@@ -470,7 +470,7 @@ export default function AdminDashboardPage() {
               onRetry={inGym.reload}
             >
               <div className="a-scroll">
-                <table className="p-table">
+                <table className="p-table" data-stack>
                   <thead>
                     <tr>
                       <th>Member</th>
@@ -482,7 +482,7 @@ export default function AdminDashboardPage() {
                   <tbody>
                     {(inGym.data?.items ?? []).slice(0, 5).map((row) => (
                       <tr key={row.checkInId}>
-                        <td>
+                        <td data-card="title">
                           <Person
                             firstName={row.member.firstName}
                             lastName={row.member.lastName}
@@ -490,16 +490,19 @@ export default function AdminDashboardPage() {
                             avatarUrl={row.member.avatarUrl}
                           />
                         </td>
-                        <td className="p-muted">{gymTime(row.occurredAt)}</td>
+                        <td className="p-muted" data-label="Checked in">
+                          {gymTime(row.occurredAt)}
+                        </td>
                         <td
                           className="p-num"
+                          data-label="Duration"
                           data-tone={
                             row.durationMinutes > LONG_SESSION_MINUTES ? 'warn' : undefined
                           }
                         >
                           {duration(row.durationMinutes)}
                         </td>
-                        <td>
+                        <td data-label="Standing" data-card="meta">
                           {/* `verdict` is the snapshot taken AT ADMISSION, and
                               CheckIn only ever stores admissions — so the two
                               AccessVerdict values map onto ALLOW and GRACE and
@@ -593,18 +596,18 @@ export default function AdminDashboardPage() {
               onRetry={expiring.reload}
             >
               <div className="a-scroll">
-                <table className="p-table">
+                <table className="p-table" data-stack>
                   <tbody>
                     {expiringRows.map((row) => (
                       <tr key={row.id}>
-                        <td>
+                        <td data-card="title">
                           <Person
                             firstName={row.firstName}
                             lastName={row.lastName}
                             sub={`${row.planName} · ${civilDate(row.endsOn)}`}
                           />
                         </td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={{ textAlign: 'right' }} data-card="meta">
                           <StandingBadge
                             decision={row.decision}
                             daysRemaining={row.daysRemaining}

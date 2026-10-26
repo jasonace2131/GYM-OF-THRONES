@@ -88,6 +88,9 @@ export function MembersRoster() {
   const [selected, setSelected] = useState<Map<string, MemberListItem>>(new Map());
   const [bulkAction, setBulkAction] = useState<'suspend' | 'reactivate' | null>(null);
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
+  // The same control above the cards: below 900px the table's <thead> is
+  // off-screen (admin.css), taking the header checkbox with it.
+  const cardsCheckboxRef = useRef<HTMLInputElement | null>(null);
 
   // A request per keystroke would be a request per keystroke. `useAdminQuery`
   // also drops out-of-order responses, so the table can never settle on
@@ -169,8 +172,8 @@ export function MembersRoster() {
   const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
 
   useEffect(() => {
-    if (headerCheckboxRef.current !== null) {
-      headerCheckboxRef.current.indeterminate = somePageSelected;
+    for (const box of [headerCheckboxRef.current, cardsCheckboxRef.current]) {
+      if (box !== null) box.indeterminate = somePageSelected;
     }
   }, [somePageSelected]);
 
@@ -391,6 +394,18 @@ export function MembersRoster() {
         onRetry={query.reload}
       >
         <Card padded={false}>
+          {canBulk && (
+            <label className="a-select-all">
+              <input
+                ref={cardsCheckboxRef}
+                type="checkbox"
+                className="a-check"
+                checked={allPageSelected}
+                onChange={toggleAllOnPage}
+              />
+              Select all on this page
+            </label>
+          )}
           <div className="a-scroll">
             {/*
              * Seven data columns plus the checkbox, and two of them drop out
@@ -404,8 +419,13 @@ export function MembersRoster() {
              * `joinedOn` were ADDED to it for exactly this reason. Hiding a
              * phone number on the screen whose job is ringing people would
              * otherwise be a real loss rather than a responsive one.
+             *
+             * Below 900px the rows are cards (`data-stack`, admin.css): the
+             * member and the standing lead, Contact comes BACK (a card has
+             * the room, and this is the screen for ringing people), and
+             * Visits / Joined stay in the drawer.
              */}
-            <table className="p-table a-roster-table" data-clickable>
+            <table className="p-table a-roster-table" data-clickable data-stack>
               <thead>
                 <tr>
                   {canBulk && (
@@ -455,6 +475,7 @@ export function MembersRoster() {
                       {canBulk && (
                         <td
                           className="a-checkbox-col"
+                          data-card="check"
                           onClick={(event) => event.stopPropagation()}
                           onKeyDown={(event) => event.stopPropagation()}
                         >
@@ -466,7 +487,7 @@ export function MembersRoster() {
                           />
                         </td>
                       )}
-                      <td>
+                      <td data-card="title">
                         <Person
                           firstName={row.firstName}
                           lastName={row.lastName}
@@ -474,11 +495,11 @@ export function MembersRoster() {
                           avatarUrl={row.avatarUrl}
                         />
                       </td>
-                      <td className="a-col-md">
+                      <td className="a-col-md" data-label="Contact">
                         <div style={{ fontSize: 13 }}>{row.phone ?? '—'}</div>
                         <div className="a-person-sub">{row.email}</div>
                       </td>
-                      <td className="a-col-md">
+                      <td className="a-col-md" data-label="Plan">
                         {row.membership === null ? (
                           <span className="p-muted">—</span>
                         ) : (
@@ -492,7 +513,7 @@ export function MembersRoster() {
                           </>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Standing">
                         {/* THE DOOR's decision, not the stored column — every
                             list projects the stored status through accessVerdict
                             so the CRM and the counter cannot disagree in front
@@ -511,7 +532,7 @@ export function MembersRoster() {
                           )}
                         </div>
                       </td>
-                      <td>
+                      <td data-label="Ends">
                         {row.membership === null ? (
                           <span className="p-muted">—</span>
                         ) : (
@@ -523,8 +544,12 @@ export function MembersRoster() {
                           </>
                         )}
                       </td>
-                      <td className="p-num a-col-lg">{row.checkInCount}</td>
-                      <td className="p-muted a-col-lg">{civilDate(row.joinedOn)}</td>
+                      <td className="p-num a-col-lg" data-label="Visits" data-card="hide">
+                        {row.checkInCount}
+                      </td>
+                      <td className="p-muted a-col-lg" data-label="Joined" data-card="hide">
+                        {civilDate(row.joinedOn)}
+                      </td>
                     </tr>
                   );
                 })}

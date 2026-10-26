@@ -159,9 +159,11 @@
   --card-foreground: var(--p-ink);
   --popover: var(--p-paper);
   --popover-foreground: var(--p-ink);
-  --primary: var(--gold);
-  /* The ink .p-btn-gold already sets on gold (portal.css). */
-  --primary-foreground: #14100a;
+  /* Style A (owner, 2026-10-23; the CRM since 2026-10-26): shadcn's primary
+     is the ink button, not gold — the portal.css tokens, on the member
+     portal and on the CRM shell (`.portal-root.admin-root`) alike. */
+  --primary: var(--p-primary);
+  --primary-foreground: var(--p-on-primary);
   --secondary: var(--p-paper3);
   --secondary-foreground: var(--p-ink);
   --muted: var(--p-paper2);
@@ -173,12 +175,4 @@
   --input: var(--p-border-2);
   --ring: var(--gold);
   --radius: var(--p-radius);
-}
-
-/* Style A (owner, 2026-10-23): on member surfaces shadcn's primary is the
-   ink button, not gold (portal.css tokens). The CRM shell is
-   `.portal-root.admin-root` on one element and keeps gold. */
-.portal-root:not(.admin-root) {
-  --primary: var(--p-primary);
-  --primary-foreground: var(--p-on-primary);
 }

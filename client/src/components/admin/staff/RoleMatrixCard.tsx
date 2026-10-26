@@ -49,7 +49,7 @@ export function RoleMatrixCard() {
             onRetry={matrix.reload}
           >
             <div className="a-scroll">
-              <table className="p-table">
+              <table className="p-table" data-stack>
                 <thead>
                   <tr>
                     <th>Permission</th>
@@ -78,7 +78,7 @@ export function RoleMatrixCard() {
                     </tr>
                     {group.rows.map((row) => (
                       <tr key={row.key}>
-                        <td>
+                        <td data-card="title">
                           {row.description}{' '}
                           {row.isDangerous ? <Badge tone="warn">Sensitive</Badge> : null}
                           <div className="a-person-sub">{row.key}</div>
@@ -86,6 +86,7 @@ export function RoleMatrixCard() {
                         {MATRIX_ROLES.map((role) => (
                           <td
                             key={role}
+                            data-label={matrixRoleLabel(role)}
                             style={{
                               textAlign: 'center',
                               color: row.cells[role] === null ? 'var(--p-ink3)' : 'var(--p-ink)',

@@ -193,7 +193,9 @@ function Row({
   return (
     <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--p-border)' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-        <strong style={{ flex: 1, minWidth: 0 }}>{notice.title}</strong>
+        <strong className="a-wrap" style={{ flex: 1, minWidth: 0 }}>
+          {notice.title}
+        </strong>
         {notice.isPinned ? <Badge tone="warn">Pinned</Badge> : null}
       </div>
 
@@ -204,7 +206,10 @@ function Row({
           <NoticeCover url={notice.coverImageUrl} />
         </div>
       )}
-      <div style={{ margin: '6px 0 0', color: 'var(--p-ink2)', fontSize: 13.5, lineHeight: 1.55 }}>
+      <div
+        className="a-wrap"
+        style={{ margin: '6px 0 0', color: 'var(--p-ink2)', fontSize: 13.5, lineHeight: 1.55 }}
+      >
         {notice.contentJson === null ? (
           <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{notice.content}</p>
         ) : (

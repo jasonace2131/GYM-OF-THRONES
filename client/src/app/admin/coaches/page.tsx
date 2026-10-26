@@ -99,7 +99,8 @@ export default function AdminCoachesPage() {
           style={{
             display: 'grid',
             gap: 16,
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            // `min(320px, 100%)`: a bare 320px track overflows a 360px phone.
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
           }}
         >
           {coachOptions.map((coach) => (
@@ -229,7 +230,7 @@ export default function AdminCoachesPage() {
           onRetry={assignments.reload}
         >
           <div className="a-scroll">
-            <table className="p-table">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>Member</th>
@@ -327,13 +328,15 @@ function AssignmentRow({
 
   return (
     <tr>
-      <td>
+      <td data-card="title">
         <strong>{row.memberName}</strong>
         <div className="a-person-sub">{row.memberCode ?? '—'}</div>
       </td>
-      <td>{row.coachName}</td>
-      <td className="p-muted">{civilDate(row.startedAt.slice(0, 10))}</td>
-      <td>
+      <td data-label="Coach">{row.coachName}</td>
+      <td className="p-muted" data-label="Since">
+        {civilDate(row.startedAt.slice(0, 10))}
+      </td>
+      <td data-label="Standing" data-card="meta">
         {row.status === 'ACTIVE' ? (
           <Badge tone="ok">Active</Badge>
         ) : (
@@ -342,7 +345,7 @@ function AssignmentRow({
           </Badge>
         )}
       </td>
-      <td style={{ textAlign: 'right' }}>
+      <td className="a-cell-actions" data-card="actions">
         {!canEnd ? null : (
           <button
             type="button"

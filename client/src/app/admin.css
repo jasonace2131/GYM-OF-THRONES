@@ -546,8 +546,9 @@
 }
 
 .a-cal-day[data-today] {
-  background: linear-gradient(135deg, var(--gold-lit), var(--gold));
-  color: #241a05;
+  /* Style A: gold is a flat accent, never a gradient. */
+  background: var(--gold);
+  color: var(--p-night);
   font-weight: 800;
 }
 
@@ -708,6 +709,10 @@
   width: 100%;
   max-width: 440px;
   max-height: calc(100vh - 40px);
+  /* `dvh` is the visible viewport: on a phone `vh` includes the strip under
+     the URL bar, and a sheet sized by it has its footer under the bar. The
+     `vh` line above is the fallback for a browser without `dvh`. */
+  max-height: calc(100dvh - 40px);
   display: flex;
   flex-direction: column;
   background: var(--p-paper);
@@ -969,7 +974,9 @@
   width: 460px;
   max-width: 100vw;
   height: 100vh;
+  height: 100dvh;
   max-height: 100vh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--p-paper);
@@ -1118,6 +1125,10 @@
     max-width: none;
     height: auto;
     max-height: 92vh;
+    max-height: 92dvh;
+    /* Tall enough that the header's ⋯ menu, which hangs down into the body,
+       is never cut off by this panel's `overflow: hidden` on a short record. */
+    min-height: min(440px, 70dvh);
     border-left: 0;
     border-radius: 16px 16px 0 0;
     animation: a-sheet 0.2s ease both;
@@ -1627,6 +1638,7 @@
 
 .a-pager-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -1835,6 +1847,7 @@
   .a-modal {
     max-width: none;
     max-height: 92vh;
+    max-height: 92dvh;
     border-radius: 16px 16px 0 0;
     animation: a-sheet 0.2s ease both;
   }
@@ -3084,5 +3097,723 @@
 @media (max-width: 900px) {
   .a-class-form {
     scroll-margin-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ── Classes: the toolbar, a session's buttons, a register row ── */
+.a-class-days {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.a-class-days-label {
+  margin-left: 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--p-ink2);
+}
+
+.a-class-coach {
+  margin-left: auto;
+}
+
+.a-class-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.a-register-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--p-border);
+}
+
+.a-register-marks {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* A phone: every control is a full-width row a thumb can hit, and the
+   register's Here / No show sit side by side under the name. */
+@media (max-width: 640px) {
+  .a-class-toolbar > *,
+  .a-class-coach {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .a-class-days > button {
+    flex: 1 1 0;
+  }
+
+  .a-class-days-label {
+    flex: 1 1 100%;
+    margin-left: 0;
+    text-align: center;
+  }
+
+  .a-class-actions {
+    width: 100%;
+  }
+
+  .a-class-actions > *,
+  .a-register-marks > *,
+  .a-register-row > .p-btn {
+    flex: 1 1 0;
+  }
+
+  .a-register-marks {
+    display: flex;
+    flex: 1 1 100%;
+  }
+
+  .a-register-row > .p-btn {
+    flex-basis: 100%;
+  }
+
+  .a-class-when > label {
+    flex: 1 1 calc(50% - 10px);
+    min-width: 0;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════
+   Admin on a phone and a portrait tablet (owner, 2026-10-26)
+
+   Targets 360–430px phones and the 768px counter tablet. The sidebar is
+   gone below 900px, so the tablet uses the phone shell and every rule here
+   starts at 900px. Everything is scoped `.admin-root`: the member portal
+   already passed its own phone review and must not move.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Tables become one card per row ─────────────────────────
+   OPT-IN, exactly like portal.css's `.p-table[data-stack]`: a table stacks
+   only once its cells carry `data-label`, because a stacked cell with no
+   label is a bare value nobody can read. Below 900px nothing scrolls
+   sideways any more — the 760px `min-width` that made every CRM table a
+   sideways pane is cancelled, and `.a-scroll` stops being a scroll box.
+
+   A cell can also say what it is IN THE CARD with `data-card`:
+     title    the card's first line, large (the payer, the member)
+     value    the figure on the right of that line (the amount)
+     meta     small inline facts on the second line (status chip, date)
+     actions  full-width 44px buttons along the card's foot
+     hide     a reference column the card drops (it is in the drawer)
+   Unmarked cells are "Label ……… value" rows between meta and actions. The
+   card is a wrapping flex row, so `order` puts each part in place whatever
+   the column order of the desktop table. */
+@media (max-width: 900px) {
+  /* The scroll box goes away. Its overflow pair also clipped any popover
+     inside it; with the table as cards there is nothing wide to contain. */
+  .admin-root .a-scroll:has(> .p-table[data-stack]) {
+    overflow: visible;
+    max-height: none;
+  }
+
+  .admin-root .a-scroll .p-table[data-stack],
+  .admin-root .p-table[data-stack] {
+    min-width: 0;
+  }
+
+  .admin-root .p-table[data-stack],
+  .admin-root .p-table[data-stack] tbody,
+  .admin-root .p-table[data-stack] td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-root .p-table[data-stack] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-root .p-table[data-stack] tbody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+    background: var(--p-paper2);
+  }
+
+  /* A totals row is one more card, under the others. */
+  .admin-root .p-table[data-stack] tfoot {
+    display: block;
+    padding: 0 10px 10px;
+    background: var(--p-paper2);
+  }
+
+  /* An in-row bar (revenue by month) goes full width under its label. */
+  .admin-root .p-table[data-stack] td[data-card='bar'] {
+    order: -1;
+    flex: 1 1 100%;
+    padding: 4px 0;
+  }
+
+  .admin-root .p-table[data-stack] tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--p-border);
+    border-radius: 12px;
+    background: var(--p-paper);
+  }
+
+  .admin-root .p-table[data-stack] tbody tr:hover {
+    background: var(--p-paper);
+  }
+
+  /* A row that spans the table (an expanded GCash proof, an empty-state
+     line) spans the card grid too. */
+  .admin-root .p-table[data-stack] tr:has(> td[colspan]) {
+    grid-column: 1 / -1;
+  }
+
+  .admin-root .p-table[data-stack] td {
+    flex: 1 1 100%;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 2px 0;
+    border: 0;
+    font-size: 13.5px;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-root .p-table[data-stack] td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-family: var(--font-heading);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--p-ink3);
+    text-align: left;
+  }
+
+  .admin-root .p-table[data-stack] td:not([data-label])::before {
+    content: none;
+  }
+
+  .admin-root .p-table[data-stack] td:not([data-label]) {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  /* A labelled cell is a two-column grid: the label left, and EVERYTHING the
+     cell holds — a figure, a sub-line under it, a badge — stacked on the
+     right, in the order the desktop cell shows it. */
+  .admin-root .p-table[data-stack] td[data-label]:not([data-card]) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 12px;
+  }
+
+  .admin-root .p-table[data-stack] td[data-label]:not([data-card])::before {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    align-self: start;
+  }
+
+  .admin-root .p-table[data-stack] td[data-label]:not([data-card]) > * {
+    grid-column: 2;
+    justify-self: end;
+    max-width: 100%;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='title'] {
+    order: -4;
+    flex: 1 1 0;
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--p-ink);
+    text-align: left;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='value'] {
+    order: -3;
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: auto;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--p-ink);
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='title']::before,
+  .admin-root .p-table[data-stack] td[data-card='value']::before,
+  .admin-root .p-table[data-stack] td[data-card='meta']::before,
+  .admin-root .p-table[data-stack] td[data-card='actions']::before {
+    content: none;
+  }
+
+  /* The line break between the title line and the meta line. */
+  .admin-root .p-table[data-stack] tr:has(> td[data-card='title'])::before {
+    content: '';
+    order: -2;
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='meta'] {
+    order: -1;
+    flex: 0 1 auto;
+    width: auto;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--p-ink3);
+    text-align: left;
+  }
+
+  /* `1 1 auto`, not 100%: two action cells (a GCash row's Receipt beside
+     its Approve / Refuse) share one line when they fit. */
+  .admin-root .p-table[data-stack] td[data-card='actions'] {
+    order: 10;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 6px;
+    padding-top: 10px;
+    border-top: 1px solid var(--p-border);
+    text-align: left;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='actions'] > * {
+    flex: 1 1 auto;
+  }
+
+  /* A settled row's lone status badge stays a badge, not a full-width bar. */
+  .admin-root .p-table[data-stack] td[data-card='actions'] > .p-badge {
+    flex: 0 0 auto;
+    align-self: flex-start;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='actions'] .p-btn,
+  .admin-root .p-table[data-stack] td[data-card='actions'] .a-btn {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='actions']:empty,
+  .admin-root .p-table[data-stack] td[data-card='actions']:has(> .a-btn-row:empty) {
+    display: none;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='actions'] .a-btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .admin-root .p-table[data-stack] td[data-card='actions'] .a-btn-row > * {
+    flex: 1 1 0;
+    min-width: max-content;
+  }
+
+  /* Stretched, so the days-left bar under the badge has a width to fill. */
+  .admin-root .p-table[data-stack] td[data-label] > .a-standing-cell {
+    justify-self: stretch;
+    justify-items: end;
+  }
+
+  .admin-root .p-table[data-stack] [data-card='hide'] {
+    display: none;
+  }
+
+  .admin-root .p-table[data-stack] .a-checkbox-col {
+    order: -5;
+    flex: 0 0 auto;
+    width: auto;
+    padding: 0 !important;
+  }
+
+  .admin-root .p-table[data-stack] .a-checkbox-col input[type='checkbox'] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .admin-root .p-table[data-stack] .a-person-name {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-root .p-table[data-stack] .a-standing-cell,
+  .admin-root .p-table[data-stack] .a-days {
+    min-width: 0;
+  }
+
+  .admin-root .p-table[data-stack] tr:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+}
+
+/* Buttons in a table row, and the GCash queue's bounded box. On a desktop
+   the row's buttons sit in a line at the cell's end; on a card they are the
+   full-width foot (above). */
+.a-btn-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.a-btn-row--end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.a-cell-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.a-gcash-scroll {
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+/* A short table that fits its card (a station's tablets) opts out of the
+   760px scroll width. (0,3,0) to beat `.a-scroll .p-table`. */
+.a-scroll .p-table.a-table-fit {
+  min-width: 0;
+}
+
+/* A long title, email or env-var name breaks rather than widening its box. */
+.a-wrap {
+  overflow-wrap: anywhere;
+}
+
+/* Free-text columns that would otherwise widen a desktop row. */
+.a-col-why {
+  max-width: 260px;
+}
+
+.a-col-message {
+  max-width: 320px;
+}
+
+.a-check {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--gold);
+}
+
+@media (max-width: 900px) {
+  .a-col-why,
+  .a-col-message {
+    max-width: none;
+  }
+
+  .a-check {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* The roster's select-all above the cards. Only below 900px, where the
+   table's header row (and its checkbox) is off-screen. */
+.a-select-all {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .admin-root .a-select-all {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--p-border);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--p-ink);
+    cursor: pointer;
+  }
+}
+
+/* Chat review's reason-before-reading form, opened inside its row. */
+.a-review-form {
+  display: grid;
+  gap: 6px;
+  min-width: 240px;
+  white-space: normal;
+}
+
+.a-review-form label {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+@media (max-width: 900px) {
+  .a-review-form {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* Two groups of filter chips in one toolbar; each wraps as a unit. */
+.a-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.a-toolbar:has(> .a-chip-group) {
+  column-gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .a-gcash-scroll {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 640px) {
+  .a-chip-group {
+    width: 100%;
+  }
+
+  .a-chip-group > * {
+    flex: 1 1 auto;
+  }
+}
+
+/* A portrait tablet has room for two cards side by side.
+   The GCash queue stays one per row: its receipt opens as a separate,
+   full-width row, which in a two-up grid would land under the whole grid
+   row rather than under its own card. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .admin-root .p-table[data-stack]:not(.a-gcash-table) tbody {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+
+/* ── Touch targets, text floor, wrapping ──────────────────── */
+@media (max-width: 900px) {
+  /* 44×44 for anything a thumb taps. Desktop keeps its tighter sizes. */
+  .admin-root .a-btn,
+  .admin-root .p-btn,
+  .admin-root .p-btn-sm,
+  .admin-root .a-tab,
+  .admin-root .a-seg-btn,
+  .admin-root .a-seg button,
+  .admin-root .a-chips button,
+  .admin-root .a-notify-tab,
+  .admin-root .a-disc-chip,
+  .admin-root .a-kebab-item,
+  .admin-root .a-picker-row,
+  .admin-root .a-picked-x,
+  .admin-root .a-hit {
+    min-height: 44px;
+  }
+
+  .admin-root .a-btn {
+    justify-content: center;
+    font-size: 13px;
+  }
+
+  .admin-root .p-btn-sm {
+    font-size: 12.5px;
+  }
+
+  .admin-root .a-icon-btn,
+  .admin-root .a-rich-tool,
+  .admin-root .a-modal-x,
+  .admin-root .a-kebab-btn,
+  .admin-root .a-cal-arrow,
+  .admin-root .a-panel-search-clear {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .admin-root .a-panel-search-clear {
+    right: 0;
+  }
+
+  .admin-root .a-panel-search-input {
+    height: 44px;
+  }
+
+  .admin-root .a-kebab-item {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  .admin-root .a-kebab-menu {
+    max-height: 50dvh;
+    overflow-y: auto;
+  }
+
+  .admin-root .a-range,
+  .admin-root .a-daterange {
+    height: auto;
+    min-height: 44px;
+  }
+
+  .admin-root .a-range-btn {
+    height: auto;
+    min-height: 38px;
+  }
+
+  .admin-root .a-filters-select,
+  .admin-root .a-disc-box {
+    height: 44px;
+  }
+
+  .admin-root .a-link-btn {
+    min-height: 44px;
+    padding: 0 4px;
+    font-size: 12.5px;
+  }
+
+  /* No text under 11px on a phone. These are 8.5–10.5px labels and chips
+     sized for a desktop at arm's length. */
+  .admin-root .a-kpi-label,
+  .admin-root .a-kpi-live,
+  .admin-root .a-attention-count,
+  .admin-root .a-chart-axis,
+  .admin-root .a-cal-dow,
+  .admin-root .a-cal-legend,
+  .admin-root .a-cal-truncated,
+  .admin-root .a-pay-meta,
+  .admin-root .a-or,
+  .admin-root .a-verdict-head,
+  .admin-root .a-panel-title,
+  .admin-root .a-notice-meta .p-badge,
+  .admin-root .a-filters-label,
+  .admin-root .a-daterange-tag {
+    font-size: 11px;
+  }
+
+  /* Long names, emails and codes wrap instead of pushing a card wide. */
+  .admin-root .a-person-sub,
+  .admin-root .a-drawer-row-title,
+  .admin-root .a-drawer-row-sub,
+  .admin-root .a-pay-name,
+  .admin-root .a-wrap {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ── Bottom sheets ─────────────────────────────────────────
+   Below 620px `.a-modal` and `.a-drawer` are already bottom sheets. The
+   footer is a direct child of the sheet, after the scrolling body, so it is
+   pinned: Save is always on screen however long the form. On a phone its
+   buttons wrap and stretch to full width, and it clears the home
+   indicator. */
+@media (max-width: 620px) {
+  .admin-root .a-modal-head {
+    padding: 16px 16px 12px;
+  }
+
+  .admin-root .a-modal-body {
+    padding: 14px 16px;
+    overscroll-behavior: contain;
+  }
+
+  .admin-root .a-modal-foot {
+    flex-wrap: wrap;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--p-paper);
+  }
+
+  .admin-root .a-modal-foot > * {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+
+  .admin-root .a-drawer-body {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    overscroll-behavior: contain;
+  }
+
+  .admin-root .a-drawer-head {
+    padding: 16px 16px 12px;
+  }
+
+  /* A section's buttons (Sell, Renew, Freeze…) become a full-width row
+     under its title, and a row's own buttons (Void, Refund) drop under the
+     row, instead of squeezing the amount into an ellipsis. */
+  .admin-root .a-drawer-section-head,
+  .admin-root .a-drawer-row {
+    flex-wrap: wrap;
+  }
+
+  .admin-root .a-drawer-section-actions,
+  .admin-root .a-drawer-row-actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+    gap: 8px;
+  }
+
+  .admin-root .a-drawer-section-actions > *,
+  .admin-root .a-drawer-row-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .admin-root .a-co-foot {
+    flex-wrap: wrap;
+  }
+
+  /* The walk-in sale's charge bar lives inside the sheet's scrolling body
+     (so the attendance card's mount gets it too). In a sheet it sticks to
+     the bottom edge, so the total and Charge stay on screen while the form
+     above scrolls. The negative margins cancel the body's 14px / 16px
+     padding so the bar runs edge to edge. */
+  .admin-root .a-modal-body .a-co-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    margin: 4px -16px -14px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--p-paper);
+  }
+
+  .admin-root .a-co-foot .p-btn {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+}
+
+/* ── Two-up form rows ──────────────────────────────────────
+   Two fields side by side; one column on a narrow phone. */
+.a-grid-2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .a-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

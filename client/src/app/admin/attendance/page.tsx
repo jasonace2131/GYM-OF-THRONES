@@ -177,7 +177,9 @@ export default function AdminAttendancePage() {
         style={{
           display: 'grid',
           gap: 18,
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          // `min(340px, 100%)`: a bare 340px track is wider than a 360px
+          // phone's content box and pushed the page sideways.
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
         }}
       >
         <ManualCheckIn
@@ -234,7 +236,7 @@ export default function AdminAttendancePage() {
           onRetry={active.reload}
         >
           <div className="a-scroll">
-            <table className="p-table">
+            <table className="p-table" data-stack>
               <thead>
                 <tr>
                   <th>Member</th>
@@ -248,7 +250,7 @@ export default function AdminAttendancePage() {
               <tbody>
                 {active.data?.items.map((row) => (
                   <tr key={row.checkInId}>
-                    <td>
+                    <td data-card="title">
                       <Person
                         firstName={row.member.firstName}
                         lastName={row.member.lastName}
@@ -256,16 +258,20 @@ export default function AdminAttendancePage() {
                         avatarUrl={row.member.avatarUrl}
                       />
                     </td>
-                    <td>{gymTime(row.occurredAt)}</td>
-                    <td className="p-num">{duration(row.durationMinutes)}</td>
-                    <td>
+                    <td data-label="Since">{gymTime(row.occurredAt)}</td>
+                    <td className="p-num" data-label="For">
+                      {duration(row.durationMinutes)}
+                    </td>
+                    <td data-label="How" data-card="meta">
                       <Badge tone={row.verdict === 'ALLOWED' ? 'ok' : 'warn'}>
                         {row.method === 'STATION_QR' ? 'scan' : 'desk'}
                       </Badge>
                     </td>
-                    <td className="p-muted">{row.station?.code ?? '—'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <td className="p-muted" data-label="Station">
+                      {row.station?.code ?? '—'}
+                    </td>
+                    <td data-card="actions">
+                      <div className="a-btn-row a-btn-row--end">
                         {/* A guest in the building is the warmest lead the gym
                             has. `userId === null` is the guest predicate the
                             desk feed already carries. */}

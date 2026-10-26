@@ -112,7 +112,7 @@ export default function CoachCaseloadPage() {
                 />
               ) : (
                 <div className="a-scroll">
-                  <table className="p-table" data-clickable={canSeeProgress || undefined}>
+                  <table className="p-table" data-clickable={canSeeProgress || undefined} data-stack>
                     <thead>
                       <tr>
                         <th>Client</th>
@@ -140,7 +140,7 @@ export default function CoachCaseloadPage() {
                               : undefined
                           }
                         >
-                          <td>
+                          <td data-card="title">
                             <Person
                               firstName={row.firstName}
                               lastName={row.lastName}
@@ -148,8 +148,10 @@ export default function CoachCaseloadPage() {
                               avatarUrl={row.avatarUrl}
                             />
                           </td>
-                          <td className="p-muted">{civilDate(row.since.slice(0, 10))}</td>
-                          <td>
+                          <td className="p-muted" data-label="Since">
+                            {civilDate(row.since.slice(0, 10))}
+                          </td>
+                          <td data-label="Last visit">
                             {row.inGymNow ? (
                               <Badge tone="ok">In the gym</Badge>
                             ) : row.lastVisitAt === null ? (
@@ -158,8 +160,10 @@ export default function CoachCaseloadPage() {
                               civilDate(row.lastVisitAt.slice(0, 10))
                             )}
                           </td>
-                          <td className="p-num">{row.visits30d}</td>
-                          <td>
+                          <td className="p-num" data-label="Visits (30 days)">
+                            {row.visits30d}
+                          </td>
+                          <td data-label="Class attendance">
                             {row.attendanceRate === null
                               ? '—'
                               : `${row.attendanceRate}% of ${row.classesMarked}`}
