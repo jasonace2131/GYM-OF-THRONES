@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BIRTH_DATE_MIN, type MemberJoinLookup } from '@got/shared';
 import AuthBrandPanel from './AuthBrandPanel';
-import { PasswordInput } from './PasswordInput';
+import { NewPasswordFields } from './NewPasswordFields';
 import { supabase } from '@/lib/supabase';
 import { ApiError, apiFetch } from '@/lib/api';
 import { normalisePassword } from '@/lib/credentials';
+import { newPasswordProblem, passwordRefusalMessage } from '@/lib/passwordRules';
 import { homeFor, type HeldPermission } from '@/lib/safeNext';
 import {
   birthDateProblem,
@@ -91,6 +92,8 @@ export default function JoinPage({ token }: { token: string }) {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<JoinCopy | null>(null);
+  /** The password was refused: the rules still unmet show as missing, not "to do". */
+  const [passwordTried, setPasswordTried] = useState(false);
   /** The normalised password this page has already saved with Supabase, if any. */
   const savedPassword = useRef<string | null>(null);
 
@@ -145,12 +148,10 @@ export default function JoinPage({ token }: { token: string }) {
   const finish = useCallback(async (): Promise<void> => {
     setProblem(null);
     const next = normalisePassword(password);
-    if (next.length < 8) {
-      setProblem({ title: 'Choose a password', body: 'Use at least 8 characters.' });
-      return;
-    }
-    if (next !== normalisePassword(confirm)) {
-      setProblem({ title: 'Choose a password', body: 'The two passwords do not match.' });
+    const passwordProblem = newPasswordProblem(next, confirm);
+    if (passwordProblem !== null) {
+      setProblem({ title: 'Choose a password', body: passwordProblem });
+      setPasswordTried(true);
       return;
     }
     const dobProblem = birthDateProblem(dateOfBirth, localToday());
@@ -166,7 +167,7 @@ export default function JoinPage({ token }: { token: string }) {
       if (passwordStep({ next, savedPassword: savedPassword.current }) === 'save') {
         const { error } = await supabase.auth.updateUser({ password: next });
         if (error !== null && !isSamePasswordError(error)) {
-          setProblem({ title: 'Your password was not saved', body: error.message });
+          setProblem({ title: 'Your password was not saved', body: passwordRefusalMessage(error) });
           setBusy(false);
           return;
         }
@@ -278,30 +279,17 @@ export default function JoinPage({ token }: { token: string }) {
                   void finish();
                 }}
               >
-                <div className="field">
-                  <label htmlFor="join-password">Password</label>
-                  <PasswordInput
-                    id="join-password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="new-password"
-                    minLength={8}
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="join-confirm">Confirm password</label>
-                  <PasswordInput
-                    id="join-confirm"
-                    placeholder="••••••••"
-                    value={confirm}
-                    onChange={(event) => setConfirm(event.target.value)}
-                    autoComplete="new-password"
-                    minLength={8}
-                    required
-                  />
-                </div>
+                <NewPasswordFields
+                  password={password}
+                  confirm={confirm}
+                  onPasswordChange={setPassword}
+                  onConfirmChange={setConfirm}
+                  labels={{ password: 'Password', confirm: 'Confirm password' }}
+                  names={{ password: 'password', confirm: 'confirm' }}
+                  placeholder="••••••••"
+                  showMissing={passwordTried}
+                  disabled={busy}
+                />
                 <div className="field">
                   <label htmlFor="join-dob">Date of birth</label>
                   <input

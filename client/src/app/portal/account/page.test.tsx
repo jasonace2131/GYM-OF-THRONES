@@ -168,16 +168,29 @@ describe('My account page', () => {
   });
 
   describe('the summary', () => {
-    it('greets the member and shows the profile card', async () => {
+    it('greets the member in the profile band', async () => {
       await renderPage();
       expect(apiFetch).toHaveBeenCalledWith('/me/profile');
-      expect(container.querySelector('h1')?.textContent).toBe('Juan Dela Cruz');
-      expect(page()).toContain('Welcome back');
-      expect(page()).toContain('YOUR PROFILE');
+      const band = container.querySelector('section[aria-label="Your profile"]');
+      expect(band?.querySelector('h1')?.textContent).toBe('Juan Dela Cruz');
+      expect(band?.textContent).toContain('Welcome back');
+      expect(band?.querySelector('.acct-avatar')?.textContent).toBe('JD');
       expect(container.querySelector('.acct-badge')?.textContent).toBe('Quarterly · ACTIVE');
-      expect(page()).toContain('juan@example.com');
-      expect(page()).toContain('+63 917 555 0142');
-      expect(page()).toContain('K7Q2MX');
+      const facts = [...(band?.querySelectorAll('.acct-fact') ?? [])].map((fact) => [
+        fact.querySelector('dt')?.textContent,
+        fact.querySelector('dd')?.textContent,
+      ]);
+      expect(facts).toEqual([
+        ['Email', 'juan@example.com'],
+        ['Phone', '+63 917 555 0142'],
+        ['Member code', 'K7Q2MX'],
+      ]);
+    });
+
+    it('falls back to the email for the initials when there is no name', async () => {
+      await renderPage({ ...PROFILE, firstName: '', lastName: '' });
+      expect(container.querySelector('h1')?.textContent).toBe('juan@example.com');
+      expect(container.querySelector('.acct-avatar')?.textContent).toBe('J');
     });
 
     it('says NO PLAN, and what is missing, when there is nothing on file', async () => {
@@ -185,7 +198,27 @@ describe('My account page', () => {
       expect(container.querySelector('.acct-badge')?.textContent).toBe('No plan');
       expect(page()).toContain('Not added');
       expect(page()).toContain('Not issued yet');
-      expect(page()).toContain('No plan yet — see the plans');
+      const tile = container.querySelector('a[href="/portal/subscription"]');
+      expect(tile?.textContent).toContain('No plan yet');
+      expect(tile?.textContent).toContain('A plan opens class booking, Workouts and My Coach.');
+      expect(tile?.querySelector('.acct-go')?.textContent).toBe('See plans');
+    });
+
+    it('keeps an ended plan in words', async () => {
+      await renderPage({
+        ...PROFILE,
+        membership: { planName: 'Quarterly', status: 'EXPIRED', endsOn: '2026-10-01', daysLeft: 0 },
+      });
+      const tile = container.querySelector('a[href="/portal/subscription"]');
+      expect(tile?.textContent).toContain('Quarterly · expired · ended 1 Oct');
+    });
+
+    it('puts password, email, sign out and delete together under Sign-in & security', async () => {
+      await renderPage();
+      const card = container.querySelector('section[aria-labelledby="acct-sec-h"]');
+      expect(card?.querySelector('h2')?.textContent).toBe('Sign-in & security');
+      const labels = [...(card?.querySelectorAll('.acct-li b') ?? [])].map((b) => b.textContent);
+      expect(labels).toEqual(['Change password', 'Change email', 'Sign out', 'Delete account']);
     });
 
     it('shows height, weight, BMI and the notes — no chip at a healthy BMI', async () => {
@@ -196,21 +229,33 @@ describe('My account page', () => {
       expect(container.querySelector('.acct-chip')).toBeNull();
     });
 
-    it('shows the under-18.5 chip and "No notes"', async () => {
+    it('shows the under-18.5 note and "No notes"', async () => {
       await renderPage({ ...PROFILE, heightCm: 185, weightKg: 62, medicalNotes: null });
       expect(container.querySelector('.acct-chip')?.textContent).toBe(
-        'Under 18.5 · "Lose fat" is hidden in the planner',
+        'BMI under 18.5, so “Lose fat” is hidden in the workout planner.',
       );
       expect(page()).toContain('No notes');
     });
 
-    it('links the tiles and the policy row', async () => {
+    it('links the three tiles, with the days left as the headline', async () => {
       await renderPage();
       const hrefs = [...container.querySelectorAll('a')].map((a) => a.getAttribute('href'));
       expect(hrefs).toEqual(['/portal/subscription', '/portal/pay', '/terms']);
-      expect(page()).toContain('Quarterly · 80 days left · until 11 Jan');
-      expect(page()).toContain('→ Manage');
-      expect(page()).toContain('→ View');
+      const tile = container.querySelector('a[href="/portal/subscription"]');
+      expect(tile?.querySelector('.acct-tile-big')?.textContent).toBe('80');
+      expect(tile?.textContent).toContain('days left on Quarterly');
+      expect(tile?.textContent).toContain('Active until 11 Jan.');
+      const actions = [...container.querySelectorAll('.acct-go')].map((go) => go.textContent);
+      expect(actions).toEqual(['Manage', 'View', 'Read']);
+    });
+
+    it('says 1 day, not 1 days', async () => {
+      await renderPage({
+        ...PROFILE,
+        membership: { planName: 'Monthly', status: 'ACTIVE', endsOn: '2026-10-28', daysLeft: 1 },
+      });
+      expect(page()).toContain('day left on Monthly');
+      expect(page()).not.toContain('days left on Monthly');
     });
 
     it('the planner switch saves at once', async () => {
@@ -339,8 +384,8 @@ describe('My account page', () => {
       await click(row('Change password'));
       verifyCurrentPassword.mockResolvedValue('wrong');
       await type(byName('currentPassword'), 'not-it');
-      await type(byName('newPassword'), 'new-password');
-      await type(byName('confirmPassword'), 'new-password');
+      await type(byName('newPassword'), 'Thr0nes!Gym');
+      await type(byName('confirmPassword'), 'Thr0nes!Gym');
 
       await click(button('Change password'));
 
@@ -350,19 +395,42 @@ describe('My account page', () => {
       expect(byName('currentPassword').getAttribute('aria-invalid')).toBe('true');
     });
 
+    it('refuses a new password that misses a rule before checking the current one', async () => {
+      await renderPage();
+      await click(row('Change password'));
+      await type(byName('currentPassword'), 'old-password');
+      await type(byName('newPassword'), 'newpassword');
+      await type(byName('confirmPassword'), 'newpassword');
+
+      await click(button('Change password'));
+
+      expect(verifyCurrentPassword).not.toHaveBeenCalled();
+      expect(page()).toContain(
+        'Your password still needs an uppercase letter, a number and a special character.',
+      );
+      expect(byName('newPassword').getAttribute('aria-invalid')).toBe('true');
+      expect(document.body.querySelectorAll('.pw-rules li[data-state="missing"]')).toHaveLength(3);
+    });
+
     it('changes the password and says so', async () => {
       await renderPage();
       await click(row('Change password'));
       verifyCurrentPassword.mockResolvedValue('ok');
       updatePassword.mockResolvedValue({ error: null });
       await type(byName('currentPassword'), 'old-password');
-      await type(byName('newPassword'), 'new-password');
-      await type(byName('confirmPassword'), 'new-password');
+      await type(byName('newPassword'), 'Thr0nes!Gym');
+      await type(byName('confirmPassword'), 'Thr0nes!Gym');
 
       await click(button('Change password'));
 
-      expect(updatePassword).toHaveBeenCalledWith('new-password');
+      expect(updatePassword).toHaveBeenCalledWith('Thr0nes!Gym');
       expect(page()).toContain('Password changed.');
+    });
+
+    it('opens Change email from the security card too', async () => {
+      await renderPage();
+      await click(row('Change email'));
+      expect(byName<HTMLInputElement>('email')).toBeTruthy();
     });
 
     it('asks for the email change and says to check both inboxes', async () => {

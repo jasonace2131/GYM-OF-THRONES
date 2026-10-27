@@ -1,141 +1,195 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   My account (owner-approved mock, 2026-10-23) — Style A: ink surfaces and
-   buttons, gold as a FLAT accent only, no gradients. Outfit headings, Inter
-   body — the portal's own fonts and tokens; no hex of its own except the two
-   ink-card greys the mock specifies.
+   My account — layout A, "account hub" (owner's pick, 2026-10-26). Style A:
+   ink surfaces and buttons, gold as a FLAT accent only, no gradients. Outfit
+   headings, Inter body — the portal's own fonts and tokens.
 
    Legacy CSS, not Tailwind: this folder is not Tailwind-scanned, so every
    class here is `acct-*`, which no generated utility can match.
 
-   Phone: one column — hello, profile, body & health, tiles, list.
-   ≥ 900px: two columns — left profile, tiles, list; right body & health.
+   It answers to its OWN width (a container query), not the window's: the
+   portal's sidebar takes 244px from 900px up, so the window says nothing
+   reliable about the room this page actually has.
+
+     < 640px   one column: band, body & health, security, tiles
+     ≥ 640px   band on two rows; body & health in two columns; three tiles
+     ≥ 1000px  body & health two-thirds wide, security beside it
+     ≥ 1440px  the band on one row
    ══════════════════════════════════════════════════════════════════════════ */
 
 .portal-root .acct {
+  /* Small grey text on white: --p-ink3 is 3.9:1 there, this is 5.6:1. */
+  --acct-muted: #6b6965;
+  /* Full width of .p-content, which already stops at 1680px. */
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.portal-root .acct-grid {
   display: grid;
   gap: 14px;
   min-width: 0;
-  max-width: 1040px;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'hello' 'profile' 'body' 'tiles' 'list';
-  align-items: start;
+  grid-template-areas: 'band' 'body' 'security' 'tiles';
+  align-items: stretch;
 }
 
-@media (min-width: 900px) {
-  .portal-root .acct {
-    gap: 16px 22px;
-    grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+@container (min-width: 1000px) {
+  .portal-root .acct-grid {
+    gap: 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     grid-template-areas:
-      'hello hello'
-      'profile body'
-      'tiles body'
-      'list body';
-    /* The last row soaks up the height, so the left column packs to the top. */
-    grid-template-rows: auto auto auto 1fr;
+      'band band band'
+      'body body security'
+      'tiles tiles tiles';
   }
 }
 
-.portal-root .acct-hello { grid-area: hello; }
-.portal-root .acct-profile { grid-area: profile; }
-.portal-root .acct-body-area { grid-area: body; display: grid; gap: 10px; min-width: 0; }
-.portal-root .acct-tiles { grid-area: tiles; }
-.portal-root .acct-list { grid-area: list; }
+/* ── Profile band (ink) ─────────────────────────────────────────────────── */
 
-.portal-root .acct-eyebrow {
-  margin: 0;
-  font: 600 11.5px/1 var(--font-body);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--gold-deep);
-}
-
-.portal-root .acct-hello h1 {
-  margin: 6px 0 0;
-  font: 700 28px/1.1 var(--font-heading);
-  color: var(--p-ink);
-  overflow-wrap: anywhere;
-}
-
-/* ── Profile card (ink) ─────────────────────────────────────────────────── */
-
-.portal-root .acct-profile {
+.portal-root .acct-band {
+  grid-area: band;
   position: relative;
   overflow: hidden;
   display: grid;
-  gap: 4px;
+  gap: 18px;
   min-width: 0;
-  padding: 18px;
-  border-radius: 18px;
+  padding: 20px;
+  border-radius: 20px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'id' 'facts' 'actions';
+  align-items: center;
   background: var(--p-ink);
   color: #f2eee6;
 }
 
-.portal-root .acct-profile::after {
-  content: '';
+@container (min-width: 640px) {
+  .portal-root .acct-band {
+    gap: 24px 32px;
+    padding: 26px 30px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'id actions'
+      'facts facts';
+  }
+}
+
+@container (min-width: 1440px) {
+  .portal-root .acct-band {
+    gap: 24px 40px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'id facts actions';
+  }
+}
+
+.portal-root .acct-ring {
   position: absolute;
-  right: -60px;
-  top: -60px;
-  width: 190px;
-  height: 190px;
+  right: -90px;
+  top: -120px;
+  width: 300px;
+  height: 300px;
   border: 1px dashed rgba(201, 146, 42, 0.35);
   border-radius: 50%;
   pointer-events: none;
 }
 
-.portal-root .acct-profile-head {
+.portal-root .acct-id {
+  grid-area: id;
   position: relative;
-  z-index: 1;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 16px;
+  min-width: 0;
 }
 
-.portal-root .acct-profile-head h2 {
+.portal-root .acct-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 60px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--p-night);
+  font: 800 21px/1 var(--font-heading);
+  box-shadow:
+    0 0 0 3px var(--p-ink),
+    0 0 0 4px rgba(201, 146, 42, 0.55);
+}
+
+@container (min-width: 640px) {
+  .portal-root .acct-avatar {
+    flex-basis: 76px;
+    width: 76px;
+    height: 76px;
+    font-size: 27px;
+    box-shadow:
+      0 0 0 4px var(--p-ink),
+      0 0 0 5px rgba(201, 146, 42, 0.55);
+  }
+}
+
+.portal-root .acct-id-text {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.portal-root .acct-hello {
   margin: 0;
-  font: 600 11px/1 var(--font-body);
-  letter-spacing: 0.16em;
+  font: 500 13px/1 var(--font-body);
   color: #b8b0a2;
 }
 
+.portal-root .acct-band h1 {
+  margin: 0;
+  font: 700 22px/1.1 var(--font-heading);
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+@container (min-width: 640px) {
+  .portal-root .acct-band h1 { font-size: 30px; line-height: 1.05; }
+}
+
 .portal-root .acct-badge {
-  padding: 6px 9px;
+  padding: 6px 10px;
   border-radius: 999px;
   background: var(--gold);
   color: var(--p-night);
   font: 700 11px/1 var(--font-body);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .portal-root .acct-badge-none {
   background: transparent;
   color: #b8b0a2;
-  border: 1px solid #3a342a;
+  border: 1px solid #4a4336;
 }
 
-.portal-root .acct-rows {
+/* Phone: label left, value right, a rule between. Wider: three columns. */
+.portal-root .acct-facts {
+  grid-area: facts;
   position: relative;
-  z-index: 1;
+  display: grid;
+  min-width: 0;
   margin: 0;
 }
 
-.portal-root .acct-row {
+.portal-root .acct-fact {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  padding: 11px 0;
+  padding: 10px 0;
   border-top: 1px solid #2f2a22;
   font-size: 13.5px;
 }
 
-.portal-root .acct-row:first-child { border-top: 0; }
-.portal-root .acct-row dt { color: #b8b0a2; flex: 0 0 auto; }
+.portal-root .acct-fact dt { flex: 0 0 auto; color: #b8b0a2; }
 
-.portal-root .acct-row dd {
+.portal-root .acct-fact dd {
   margin: 0;
   min-width: 0;
   font-weight: 600;
@@ -143,20 +197,47 @@
   overflow-wrap: anywhere;
 }
 
-.portal-root .acct-row dd.acct-unset { color: #8d867a; font-weight: 500; }
+.portal-root .acct-fact dd.acct-unset { color: #8d867a; font-weight: 500; }
 
-.portal-root .acct-profile-actions {
+@container (min-width: 640px) {
+  .portal-root .acct-facts {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px 28px;
+  }
+
+  .portal-root .acct-fact {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 0 0 0 16px;
+    border-top: 0;
+    border-left: 1px solid #2f2a22;
+  }
+
+  .portal-root .acct-fact dt { font: 500 12.5px/1 var(--font-body); }
+  .portal-root .acct-fact dd { font: 600 14.5px/1.3 var(--font-body); text-align: left; }
+}
+
+.portal-root .acct-band-actions {
+  grid-area: actions;
   position: relative;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 10px;
+}
+
+@container (min-width: 640px) {
+  .portal-root .acct-band-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }
 
 .portal-root .acct-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   min-height: 44px;
   padding: 6px 6px 6px 16px;
@@ -165,8 +246,9 @@
   background: #fff;
   color: var(--p-ink);
   font: 700 12px/1 var(--font-body);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -178,8 +260,9 @@
   border-radius: 50%;
   background: var(--gold);
   color: var(--p-night);
-  font-size: 15px;
 }
+
+.portal-root .acct-pill-dot svg { width: 15px; height: 15px; }
 
 .portal-root .acct-pill-ghost {
   min-height: 44px;
@@ -189,10 +272,14 @@
   background: transparent;
   color: #f2eee6;
   font: 700 12px/1 var(--font-body);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
+
+.portal-root .acct-pill:hover { background: var(--p-paper2); }
+.portal-root .acct-pill-ghost:hover { border-color: #6b604c; }
 
 .portal-root .acct-pill:focus-visible,
 .portal-root .acct-pill-ghost:focus-visible {
@@ -200,91 +287,141 @@
   outline-offset: 2px;
 }
 
-/* ── Body & health ──────────────────────────────────────────────────────── */
+/* ── Cards: shared heading ──────────────────────────────────────────────── */
 
-.portal-root .acct-sect-h {
-  margin: 2px 0 0;
-  font: 800 21px/1.1 var(--font-heading);
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
+.portal-root .acct-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.portal-root .acct-card-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font: 700 18px/1.1 var(--font-heading);
   color: var(--p-ink);
 }
 
-.portal-root .acct-sect-h em { color: var(--gold-deep); font-style: italic; }
+.portal-root .acct-card-ico {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--p-warn-bg);
+  color: var(--gold-deep);
+}
 
-.portal-root .acct-card {
+.portal-root .acct-card-ico svg { width: 17px; height: 17px; }
+
+/* ── Body & health ──────────────────────────────────────────────────────── */
+
+.portal-root .acct-body {
+  grid-area: body;
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--p-border);
+  border-radius: 18px;
+  background: var(--p-paper);
+}
+
+.portal-root .acct-body-cols {
   display: grid;
   gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container (min-width: 640px) {
+  .portal-root .acct-body { padding: 22px 24px; }
+
+  .portal-root .acct-body-cols {
+    gap: 20px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.portal-root .acct-body-col {
+  display: grid;
+  align-content: start;
+  gap: 12px;
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--p-border);
-  border-radius: 16px;
-  background: var(--p-paper);
 }
 
 .portal-root .acct-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
   margin: 0;
 }
 
 .portal-root .acct-stat {
   display: grid;
-  gap: 2px;
+  gap: 6px;
   min-width: 0;
-  padding: 10px;
-  border-radius: 12px;
+  padding: 14px;
+  border-radius: 14px;
   background: var(--p-paper2);
 }
 
 .portal-root .acct-stat dd {
   order: -1;
   margin: 0;
-  font: 700 22px/1 var(--font-heading);
+  font: 700 26px/1 var(--font-heading);
   font-variant-numeric: tabular-nums;
   color: var(--p-ink);
 }
 
+@container (min-width: 640px) {
+  .portal-root .acct-stat dd { font-size: 30px; }
+}
+
 .portal-root .acct-stat dt {
-  font: 600 11px/1.2 var(--font-body);
-  letter-spacing: 0.12em;
+  font: 600 11.5px/1.2 var(--font-body);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--p-ink3);
+  color: var(--acct-muted);
 }
 
 .portal-root .acct-chip {
-  justify-self: start;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: var(--gold-film);
-  color: var(--gold-deep);
-  font: 600 11.5px/1.3 var(--font-body);
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--p-warn-bg);
+  color: var(--p-warn);
+  font: 600 12.5px/1.4 var(--font-body);
 }
 
 .portal-root .acct-note {
   display: grid;
   gap: 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--p-border);
+  padding: 14px 16px;
+  border: 1px dashed var(--p-border-2);
+  border-radius: 14px;
 }
 
 .portal-root .acct-note h3 {
   margin: 0;
-  font: 600 11px/1 var(--font-body);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--p-ink3);
+  font: 600 13.5px/1.2 var(--font-body);
+  color: var(--p-ink);
 }
 
 .portal-root .acct-note p {
   margin: 0;
   font-size: 13.5px;
+  line-height: 1.45;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
 
-.portal-root .acct-note p.acct-unset { color: var(--p-ink3); }
+.portal-root .acct-note p.acct-unset { color: var(--acct-muted); }
 
 .portal-root .acct-toggle {
   display: flex;
@@ -292,9 +429,9 @@
   gap: 12px;
   width: 100%;
   min-height: 44px;
-  padding: 12px;
+  padding: 14px 16px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--p-paper2);
   color: var(--p-ink);
   font: inherit;
@@ -341,15 +478,13 @@
   background: var(--gold);
 }
 
-.portal-root .acct-toggle-text { display: grid; gap: 2px; min-width: 0; }
-.portal-root .acct-toggle-text b { font-size: 13.5px; font-weight: 600; }
-.portal-root .acct-toggle-text small { font-size: 12px; color: var(--p-ink3); }
+.portal-root .acct-toggle-text { display: grid; gap: 4px; min-width: 0; }
+.portal-root .acct-toggle-text b { font-size: 14px; font-weight: 600; }
+.portal-root .acct-toggle-text small { font-size: 12.5px; line-height: 1.4; color: var(--acct-muted); }
 
 .portal-root .acct-msg { margin: 0; font-size: 13px; }
 .portal-root .acct-msg-ok { color: var(--p-ok); }
 .portal-root .acct-msg-bad { color: var(--p-danger); }
-
-.portal-root .acct-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 .portal-root .acct-btn {
   display: inline-flex;
@@ -362,7 +497,7 @@
   background: var(--p-ink);
   color: #fff;
   font: 700 12px/1 var(--font-body);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
 }
@@ -374,93 +509,40 @@
   outline-offset: 2px;
 }
 
-/* ── Tiles ──────────────────────────────────────────────────────────────── */
+/* ── Sign-in & security ─────────────────────────────────────────────────── */
 
-.portal-root .acct-tiles {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-}
-
-.portal-root .acct-tile {
-  display: grid;
-  align-content: start;
-  gap: 6px;
+.portal-root .acct-sec {
+  grid-area: security;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  min-height: 150px;
-  padding: 14px;
   border: 1px solid var(--p-border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--p-paper);
-  color: var(--p-ink);
-  text-decoration: none;
+  overflow: hidden;
 }
 
-.portal-root .acct-tile:hover { border-color: var(--p-border-2); }
+.portal-root .acct-sec > .acct-card-h { padding: 18px 18px 14px; }
 
-.portal-root .acct-tile:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
+@container (min-width: 640px) {
+  .portal-root .acct-sec > .acct-card-h { padding: 22px 22px 14px; }
 }
-
-.portal-root .acct-ico {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: var(--gold-film);
-  color: var(--gold-deep);
-}
-
-.portal-root .acct-ico svg { width: 18px; height: 18px; }
-
-.portal-root .acct-tile h3 {
-  margin: 4px 0 0;
-  font: 700 14px/1.2 var(--font-heading);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.portal-root .acct-tile p {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--p-ink3);
-  overflow-wrap: anywhere;
-}
-
-.portal-root .acct-go {
-  margin-top: auto;
-  padding-top: 8px;
-  font: 600 11.5px/1 var(--font-body);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--gold-deep);
-}
-
-/* ── Settings list ──────────────────────────────────────────────────────── */
 
 .portal-root .acct-list {
   margin: 0;
   padding: 0;
   list-style: none;
-  border: 1px solid var(--p-border);
-  border-radius: 16px;
-  background: var(--p-paper);
-  overflow: hidden;
 }
 
 .portal-root .acct-list > li { border-top: 1px solid var(--p-border); }
-.portal-root .acct-list > li:first-child { border-top: 0; }
 
 .portal-root .acct-li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 56px;
-  padding: 14px 16px;
+  min-height: 62px;
+  padding: 12px 18px;
   border: 0;
   background: transparent;
   color: var(--p-ink);
@@ -470,6 +552,10 @@
   cursor: pointer;
 }
 
+@container (min-width: 640px) {
+  .portal-root .acct-li { padding: 12px 22px; }
+}
+
 .portal-root .acct-li:hover { background: var(--p-paper2); }
 
 .portal-root .acct-li:focus-visible {
@@ -477,20 +563,114 @@
   outline-offset: -2px;
 }
 
-.portal-root .acct-li-text { display: grid; gap: 2px; min-width: 0; }
-.portal-root .acct-li-text b { font: 600 14px/1.25 var(--font-heading); }
-.portal-root .acct-li-text small { font-size: 12.5px; color: var(--p-ink3); }
+.portal-root .acct-li-ico { display: grid; flex: 0 0 auto; color: var(--p-ink2); }
+.portal-root .acct-li-ico svg { width: 18px; height: 18px; }
+.portal-root .acct-li-text { display: grid; flex: 1 1 auto; gap: 3px; min-width: 0; }
+.portal-root .acct-li-text b { font: 600 14px/1.25 var(--font-body); }
+.portal-root .acct-li-text small { font-size: 12.5px; line-height: 1.3; color: var(--acct-muted); }
+.portal-root .acct-li-danger .acct-li-ico,
 .portal-root .acct-li-danger .acct-li-text b { color: var(--p-danger); }
 
-.portal-root .acct-chev {
+.portal-root .acct-chev { display: grid; flex: 0 0 auto; color: var(--acct-muted); }
+.portal-root .acct-chev svg { width: 16px; height: 16px; }
+
+/* ── Tiles ──────────────────────────────────────────────────────────────── */
+
+/* Phone: Membership across the top, Payments and Policy side by side. */
+.portal-root .acct-tiles {
+  grid-area: tiles;
   display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.portal-root .acct-tiles > :first-child { grid-column: 1 / -1; }
+
+@container (min-width: 640px) {
+  .portal-root .acct-tiles {
+    gap: 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .portal-root .acct-tiles > :first-child { grid-column: auto; }
+}
+
+.portal-root .acct-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
   border: 1px solid var(--p-border);
-  border-radius: 50%;
-  color: var(--p-ink3);
+  border-radius: 18px;
+  background: var(--p-paper);
+  color: var(--p-ink);
+  text-decoration: none;
+}
+
+@container (min-width: 640px) {
+  .portal-root .acct-tile { padding: 22px 24px; }
+}
+
+.portal-root .acct-tile:hover { border-color: var(--p-border-2); }
+
+.portal-root .acct-tile:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.portal-root .acct-tile-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 10px;
+}
+
+.portal-root .acct-tile h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font: 700 16px/1.1 var(--font-heading);
+}
+
+.portal-root .acct-go {
+  font: 700 12px/1 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+
+.portal-root .acct-tile-big {
+  font: 800 20px/1.1 var(--font-heading);
+  overflow-wrap: anywhere;
+}
+
+@container (min-width: 640px) {
+  .portal-root .acct-tile-big { font-size: 24px; }
+}
+
+.portal-root .acct-tile-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.portal-root .acct-tile-num { font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+
+.portal-root .acct-tile-unit {
+  font: 600 14px/1.3 var(--font-body);
+  color: var(--p-ink2);
+}
+
+.portal-root .acct-tile p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--acct-muted);
+  overflow-wrap: anywhere;
 }
 
 /* ── Sheets: bottom sheet on phones, side panel from 900px ──────────────── */

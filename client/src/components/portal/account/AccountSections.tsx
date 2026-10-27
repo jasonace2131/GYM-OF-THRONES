@@ -14,7 +14,6 @@ import { filterDecimalTyping } from '@/lib/numberInput';
 import { CharCounter } from '@/components/inputs/CharCounter';
 import {
   ACCOUNT_COPY,
-  PASSWORD_MIN,
   bodyForm,
   bodyPatch,
   bodySavedMessage,
@@ -33,6 +32,8 @@ import {
 } from '@/lib/account';
 import { EMAIL_INPUT_PROPS } from '@/lib/credentials';
 import { Card, CardHead } from '@/components/portal/ui';
+import { NewPasswordFields } from '@/components/auth/NewPasswordFields';
+import { PasswordInput } from '@/components/auth/PasswordInput';
 
 /**
  * The three sections of My account. Every decision — what is sent, whether
@@ -365,10 +366,13 @@ export function PasswordSection({
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   /** Which field the shown problem belongs to, so only it is marked invalid. */
   const [badField, setBadField] = useState<PasswordField | null>(null);
+  /** A save was refused: the rules still unmet show as missing, not "to do". */
+  const [tried, setTried] = useState(false);
   const resultId = `${uid}-result`;
+  const currentId = `${uid}-current`;
 
-  const typed = (setter: (value: string) => void) => (event: { target: { value: string } }) => {
-    setter(event.target.value);
+  const typed = (setter: (value: string) => void) => (value: string) => {
+    setter(value);
     setOutcome(null);
     setBadField(null);
   };
@@ -380,6 +384,7 @@ export function PasswordSection({
     if (issue !== null) {
       setOutcome({ ok: false, message: issue.message });
       setBadField(issue.field);
+      setTried(true);
       return;
     }
     setBusy(true);
@@ -393,6 +398,7 @@ export function PasswordSection({
       setCurrent('');
       setNext('');
       setConfirm('');
+      setTried(false);
     }
   };
 
@@ -408,52 +414,35 @@ export function PasswordSection({
       >
         {/* Lets a password manager pair the new password with this account. */}
         <input type="text" name="username" autoComplete="username" value={email} readOnly hidden />
-        <label style={field}>
-          <Label>CURRENT PASSWORD</Label>
-          <input
-            className="a-input"
+        {/* A <label for>, not a wrapping <label>: the eye button inside the
+            field would otherwise become part of the field's name. */}
+        <div style={field}>
+          <label htmlFor={currentId} className="a-person-sub">
+            CURRENT PASSWORD
+          </label>
+          <PasswordInput
+            id={currentId}
+            skin="portal"
             name="currentPassword"
-            type="password"
             autoComplete="current-password"
             value={current}
             disabled={busy}
-            onChange={typed(setCurrent)}
+            onChange={(event) => typed(setCurrent)(event.target.value)}
             {...marked('current')}
           />
-        </label>
-        <div style={pair}>
-          <label style={half}>
-            <Label>NEW PASSWORD</Label>
-            <input
-              className="a-input"
-              name="newPassword"
-              type="password"
-              autoComplete="new-password"
-              minLength={PASSWORD_MIN}
-              value={next}
-              disabled={busy}
-              onChange={typed(setNext)}
-              {...marked('next')}
-            />
-          </label>
-          <label style={half}>
-            <Label>CONFIRM NEW PASSWORD</Label>
-            <input
-              className="a-input"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              minLength={PASSWORD_MIN}
-              value={confirm}
-              disabled={busy}
-              onChange={typed(setConfirm)}
-              {...marked('confirm')}
-            />
-          </label>
         </div>
-        <p className="p-muted" style={{ margin: 0, fontSize: 12.5 }}>
-          At least {PASSWORD_MIN} characters.
-        </p>
+        <NewPasswordFields
+          skin="portal"
+          password={next}
+          confirm={confirm}
+          onPasswordChange={typed(setNext)}
+          onConfirmChange={typed(setConfirm)}
+          labels={{ password: 'NEW PASSWORD', confirm: 'CONFIRM NEW PASSWORD' }}
+          showMissing={tried}
+          disabled={busy}
+          invalid={badField === 'next' ? 'password' : badField === 'confirm' ? 'confirm' : null}
+          problemId={outcome !== null && !outcome.ok ? resultId : undefined}
+        />
         <Result outcome={outcome} id={resultId} />
         <div>
           <button
@@ -609,6 +598,7 @@ export function DeleteSection({
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const resultId = `${uid}-result`;
+  const passwordId = `${uid}-password`;
   const warning = deletePlanWarning(profile);
 
   const submit = async (): Promise<void> => {
@@ -682,12 +672,14 @@ export function DeleteSection({
         readOnly
         hidden
       />
-      <label style={field}>
-        <Label>CURRENT PASSWORD</Label>
-        <input
-          className="a-input"
+      <div style={field}>
+        <label htmlFor={passwordId} className="a-person-sub">
+          CURRENT PASSWORD
+        </label>
+        <PasswordInput
+          id={passwordId}
+          skin="portal"
           name="deletePassword"
-          type="password"
           autoComplete="current-password"
           value={password}
           disabled={busy}
@@ -700,7 +692,7 @@ export function DeleteSection({
             resultId,
           )}
         />
-      </label>
+      </div>
       <p className="p-muted" style={{ margin: 0, fontSize: 12.5 }}>
         This cannot be undone. You will be signed out straight away.
       </p>

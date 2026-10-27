@@ -11,6 +11,11 @@ import { ApiError, apiFetch } from '@/lib/api';
 import { ACCOUNT_DELETED_NOTICE } from '@/lib/accountDeleted';
 import { normaliseIdentifier, normalisePassword } from '@/lib/credentials';
 import { isPlausibleEmail } from '@/lib/guestEmail';
+import {
+  meetsPasswordRules,
+  newPasswordProblem,
+  passwordRefusalMessage,
+} from '@/lib/passwordRules';
 
 /**
  * The My account page's decisions — what the wire gets, whether a form may be
@@ -28,9 +33,6 @@ export const ACCOUNT_COPY = {
   shareHelper:
     'Your notes go to the AI that writes your plans so it avoids exercises that could hurt you. Off: they stay on your account and the AI never sees them.',
 } as const;
-
-/** Same floor as reset-password, join and invite — the screens that set a password. */
-export const PASSWORD_MIN = 8;
 
 const L = PROFILE_LIMITS;
 
@@ -233,11 +235,11 @@ export function passwordIssue(
   const now = normalisePassword(current);
   const wanted = normalisePassword(next);
   if (now === '') return { field: 'current', message: 'Enter your current password.' };
-  if (wanted.length < PASSWORD_MIN) {
-    return { field: 'next', message: `Use at least ${PASSWORD_MIN} characters.` };
-  }
-  if (wanted !== normalisePassword(confirm)) {
-    return { field: 'confirm', message: 'The two passwords do not match.' };
+  // The same five rules as every screen that sets a password (lib/passwordRules).
+  // Only the NEW one: a current password that predates the rules still opens.
+  const problem = newPasswordProblem(wanted, confirm);
+  if (problem !== null) {
+    return { field: meetsPasswordRules(wanted) ? 'confirm' : 'next', message: problem };
   }
   if (wanted === now) {
     return { field: 'next', message: 'Choose a password different from your current one.' };
@@ -272,7 +274,7 @@ export interface Outcome {
 /** `ok` — right password; `wrong` — refused as a bad credential; `error` — could not tell. */
 export type PasswordCheck = 'ok' | 'wrong' | 'error';
 
-type SupabaseResult = { error: { message: string } | null };
+type SupabaseResult = { error: { message: string; code?: string } | null };
 
 export interface PasswordDeps {
   verify: (email: string, password: string) => Promise<PasswordCheck>;
@@ -294,7 +296,15 @@ export async function changePassword(
     if (check === 'wrong') return { ok: false, message: ACCOUNT_COPY.wrongPassword };
     if (check === 'error') return { ok: false, message: ACCOUNT_COPY.saveFailed };
     const { error } = await deps.update(normalisePassword(input.next));
-    if (error !== null) return { ok: false, message: error.message || ACCOUNT_COPY.saveFailed };
+    if (error !== null) {
+      return {
+        ok: false,
+        message: passwordRefusalMessage({
+          ...error,
+          message: error.message || ACCOUNT_COPY.saveFailed,
+        }),
+      };
+    }
     return { ok: true, message: ACCOUNT_COPY.passwordChanged };
   } catch {
     return { ok: false, message: ACCOUNT_COPY.saveFailed };

@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { StaffInvitationLookup } from '@got/shared';
 import AuthBrandPanel from './AuthBrandPanel';
-import { PasswordInput } from './PasswordInput';
+import { NewPasswordFields } from './NewPasswordFields';
 import { supabase } from '@/lib/supabase';
 import { ApiError, apiFetch } from '@/lib/api';
 import { inviteApi } from '@/lib/staffApi';
 import { normalisePassword } from '@/lib/credentials';
+import { newPasswordProblem, passwordRefusalMessage } from '@/lib/passwordRules';
 import { homeFor, type HeldPermission } from '@/lib/safeNext';
 import {
   acceptErrorCopy,
@@ -115,6 +116,8 @@ export default function InvitePage({ token }: { token: string }) {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<InviteCopy | null>(null);
+  /** The password was refused: the rules still unmet show as missing, not "to do". */
+  const [passwordTried, setPasswordTried] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   /** The match answer, and which signed-in address it was asked for. */
   const [matchResult, setMatchResult] = useState<{ email: string; state: MatchState } | null>(null);
@@ -210,13 +213,10 @@ export default function InvitePage({ token }: { token: string }) {
   const accept = useCallback(async (): Promise<void> => {
     setProblem(null);
     if (needsPassword) {
-      const next = normalisePassword(password);
-      if (next.length < 8) {
-        setProblem({ title: 'Choose a password', body: 'Use at least 8 characters.' });
-        return;
-      }
-      if (next !== normalisePassword(confirm)) {
-        setProblem({ title: 'Choose a password', body: 'The two passwords do not match.' });
+      const passwordProblem = newPasswordProblem(password, confirm);
+      if (passwordProblem !== null) {
+        setProblem({ title: 'Choose a password', body: passwordProblem });
+        setPasswordTried(true);
         return;
       }
     }
@@ -226,7 +226,7 @@ export default function InvitePage({ token }: { token: string }) {
       if (needsPassword) {
         const { error } = await supabase.auth.updateUser({ password: normalisePassword(password) });
         if (error !== null) {
-          setProblem({ title: 'Your password was not saved', body: error.message });
+          setProblem({ title: 'Your password was not saved', body: passwordRefusalMessage(error) });
           return;
         }
         writeClaimed(token, false);
@@ -392,32 +392,17 @@ export default function InvitePage({ token }: { token: string }) {
                 }}
               >
                 {needsPassword ? (
-                  <>
-                    <div className="field">
-                      <label htmlFor="invite-password">Password</label>
-                      <PasswordInput
-                        id="invite-password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        autoComplete="new-password"
-                        minLength={8}
-                        required
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="invite-confirm">Confirm password</label>
-                      <PasswordInput
-                        id="invite-confirm"
-                        placeholder="••••••••"
-                        value={confirm}
-                        onChange={(event) => setConfirm(event.target.value)}
-                        autoComplete="new-password"
-                        minLength={8}
-                        required
-                      />
-                    </div>
-                  </>
+                  <NewPasswordFields
+                    password={password}
+                    confirm={confirm}
+                    onPasswordChange={setPassword}
+                    onConfirmChange={setConfirm}
+                    labels={{ password: 'Password', confirm: 'Confirm password' }}
+                    names={{ password: 'password', confirm: 'confirm' }}
+                    placeholder="••••••••"
+                    showMissing={passwordTried}
+                    disabled={busy}
+                  />
                 ) : null}
 
                 {problemAlert}

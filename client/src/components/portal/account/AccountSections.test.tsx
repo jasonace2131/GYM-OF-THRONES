@@ -86,8 +86,15 @@ describe('PasswordSection', () => {
     expect(html.match(/autoComplete="new-password"/g)).toHaveLength(2);
   });
 
-  it('marks the 8-character floor on the new-password fields', () => {
-    expect(html.match(/minLength="8"/g)).toHaveLength(2);
+  it('gives every one of the three fields its own eye', () => {
+    expect(html.match(/aria-label="Show password"/g)).toHaveLength(3);
+  });
+
+  it('shows the five rules under the new password, in the light portal skin', () => {
+    expect(html).toContain('class="pw-fields pw-portal"');
+    expect(html.match(/<li data-state="todo"/g)).toHaveLength(5);
+    expect(html).toContain('A special character, like ! @ # $ %');
+    expect(html).not.toContain('class="input"');
   });
 });
 
@@ -125,6 +132,10 @@ describe('DeleteSection', () => {
   it('asks for the current password', () => {
     expect(html).toContain('autoComplete="current-password"');
     expect(html).toContain('name="deletePassword"');
+  });
+
+  it('lets the member see the password they typed', () => {
+    expect(html.match(/aria-label="Show password"/g)).toHaveLength(1);
   });
 
   it('says what is erased and what is kept', () => {

@@ -34,12 +34,21 @@ import { PASSWORD_MAX } from '@got/shared';
  * `aria-pressed` carries the state to a screen reader and the label changes
  * with it, so the control announces as a toggle rather than as two different
  * buttons that swap places.
+ *
+ * `skin="portal"` (2026-10-26) is the same field on the portal's light
+ * surfaces — My account's sheets: the portal's `a-input` instead of the dark
+ * `input`, and portal.css recolours the eye for a white field.
  */
-type PasswordInputProps = Omit<ComponentPropsWithoutRef<'input'>, 'type'>;
+export type PasswordInputSkin = 'auth' | 'portal';
 
-export function PasswordInput({ className, ...inputProps }: PasswordInputProps) {
+type PasswordInputProps = Omit<ComponentPropsWithoutRef<'input'>, 'type'> & {
+  skin?: PasswordInputSkin;
+};
+
+export function PasswordInput({ className, skin = 'auth', ...inputProps }: PasswordInputProps) {
   const [revealed, setRevealed] = useState(false);
   const action = revealed ? 'Hide password' : 'Show password';
+  const base = skin === 'portal' ? 'a-input' : 'input';
 
   return (
     <div className="input-reveal">
@@ -48,7 +57,7 @@ export function PasswordInput({ className, ...inputProps }: PasswordInputProps) 
         maxLength={PASSWORD_MAX}
         {...inputProps}
         type={revealed ? 'text' : 'password'}
-        className={className === undefined ? 'input' : `input ${className}`}
+        className={className === undefined ? base : `${base} ${className}`}
       />
       <button
         type="button"

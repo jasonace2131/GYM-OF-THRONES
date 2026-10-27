@@ -1151,6 +1151,98 @@ html:has(.portal-root) {
   text-overflow: ellipsis;
 }
 
+/* ── Password fields on a light surface (2026-10-26) ────────────────────────
+   PasswordInput skin="portal" and NewPasswordFields skin="portal", in My
+   account's sheets. The base rules in globals.css are for the dark sign-in
+   screens; these recolour them for white, and the greys pass 4.5:1 on it. */
+
+.portal-root .input-reveal-btn {
+  color: var(--p-ink3);
+}
+
+.portal-root .input-reveal-btn:hover,
+.portal-root .input-reveal-btn:focus-visible {
+  color: var(--p-ink);
+  background: var(--p-paper2);
+}
+
+.portal-root .input-reveal-btn[aria-pressed='true'] {
+  color: var(--gold-deep);
+}
+
+.portal-root .pw-fields {
+  gap: 14px;
+}
+.portal-root .pw-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.portal-root .pw-seg {
+  background: var(--p-paper3);
+}
+.portal-root .pw-strength[data-level='1'] .pw-seg:nth-child(-n + 1) {
+  background: #c4453b;
+}
+.portal-root .pw-strength[data-level='2'] .pw-seg:nth-child(-n + 2) {
+  background: #b7791f;
+}
+.portal-root .pw-strength[data-level='3'] .pw-seg:nth-child(-n + 3) {
+  background: #3f9b62;
+}
+.portal-root .pw-strength[data-level='4'] .pw-seg {
+  background: var(--p-ok);
+}
+.portal-root .pw-strength-row {
+  color: #6b6965;
+}
+.portal-root .pw-strength[data-level='1'] .pw-strength-label {
+  color: var(--p-danger);
+}
+.portal-root .pw-strength[data-level='2'] .pw-strength-label {
+  color: var(--p-warn);
+}
+.portal-root .pw-strength[data-level='3'] .pw-strength-label,
+.portal-root .pw-strength[data-level='4'] .pw-strength-label {
+  color: var(--p-ok);
+}
+
+.portal-root .pw-rules {
+  border: 0;
+  border-radius: 12px;
+  background: var(--p-paper2);
+}
+
+.portal-root .pw-rules li {
+  color: var(--p-ink2);
+}
+.portal-root .pw-rule-icon {
+  box-shadow: inset 0 0 0 2px #b5b2ac;
+}
+.portal-root .pw-rules li[data-state='met'] {
+  color: var(--p-ok);
+}
+.portal-root .pw-rules li[data-state='missing'] {
+  color: var(--p-danger);
+}
+
+.portal-root .pw-rules li[data-state='met'] .pw-rule-icon {
+  background: var(--p-ok);
+  color: #fff;
+}
+
+.portal-root .pw-rules li[data-state='missing'] .pw-rule-icon {
+  background: var(--p-danger);
+  color: #fff;
+}
+
+.portal-root .pw-match {
+  color: #6b6965;
+}
+.portal-root .pw-match[data-match='true'] {
+  color: var(--p-ok);
+}
+
 .a-secret {
   font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
   font-size: 13px;

@@ -172,36 +172,38 @@ describe('bodySavedMessage', () => {
 
 describe('passwordIssue', () => {
   it('names the field each problem belongs to', () => {
-    expect(passwordIssue('', 'longenough', 'longenough')?.field).toBe('current');
+    expect(passwordIssue('', 'Thr0nes!', 'Thr0nes!')?.field).toBe('current');
     expect(passwordIssue('old-password', 'short', 'short')?.field).toBe('next');
-    expect(passwordIssue('old-password', 'longenough', 'longenougH')?.field).toBe('confirm');
-    expect(passwordIssue('old-password', 'new-password', 'new-password')).toBeNull();
+    expect(passwordIssue('old-password', 'Thr0nes!', 'Thr0nes?')?.field).toBe('confirm');
+    expect(passwordIssue('old-password', 'Thr0nes!', 'Thr0nes!')).toBeNull();
   });
 });
 
 describe('passwordProblem', () => {
   it('needs the current password', () => {
-    expect(passwordProblem('', 'longenough', 'longenough')).toBe('Enter your current password.');
+    expect(passwordProblem('', 'Thr0nes!', 'Thr0nes!')).toBe('Enter your current password.');
   });
 
-  it('needs at least 8 characters, like every other password screen', () => {
-    expect(passwordProblem('old-password', 'short', 'short')).toBe('Use at least 8 characters.');
+  it('follows the same five rules as every other password screen', () => {
+    expect(passwordProblem('old-password', 'longenough', 'longenough')).toBe(
+      'Your password still needs an uppercase letter, a number and a special character.',
+    );
   });
 
   it('needs the two new passwords to match', () => {
-    expect(passwordProblem('old-password', 'longenough', 'longenougH')).toBe(
+    expect(passwordProblem('old-password', 'Thr0nes!', 'Thr0nes?')).toBe(
       'The two passwords do not match.',
     );
   });
 
   it('needs the new password to differ from the current one', () => {
-    expect(passwordProblem('same-password', 'same-password', 'same-password')).toBe(
+    expect(passwordProblem('Thr0nes!', 'Thr0nes!', 'Thr0nes!')).toBe(
       'Choose a password different from your current one.',
     );
   });
 
-  it('passes a good change', () => {
-    expect(passwordProblem('old-password', 'new-password', 'new-password')).toBeNull();
+  it('passes a good change, even when the current password predates the rules', () => {
+    expect(passwordProblem('old', 'Thr0nes!', 'Thr0nes!')).toBeNull();
   });
 });
 
@@ -276,6 +278,18 @@ describe('changePassword', () => {
     await expect(changePassword({ verify, update }, input)).resolves.toEqual({
       ok: false,
       message: 'Password is too weak',
+    });
+  });
+
+  it("turns Supabase's weak_password into the rules in plain words", async () => {
+    const verify = vi.fn().mockResolvedValue('ok');
+    const update = vi.fn().mockResolvedValue({
+      error: { code: 'weak_password', message: 'Password should contain at least one character of each: abc…' },
+    });
+    await expect(changePassword({ verify, update }, input)).resolves.toEqual({
+      ok: false,
+      message:
+        'Choose a stronger password: at least 8 characters, with a lowercase and an uppercase letter, a number and a special character.',
     });
   });
 

@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation';
 import AuthBrandPanel from './AuthBrandPanel';
 import { supabase } from '@/lib/supabase';
 import { normalisePassword } from '@/lib/credentials';
-import { PasswordInput } from './PasswordInput';
+import {
+  meetsPasswordRules,
+  newPasswordProblem,
+  passwordRefusalMessage,
+} from '@/lib/passwordRules';
+import { NewPasswordFields } from './NewPasswordFields';
 
 /**
  * Password recovery, step two — the page the emailed link lands on.
@@ -27,6 +32,10 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** A save was refused: the rules still unmet show as missing, not "to do". */
+  const [tried, setTried] = useState(false);
+  /** The field the shown error is about, marked invalid. */
+  const [badField, setBadField] = useState<'password' | 'confirm' | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -49,26 +58,36 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
+  /** Typing again answers the refusal: it goes, as on every other password screen. */
+  const edited =
+    (setter: (value: string) => void) =>
+    (value: string): void => {
+      setter(value);
+      setError(null);
+      setBadField(null);
+    };
+
   const handleSubmit = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
     const next = normalisePassword(password);
 
-    if (next.length < 8) {
-      setError('Use at least 8 characters.');
-      return;
-    }
-    if (next !== normalisePassword(confirm)) {
-      setError('The two passwords do not match.');
+    const problem = newPasswordProblem(next, confirm);
+    if (problem !== null) {
+      setError(problem);
+      setBadField(meetsPasswordRules(next) ? 'confirm' : 'password');
+      setTried(true);
       return;
     }
 
     setSubmitting(true);
     setError(null);
+    setBadField(null);
     const { error: failed } = await supabase.auth.updateUser({ password: next });
     setSubmitting(false);
 
     if (failed !== null) {
-      setError(failed.message);
+      setError(passwordRefusalMessage(failed));
+      setBadField('password');
       return;
     }
     setDone(true);
@@ -152,34 +171,23 @@ export default function ResetPasswordPage() {
                 Choose a new password for your account.
               </p>
 
-              <div className="field">
-                <label htmlFor="reset-password">New password</label>
-                <PasswordInput
-                  id="reset-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </div>
-
-              <div className="field">
-                <label htmlFor="reset-confirm">Confirm new password</label>
-                <PasswordInput
-                  id="reset-confirm"
-                  placeholder="••••••••"
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </div>
+              <NewPasswordFields
+                password={password}
+                confirm={confirm}
+                onPasswordChange={edited(setPassword)}
+                onConfirmChange={edited(setConfirm)}
+                labels={{ password: 'New password', confirm: 'Confirm new password' }}
+                names={{ password: 'password', confirm: 'confirm' }}
+                placeholder="••••••••"
+                showMissing={tried}
+                disabled={submitting}
+                invalid={badField}
+                problemId="reset-problem"
+              />
 
               {error !== null && (
                 <div
+                  id="reset-problem"
                   role="alert"
                   style={{
                     padding: '11px 14px',

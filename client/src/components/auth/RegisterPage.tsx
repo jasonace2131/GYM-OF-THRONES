@@ -13,7 +13,7 @@ import {
   isPlausibleBirthDate,
   normalisePhPhone,
 } from '@got/shared';
-import { normaliseIdentifier } from '@/lib/credentials';
+import { normaliseIdentifier, normalisePassword } from '@/lib/credentials';
 import { GYM_TIMEZONE, gymToday } from '@/lib/gymTime';
 import { filterDecimalTyping, parseDecimalField } from '@/lib/numberInput';
 import { EmailInput } from '@/components/inputs/EmailInput';
@@ -22,7 +22,8 @@ import { PhoneInput } from '@/components/inputs/PhoneInput';
 import { type HeldPermission, destinationFor, safeNext } from '@/lib/safeNext';
 import { apiFetch } from '@/lib/api';
 import { classifyMeFailure } from '@/lib/loginCode';
-import { PasswordInput } from './PasswordInput';
+import { newPasswordProblem, passwordRefusalMessage } from '@/lib/passwordRules';
+import { NewPasswordFields } from './NewPasswordFields';
 
 interface RegisterFormState {
   fullName: string;
@@ -66,6 +67,8 @@ export default function RegisterPage() {
     requested === null ? '/login' : `/login?next=${encodeURIComponent(safeNext(requested))}`;
   const [form, setForm] = useState<RegisterFormState>(INITIAL_FORM);
   const [error, setError] = useState<string | null>(null);
+  /** The password was refused: the rules still unmet show as missing, not "to do". */
+  const [passwordTried, setPasswordTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   /** True until we know nobody is already signed in on this browser. */
   const [checking, setChecking] = useState(true);
@@ -148,8 +151,10 @@ export default function RegisterPage() {
       setError(`Weight is ${L.weightKgMin}–${L.weightKgMax} kg — or leave it blank.`);
       return;
     }
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match.');
+    const passwordProblem = newPasswordProblem(form.password, form.confirmPassword);
+    if (passwordProblem !== null) {
+      setError(passwordProblem);
+      setPasswordTried(true);
       return;
     }
 
@@ -163,7 +168,9 @@ export default function RegisterPage() {
 
     const { error: signUpError } = await supabase.auth.signUp({
       email: normaliseIdentifier(form.email),
-      password: form.password,
+      // Cleaned exactly as sign-in cleans it, or a pasted invisible character
+      // would be saved here and stripped there — a password that never works.
+      password: normalisePassword(form.password),
       options: {
         data: {
           firstName: firstName ?? fullName,
@@ -187,7 +194,7 @@ export default function RegisterPage() {
     setSubmitting(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      setError(passwordRefusalMessage(signUpError));
       return;
     }
 
@@ -361,30 +368,18 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="field-row">
-                <div className="field">
-                  <label htmlFor="reg-password">Password</label>
-                  <PasswordInput
-                    id="reg-password"
-                    placeholder="••••••••"
-                    value={form.password}
-                    onChange={(e) => setField('password', e.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="reg-confirm-password">Confirm password</label>
-                  <PasswordInput
-                    id="reg-confirm-password"
-                    placeholder="••••••••"
-                    value={form.confirmPassword}
-                    onChange={(e) => setField('confirmPassword', e.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-              </div>
+              {/* Stacked, not side by side: the checklist sits under the password. */}
+              <NewPasswordFields
+                password={form.password}
+                confirm={form.confirmPassword}
+                onPasswordChange={(value) => setField('password', value)}
+                onConfirmChange={(value) => setField('confirmPassword', value)}
+                labels={{ password: 'Password', confirm: 'Confirm password' }}
+                names={{ password: 'password', confirm: 'confirmPassword' }}
+                placeholder="••••••••"
+                showMissing={passwordTried}
+                disabled={submitting}
+              />
 
               {/*
               This checkbox used to be theatre. It said "I agree to the gym
