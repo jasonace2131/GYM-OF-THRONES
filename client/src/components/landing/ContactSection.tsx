@@ -189,7 +189,7 @@ export default function ContactSection({ hours }: { hours: string[] }) {
                 color: 'var(--text-2)',
               }}
             >
-              Rates, trials, class schedules — leave your details and we will get back to you.
+              Rates, trials, class schedules leave your details and we will get back to you.
             </p>
 
             <ContactForm />

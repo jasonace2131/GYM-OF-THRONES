@@ -60,7 +60,7 @@ export default function ForgotPasswordPage() {
         onBack={() => router.push('/login')}
         headline={['WHERE', 'CHAMPIONS', 'TRAIN']}
         kicker="House of Fitness · Est 2023"
-        blurb="Your premier fitness destination — equipment, coaching, and community."
+        blurb="Your premier fitness destination equipment, coaching, and community."
       />
 
       <div className="auth-form-pane">

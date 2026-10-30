@@ -165,7 +165,7 @@ export const GYM_LOCATION = {
   query: 'JWMGI Building, Taguig City, Philippines',
   /** Shown under the map. The floor is the part people actually get wrong. */
   directions:
-    'We are on the 4th floor — take the lift and turn right. Ask the lobby guard for Gym of Thrones if you cannot find it.',
+    'We are on the 4th floor take the lift and turn right. Ask the lobby guard for Gym of Thrones if you cannot find it.',
 } as const;
 
 export const CONTACT_ITEMS = [

@@ -98,7 +98,7 @@ export default function Footer({ hours }: { hours: string[] }) {
                 maxWidth: '38ch',
               }}
             >
-              Metro Manila&apos;s house of fitness — equipment, coaching and a community that shows
+              Metro Manila&apos;s house of fitness equipment, coaching and a community that shows
               up. Where champions train.
             </p>
           </div>
