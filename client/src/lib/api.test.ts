@@ -4,6 +4,7 @@ vi.mock('./supabase', () => ({
   supabase: {
     auth: {
       getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 'test-token' } } }),
+      signOut: vi.fn().mockResolvedValue({ error: null }),
     },
   },
 }));
@@ -258,6 +259,96 @@ describe('apiFetch — LOGIN_CODE_REQUIRED', () => {
     vi.mocked(fetch).mockResolvedValue(jsonResponse({ success: false }, 401));
 
     await expect(apiFetch('/me')).rejects.toMatchObject({ status: 401, code: 'HTTP_401' });
+    expect(assign).not.toHaveBeenCalled();
+  });
+});
+
+describe('apiFetch — SESSION_REPLACED (one device at a time)', () => {
+  const replacedResponse = (): Response =>
+    jsonResponse(
+      {
+        success: false,
+        error: {
+          code: 'SESSION_REPLACED',
+          message: 'You were signed out because your account signed in on another device.',
+        },
+      },
+      401,
+    );
+
+  /** A fresh copy: the sign-out runs once per page, and each test is a new page. */
+  async function load(): Promise<{
+    fetchApi: typeof apiFetch;
+    signOut: ReturnType<typeof vi.fn>;
+    assign: ReturnType<typeof vi.fn>;
+  }> {
+    vi.resetModules();
+    const nav = await import('./loginCodeRedirect');
+    const assign = vi.fn();
+    nav.browserNavigation.assign = assign;
+    const { supabase } = await import('./supabase');
+    const api = await import('./api');
+    return {
+      fetchApi: api.apiFetch,
+      signOut: vi.mocked(supabase.auth.signOut) as unknown as ReturnType<typeof vi.fn>,
+      assign,
+    };
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    window.history.pushState({}, '', '/');
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it('signs this device out LOCALLY, goes to the login notice, and still throws', async () => {
+    window.history.pushState({}, '', '/portal/bookings?tab=past');
+    vi.mocked(fetch).mockResolvedValue(replacedResponse());
+    const { fetchApi, signOut, assign } = await load();
+
+    await expect(fetchApi('/me')).rejects.toMatchObject({ status: 401, code: 'SESSION_REPLACED' });
+    await vi.waitFor(() => expect(assign).toHaveBeenCalled());
+
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(assign).toHaveBeenCalledWith(
+      '/login?reason=replaced&next=%2Fportal%2Fbookings%3Ftab%3Dpast',
+    );
+  });
+
+  it('signs out and navigates once, however many requests fail together', async () => {
+    window.history.pushState({}, '', '/admin');
+    vi.mocked(fetch).mockImplementation(() => Promise.resolve(replacedResponse()));
+    const { fetchApi, signOut, assign } = await load();
+
+    const results = await Promise.allSettled([fetchApi('/me'), fetchApi('/a'), fetchApi('/b')]);
+    await vi.waitFor(() => expect(assign).toHaveBeenCalled());
+
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it('on the login page: signs out locally but stays, so the page shows why itself', async () => {
+    window.history.pushState({}, '', '/login?next=%2Fadmin');
+    vi.mocked(fetch).mockResolvedValue(replacedResponse());
+    const { fetchApi, signOut, assign } = await load();
+
+    await expect(fetchApi('/me')).rejects.toMatchObject({ code: 'SESSION_REPLACED' });
+    await vi.waitFor(() => expect(signOut).toHaveBeenCalledWith({ scope: 'local' }));
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it('signs nobody out on an ordinary 401', async () => {
+    window.history.pushState({}, '', '/portal/dashboard');
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ success: false }, 401));
+    const { fetchApi, signOut, assign } = await load();
+
+    await expect(fetchApi('/me')).rejects.toMatchObject({ status: 401, code: 'HTTP_401' });
+    expect(signOut).not.toHaveBeenCalled();
     expect(assign).not.toHaveBeenCalled();
   });
 });

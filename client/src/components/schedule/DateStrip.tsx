@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { classCountLabel } from '@/lib/schedule/classDays';
 import { dayNumber, longDay, shortWeekday } from '@/lib/schedule/labels';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +12,8 @@ interface DateStripProps {
   selected: string;
   /** Days the member holds a place in a class: a seat or a waitlist place. */
   markedDays: ReadonlySet<string>;
+  /** Classes per day, cancelled ones left out (`classCountsByDay`). A day absent has none. */
+  classCounts: ReadonlyMap<string, number>;
   onSelect: (day: string) => void;
 }
 
@@ -21,8 +24,22 @@ interface DateStripProps {
  *
  * The dot and its spoken word say "a booking", not "a class": a waitlist place
  * marks the day too, and it is not a class yet.
+ *
+ * A day that HAS classes carries a quiet hollow ring in the same place (gym
+ * report, 2026-10-30: nothing showed that later days had classes, so members
+ * took an empty today for an empty timetable). The filled gold dot of a
+ * booking replaces it, since a booked day has a class. Each chip's spoken name
+ * says how many classes, "no classes" included, so the strip reads the same
+ * without the marks.
  */
-export function DateStrip({ days, today, selected, markedDays, onSelect }: DateStripProps) {
+export function DateStrip({
+  days,
+  today,
+  selected,
+  markedDays,
+  classCounts,
+  onSelect,
+}: DateStripProps) {
   const selectedRef = useRef<HTMLButtonElement>(null);
 
   // Centre the selected day by scrolling the strip's OWN viewport. Not
@@ -61,6 +78,7 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
         {days.map((day) => {
           const isSelected = day === selected;
           const marked = markedDays.has(day);
+          const classes = classCounts.get(day) ?? 0;
           return (
             <button
               key={day}
@@ -69,7 +87,7 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
               role="radio"
               aria-checked={isSelected}
               tabIndex={isSelected ? 0 : -1}
-              aria-label={`${longDay(day)}${marked ? ', you have a booking' : ''}`}
+              aria-label={`${longDay(day)}, ${classCountLabel(classes)}${marked ? ', you have a booking' : ''}`}
               onClick={() => onSelect(day)}
               className={cn(
                 'flex w-[52px] shrink-0 flex-col items-center gap-0.5 rounded-xl border py-2 font-display transition-colors',
@@ -92,11 +110,21 @@ export function DateStrip({ days, today, selected, markedDays, onSelect }: DateS
                 {day === today ? 'Today' : shortWeekday(day)}
               </span>
               <span className="text-lg font-semibold leading-tight">{dayNumber(day)}</span>
+              {/* One 5px slot, so every chip is the same height: a booking's
+                  filled dot, else a ring for a day with classes. The ring is
+                  an inset box-shadow, not a border — with no Preflight a
+                  border would add 2px to this chip alone. */}
               <span
                 aria-hidden
                 className={cn(
                   'size-[5px] rounded-full',
-                  marked ? (isSelected ? 'bg-night' : 'bg-gold') : 'bg-transparent',
+                  marked
+                    ? isSelected
+                      ? 'bg-night'
+                      : 'bg-gold'
+                    : classes > 0
+                      ? cn('ring-1 ring-inset', isSelected ? 'ring-night/60' : 'ring-ink-3')
+                      : 'bg-transparent',
                 )}
               />
             </button>

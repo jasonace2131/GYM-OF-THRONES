@@ -7,7 +7,8 @@ import { IconWarning } from '../icons';
 /**
  * The session's bottom bars (PhoneSession.dc.html): Prev / Next exercise /
  * Finish workout, and the "Finish this workout?" / "Discard this workout?"
- * confirmation that takes their place. The rest bar is its own file.
+ * confirmation that takes their place. The rest bar is its own file, and
+ * carries Finish workout too on the last exercise.
  *
  * Each bar runs edge to edge; its content is the same 560px column as the
  * card above it, padded clear of the home indicator.
@@ -41,9 +42,38 @@ export function BarNotice({ children }: { children: ReactNode }) {
   );
 }
 
+/** The green Finish workout, on whichever bar is showing. */
+export function FinishButton({
+  busy,
+  onFinish,
+  className,
+}: {
+  busy: boolean;
+  onFinish: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(PRIMARY, FOCUS, 'bg-ok text-white hover:brightness-110', className)}
+      disabled={busy}
+      onClick={onFinish}
+    >
+      {busy ? 'Finishing…' : 'Finish workout'}
+    </button>
+  );
+}
+
+/**
+ * ‹ Prev and Next exercise ›, or ‹ Prev and Finish workout on the last
+ * exercise. With every set ticked on an earlier exercise, Finish takes the
+ * wide slot and Prev / Next shrink to arrows, so the member can still move
+ * between exercises.
+ */
 export function StepBar({
   isFirst,
   isLast,
+  canFinish,
   busy,
   onPrev,
   onNext,
@@ -51,11 +81,39 @@ export function StepBar({
 }: {
   isFirst: boolean;
   isLast: boolean;
+  /** `offersFinish`: true on the last exercise, and anywhere once every set is ticked. */
+  canFinish: boolean;
   busy: boolean;
   onPrev: () => void;
   onNext: () => void;
   onFinish: () => void;
 }) {
+  if (canFinish && !isLast) {
+    return (
+      <div className="shrink-0 border-t border-border bg-card">
+        <div className={cn(BAR_INNER, 'grid grid-cols-[50px_50px_minmax(0,1fr)] gap-2')}>
+          <button
+            type="button"
+            aria-label="Previous exercise"
+            className={cn(GHOST, 'text-[18px]')}
+            disabled={isFirst}
+            onClick={onPrev}
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            aria-label="Next exercise"
+            className={cn(GHOST, 'text-[18px]')}
+            onClick={onNext}
+          >
+            ›
+          </button>
+          <FinishButton busy={busy} onFinish={onFinish} />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="shrink-0 border-t border-border bg-card">
       <div className={cn(BAR_INNER, 'grid grid-cols-[110px_minmax(0,1fr)] gap-2')}>
@@ -63,14 +121,7 @@ export function StepBar({
           ‹ Prev
         </button>
         {isLast ? (
-          <button
-            type="button"
-            className={cn(PRIMARY, FOCUS, 'bg-ok text-white hover:brightness-110')}
-            disabled={busy}
-            onClick={onFinish}
-          >
-            {busy ? 'Finishing…' : 'Finish workout'}
-          </button>
+          <FinishButton busy={busy} onFinish={onFinish} />
         ) : (
           <button
             type="button"
@@ -92,16 +143,22 @@ export function StepBar({
 /**
  * End → "Finish this workout?" when a set is ticked, "Discard this workout?"
  * when none is (spec §5). Focus lands on Keep going; Escape is Keep going.
+ *
+ * Also what a workout left open (`leftOpen`) opens on, with `leftOpen` set to
+ * its "Started Wed, Sep 30" so the question says why it is being asked.
  */
 export function EndBar({
   mode,
   setsDone,
+  leftOpen = null,
   busy,
   onCancel,
   onConfirm,
 }: {
   mode: 'finish' | 'discard';
   setsDone: number;
+  /** "Started Wed, Sep 30" for a workout left open; null otherwise. */
+  leftOpen?: string | null;
   busy: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -127,6 +184,7 @@ export function EndBar({
             {mode === 'finish' ? 'Finish this workout?' : 'Discard this workout?'}
           </h2>
           <p id="wk-end-d" className="m-0 text-[13.5px] leading-[1.45] text-ink-2">
+            {leftOpen === null ? null : `You did not finish this one. ${leftOpen}. `}
             {mode === 'finish'
               ? `${setsDone} ${setsDone === 1 ? 'set is' : 'sets are'} saved. You can say how it felt next.`
               : 'Nothing is ticked yet, so there is nothing to save.'}

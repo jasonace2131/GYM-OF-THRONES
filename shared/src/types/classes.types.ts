@@ -41,6 +41,21 @@ export interface ClassSessionWire {
   cancelReason: string | null;
 }
 
+/**
+ * `POST /admin/class-sessions` — what scheduling a class answers.
+ *
+ * The first class, field for field as a single create has always answered,
+ * so a caller that reads one class still reads it. With "Repeat weekly"
+ * (owner, 2026-10-30) one request makes the class once a week for
+ * `repeatWeeks` weeks, all of them or none, and `sessions` lists every one.
+ */
+export interface CreateClassSessionResultWire extends ClassSessionWire {
+  /** How many classes were created: 1, or the number of weeks repeated. */
+  count: number;
+  /** Every class created, in date order. `sessions[0]` is this one. */
+  sessions: ClassSessionWire[];
+}
+
 export interface MyBookingWire {
   bookingId: string;
   status: BookingStatus;

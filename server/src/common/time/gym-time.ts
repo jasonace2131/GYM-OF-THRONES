@@ -171,6 +171,25 @@ export function zonedTimeToInstant(day: CivilDate, hhmm: string, timeZone: strin
 }
 
 /**
+ * An INSTANT's gym-local wall-clock time as 24-hour `HH:mm` ('18:00') — the
+ * form `zonedTimeToInstant` takes back, so a time of day can be carried to
+ * another gym date without adding milliseconds to an instant. `gymClockTime`
+ * below is the one people read.
+ *
+ * hourCycle h23, not hour12:false: some ICU builds render midnight as "24".
+ */
+export function gymWallClock(instant: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(instant);
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? '00';
+  return `${get('hour')}:${get('minute')}`;
+}
+
+/**
  * Validate a time zone by CONSTRUCTION, never by regex and never by
  * Intl.supportedValuesOf('timeZone').
  *

@@ -13,6 +13,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { PERMISSIONS, type ClassRegisterEntryWire } from '@got/shared';
 import { registerOpensLabel } from '@/lib/schedule/cancelCopy';
+import { REPEAT_WEEKS, repeatSummary, repeatWeeksProblem } from '@/lib/schedule/classRepeat';
 import { shortDay } from '@/lib/schedule/labels';
 import { ApiError } from '@/lib/api';
 import { adminApi } from '@/lib/adminApi';
@@ -893,6 +894,16 @@ function Composer({
         ),
   );
   const [capacity, setCapacity] = useState(session?.capacity ?? 16);
+  /**
+   * "Repeat weekly" (owner, 2026-10-30), scheduling only: an edit changes one
+   * class. Off by default; on, the same class every week for `weeks` weeks,
+   * made by the server on one request, every one or none.
+   */
+  const [repeat, setRepeat] = useState(false);
+  const [weeks, setWeeks] = useState<number>(REPEAT_WEEKS.default);
+  const repeating = !editing && repeat;
+  /** "Every Thursday at 7:00 AM, 4 classes, last on 26 Nov" — null until it can say. */
+  const repeatLine = repeating ? repeatSummary(date, start, weeks) : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -971,12 +982,15 @@ function Composer({
     try {
       let saved: ClassSession | null = null;
       if (session === null) {
+        // The first class answers, as it always has; `repeatWeeks` only
+        // when repeating, so a single class sends the body it always did.
         saved = await adminApi.createClassSession({
           title: title.trim(),
           coachId,
           startsAt: times.startsAt,
           endsAt: times.endsAt,
           capacity,
+          ...(repeating ? { repeatWeeks: weeks } : {}),
         });
       } else {
         const patch = changes(session, times);
@@ -1009,15 +1023,20 @@ function Composer({
     minutes <= 300 &&
     Number.isInteger(capacity) &&
     capacity >= minPlaces &&
-    capacity <= 500;
+    capacity <= 500 &&
+    (!repeating || repeatWeeksProblem(weeks) === null);
 
   // What the confirmation says the save will do — worked out from the actual
   // changes, so "they get a notice" appears only when one is sent.
   const preview = (() => {
     if (session === null) {
       return {
-        consequence: 'Members can see and book it on the timetable straight away.',
-        facts: [] as string[],
+        // A member's timetable only reaches as far as they may book, so a
+        // class eight weeks out appears there once it comes into range.
+        consequence: repeating
+          ? 'Members see each class on their timetable, and can book it, once it is inside their booking window.'
+          : 'Members can see and book it on the timetable straight away.',
+        facts: repeatLine === null ? ([] as string[]) : [repeatLine],
       };
     }
     const times = instants();
@@ -1140,6 +1159,56 @@ function Composer({
             </label>
           </div>
 
+          {editing ? null : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  width: 'fit-content',
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="a-check"
+                  checked={repeat}
+                  onChange={(event) => setRepeat(event.target.checked)}
+                />
+                Repeat weekly
+              </label>
+              {repeat ? (
+                <>
+                  <div className="a-toolbar a-class-when">
+                    <label>
+                      <span className="a-person-sub">WEEKS</span>
+                      <input
+                        className="a-input"
+                        type="number"
+                        min={REPEAT_WEEKS.min}
+                        max={REPEAT_WEEKS.max}
+                        step={1}
+                        onKeyDown={blockIntJunk}
+                        value={Number.isNaN(weeks) ? '' : weeks}
+                        onChange={(event) => setWeeks(wholeOrNaN(event.target.value))}
+                      />
+                    </label>
+                  </div>
+                  {/* Live, so the weekday and the last date follow every
+                      change to the date, the time or the weeks. */}
+                  <p
+                    aria-live="polite"
+                    style={{ margin: 0, fontSize: 13, color: 'var(--p-ink2)', lineHeight: 1.55 }}
+                  >
+                    {repeatLine ?? repeatWeeksProblem(weeks) ?? 'Pick a date and a start time.'}
+                  </p>
+                </>
+              ) : null}
+            </div>
+          )}
+
           {error === null ? null : (
             <p style={{ color: 'var(--p-danger)', fontSize: 14, margin: 0 }}>{error}</p>
           )}
@@ -1151,7 +1220,9 @@ function Composer({
                 : 'Scheduling…'
               : editing
                 ? 'Save changes'
-                : 'Put it on the timetable'}
+                : repeating
+                  ? 'Put them on the timetable'
+                  : 'Put it on the timetable'}
           </button>
         </form>
 
@@ -1160,10 +1231,18 @@ function Composer({
           title={
             editing
               ? `Save changes to “${title.trim()}”?`
-              : `Put “${title.trim()}” on the timetable?`
+              : repeating
+                ? `Put ${weeks} “${title.trim()}” classes on the timetable?`
+                : `Put “${title.trim()}” on the timetable?`
           }
           consequence={preview.consequence}
-          confirmLabel={editing ? 'Save changes' : 'Put it on the timetable'}
+          confirmLabel={
+            editing
+              ? 'Save changes'
+              : repeating
+                ? 'Put them on the timetable'
+                : 'Put it on the timetable'
+          }
           cancelLabel="Keep editing"
           busy={busy}
           error={error}

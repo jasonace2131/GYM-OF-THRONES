@@ -8,16 +8,19 @@ import { createRoot, type Root } from 'react-dom/client';
  * code step for THIS session; no session gets the form.
  */
 
-const { getSession, apiFetch, replace, sendLoginCode, searchParams } = vi.hoisted(() => ({
-  getSession: vi.fn(),
-  apiFetch: vi.fn(),
-  replace: vi.fn(),
-  sendLoginCode: vi.fn(),
-  searchParams: { value: new URLSearchParams() },
-}));
+const { getSession, signOut, signInWithPassword, apiFetch, replace, sendLoginCode, searchParams } =
+  vi.hoisted(() => ({
+    getSession: vi.fn(),
+    signOut: vi.fn(),
+    signInWithPassword: vi.fn(),
+    apiFetch: vi.fn(),
+    replace: vi.fn(),
+    sendLoginCode: vi.fn(),
+    searchParams: { value: new URLSearchParams() },
+  }));
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: { auth: { getSession, signOut: vi.fn(), signInWithPassword: vi.fn() } },
+  supabase: { auth: { getSession, signOut, signInWithPassword } },
 }));
 vi.mock('@/lib/api', () => ({
   apiFetch,
@@ -56,6 +59,8 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   getSession.mockReset();
+  signOut.mockReset();
+  signInWithPassword.mockReset();
   apiFetch.mockReset();
   replace.mockReset();
   sendLoginCode.mockReset();
@@ -130,5 +135,84 @@ describe('LoginPage with an existing session', () => {
 
     expect(passwordField()).not.toBeNull();
     expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('LoginPage after another device signed in (one device at a time)', () => {
+  const NOTICE = 'You were signed out because your account signed in on another device.';
+
+  it('?reason=replaced: shows the password form with the reason', async () => {
+    searchParams.value = new URLSearchParams('reason=replaced&next=%2Fadmin');
+    getSession.mockResolvedValue({ data: { session: null } });
+    await render();
+
+    expect(passwordField()).not.toBeNull();
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(NOTICE);
+  });
+
+  it('no notice without the reason', async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    await render();
+
+    expect(container.textContent).not.toContain(NOTICE);
+  });
+
+  it('a session /me answers SESSION_REPLACED: the form and the reason, and NO global sign-out', async () => {
+    getSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } });
+    apiFetch.mockRejectedValue(new ApiError('replaced', 401, 'SESSION_REPLACED'));
+    await render();
+
+    expect(passwordField()).not.toBeNull();
+    expect(container.textContent).toContain(NOTICE);
+    // apiFetch signs this device out LOCALLY; a global sign-out from the page
+    // would also end the newer device's sign-in.
+    expect(signOut).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+    expect(sendLoginCode).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Owner, 2026-10-30: nobody under 12 has an account. The API refuses such a
+ * sign-up on first sight with 403 AGE_REQUIREMENT_NOT_MET; the page signs the
+ * session out and says why, rather than retrying or asking for a code.
+ */
+describe('LoginPage and an under-12 sign-up', () => {
+  const MESSAGE = 'You need to be at least 12 years old to create an account.';
+  const tooYoung = (): Error => new ApiError(MESSAGE, 403, 'AGE_REQUIREMENT_NOT_MET');
+  const alertText = (): string | null | undefined =>
+    container.querySelector('[role="alert"]')?.textContent;
+
+  it('arriving signed in: signed out, the message over the form, no code sent', async () => {
+    getSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } });
+    apiFetch.mockRejectedValue(tooYoung());
+    await render();
+
+    expect(signOut).toHaveBeenCalled();
+    expect(passwordField()).not.toBeNull();
+    expect(alertText()).toBe(MESSAGE);
+    expect(sendLoginCode).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('signing in: signed out with the message, not retried', async () => {
+    getSession.mockResolvedValue({ data: { session: null } });
+    signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: 'tok' } },
+      error: null,
+    });
+    apiFetch.mockRejectedValue(tooYoung());
+    await render();
+
+    await act(async () => {
+      container
+        .querySelector('form')
+        ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(apiFetch).toHaveBeenCalledTimes(1);
+    expect(signOut).toHaveBeenCalled();
+    expect(alertText()).toBe(MESSAGE);
+    expect(sendLoginCode).not.toHaveBeenCalled();
   });
 });

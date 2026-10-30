@@ -3,6 +3,7 @@
 import { supabase } from './supabase';
 import { API_URL } from './apiBase';
 import { LOGIN_CODE_REQUIRED, browserNavigation, loginCodeRedirectFor } from './loginCodeRedirect';
+import { SESSION_REPLACED, signOutReplacedSession } from './sessionReplaced';
 
 /** Matches ApiSuccessResponse / ApiErrorResponse from the server's global interceptors. */
 interface ApiEnvelope<T> {
@@ -133,6 +134,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
       body.error?.details,
     );
     if (error.code === LOGIN_CODE_REQUIRED) redirectForLoginCode();
+    // Another device signed in to this account: sign THIS one out (locally)
+    // and send it to the login page, which says why. Not awaited, like the
+    // redirect above: the caller still gets its ApiError straight away.
+    if (error.code === SESSION_REPLACED) void signOutReplacedSession();
     throw error;
   }
 

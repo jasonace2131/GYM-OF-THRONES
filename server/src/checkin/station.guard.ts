@@ -14,8 +14,10 @@ import { JwtVerifierService } from '../auth/jwt-verifier.service';
 import { UserProvisioningService } from '../auth/user-provisioning.service';
 import { PermissionsService } from '../rbac/permissions.service';
 import { LoginGateService } from '../auth/login-gate.service';
+import { SingleSessionService } from '../auth/single-session.service';
+import { isAgeRequirementRefusal } from '../auth/minimum-age';
 import { authSessionFrom } from '../auth/auth-session';
-import type { AuthSession, AuthUser } from '../auth/auth.types';
+import type { ActiveSession, AuthSession, AuthUser } from '../auth/auth.types';
 
 /** The only key this guard's staff fallback accepts — §6.14.2, kept as seeded. */
 export const STATION_TOKEN_ISSUE_PERMISSION = 'checkin.station_token.issue';
@@ -60,6 +62,7 @@ export class StationTokenAccessGuard implements CanActivate {
     private readonly provisioning: UserProvisioningService,
     private readonly permissions: PermissionsService,
     private readonly gate: LoginGateService,
+    private readonly singleSession: SingleSessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -121,13 +124,16 @@ export class StationTokenAccessGuard implements CanActivate {
     }
 
     let user: AuthUser;
+    let activeSession: ActiveSession;
     let session: AuthSession;
     try {
       const claims = await this.jwt.verify(token);
-      user = await this.provisioning.resolve(claims);
+      ({ user, activeSession } = await this.provisioning.resolveWithActiveSession(claims));
       session = authSessionFrom(claims);
-    } catch {
-      // Same doctrine as AuthGuard: the real reason never reaches the client.
+    } catch (error) {
+      // Same doctrine as AuthGuard: the real reason never reaches the client,
+      // except the under-12 refusal, which is not a token problem.
+      if (isAgeRequirementRefusal(error)) throw error;
       throw new UnauthorizedException('Invalid or expired token');
     }
 
@@ -139,6 +145,11 @@ export class StationTokenAccessGuard implements CanActivate {
     // same service. This route is @Public() for AuthGuard, so without this a
     // password alone would open the station display's token feed.
     await this.gate.assertVerified(session, false);
+
+    // One device at a time, from the same service AuthGuard asks: a staff
+    // display left on a screen stops painting codes once its account signs
+    // in elsewhere. The X-Station-Key path has no user and no session.
+    await this.singleSession.assertCurrent(user.id, activeSession, session);
 
     const held = await this.permissions.getEffectivePermissions(user);
     if (!held.some((permission) => permission.key === STATION_TOKEN_ISSUE_PERMISSION)) {

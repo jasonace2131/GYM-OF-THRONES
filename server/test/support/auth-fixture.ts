@@ -75,6 +75,7 @@ export class AuthFixture {
     // The e2e harness turns the emailed-code gate off (support/db.ts); a spec
     // that turns it on must verify this session first.
     const sessionId = randomUUID();
+    const signedInAt = Math.floor(Date.now() / 1000);
     const claims: SupabaseClaims = {
       sub: supabaseId,
       // Derived from the id, so two fixtures at one role never collide on
@@ -88,6 +89,7 @@ export class AuthFixture {
       dateOfBirth: null,
       sessionId,
       amr: ['password'],
+      signedInAt: new Date(signedInAt * 1000),
     };
 
     const user = await this.provisioning.resolve(claims);
@@ -99,7 +101,7 @@ export class AuthFixture {
       email: claims.email,
       user_metadata: { firstName: claims.firstName, lastName: claims.lastName },
       session_id: sessionId,
-      amr: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }],
+      amr: [{ method: 'password', timestamp: signedInAt }],
     })
       .setProtectedHeader({ alg: 'ES256', kid: FIXTURE_KID })
       .setIssuer(FIXTURE_ISSUER)

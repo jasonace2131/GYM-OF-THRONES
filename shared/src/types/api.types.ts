@@ -303,6 +303,12 @@ export type DomainErrorCode =
   | 'LOGIN_CODE_EXPIRED'
   // 422. Five wrong guesses burned this code until a new one is requested.
   | 'LOGIN_CODE_LOCKED'
+  // ── One device at a time (owner, 2026-10-30) ────────────────────────────────
+  // 401 on every authenticated route once the account has signed in on another
+  // device: the newest sign-in wins. apiFetch signs this device out LOCALLY
+  // (never globally, which would also end the new device's sign-in) and sends
+  // the browser to /login?reason=replaced.
+  | 'SESSION_REPLACED'
   // ── GCash proof screenshots and the member's own payment claim ──
   //
   // The image is a PAPER TRAIL, never verification: a reference absent from the
@@ -423,6 +429,14 @@ export type DomainErrorCode =
   | 'GYM_EQUIPMENT_DUPLICATE'
   // 400. A reorder must list every item exactly once.
   | 'GYM_EQUIPMENT_ORDER_MISMATCH'
+
+  // ── Minimum account age (owner, 2026-10-30) ─────────────────────────────
+  // Under 12 (MINIMUM_ACCOUNT_AGE) by the date of birth given. 403 from any
+  // signed-in route when a self sign-up is first seen: no account is created,
+  // and the sign-in pages sign the session out and show the message. 400 from
+  // the counter's create and from the setup link's accept, before anything is
+  // created or the link is used up. An account already on file is never refused.
+  | 'AGE_REQUIREMENT_NOT_MET'
 
   // ── A member deleting their own account (owner, 2026-10-23) ─────────────
   // 403. `POST /me/delete-account` by a staff account (non-CLIENT).

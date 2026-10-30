@@ -20,16 +20,27 @@ const SESSION_ID = '99999999-9999-4999-8999-999999999999';
 
 describe('authSessionFrom', () => {
   it('carries the sign-in id through', () => {
-    expect(authSessionFrom({ sessionId: SESSION_ID, amr: ['password'] }).sessionId).toBe(
-      SESSION_ID,
-    );
+    expect(
+      authSessionFrom({ sessionId: SESSION_ID, amr: ['password'], signedInAt: null }).sessionId,
+    ).toBe(SESSION_ID);
+  });
+
+  it('carries the sign-in time through for the one-device rule, null included', () => {
+    const at = new Date('2026-10-30T01:00:00.000Z');
+    expect(
+      authSessionFrom({ sessionId: SESSION_ID, amr: ['password'], signedInAt: at }).signedInAt,
+    ).toEqual(at);
+    expect(
+      authSessionFrom({ sessionId: SESSION_ID, amr: ['password'], signedInAt: null }).signedInAt,
+    ).toBeNull();
   });
 
   it.each(['otp', 'magiclink', 'invite', 'recovery', 'email_change'])(
     "treats '%s' as an email-link sign-in, even after a password step",
     (method) => {
       expect(
-        authSessionFrom({ sessionId: SESSION_ID, amr: ['password', method] }).viaEmailLink,
+        authSessionFrom({ sessionId: SESSION_ID, amr: ['password', method], signedInAt: null })
+          .viaEmailLink,
       ).toBe(true);
     },
   );
@@ -37,7 +48,9 @@ describe('authSessionFrom', () => {
   it.each([[[]], [['password']], [['oauth']], [['totp']], [['token_refresh']]])(
     'does not treat %p as an email link',
     (amr) => {
-      expect(authSessionFrom({ sessionId: SESSION_ID, amr }).viaEmailLink).toBe(false);
+      expect(authSessionFrom({ sessionId: SESSION_ID, amr, signedInAt: null }).viaEmailLink).toBe(
+        false,
+      );
     },
   );
 

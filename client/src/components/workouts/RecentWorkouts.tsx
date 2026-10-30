@@ -7,8 +7,9 @@ import { KickerHeading } from './ui';
 export const HISTORY_HREF = '/portal/workouts/history';
 
 /**
- * One finished workout as a row: tick · title / when · weight moved
- * (PhoneHubCoach.dc.html "Recent workouts"). The whole row opens its summary.
+ * One finished workout as a row: tick · title / when · weight moved, the last
+ * only for a workout logged with weights (PhoneHubCoach.dc.html "Recent
+ * workouts"). The whole row opens its summary.
  */
 export function HistoryRow({ summary }: { summary: WorkoutSessionSummary }) {
   const row = recentRow(summary);
@@ -27,9 +28,11 @@ export function HistoryRow({ summary }: { summary: WorkoutSessionSummary }) {
         <span className="truncate text-[14px] font-semibold">{row.title}</span>
         <span className="text-[12.5px] text-ink-2">{row.when}</span>
       </span>
-      <span className="text-right font-display text-[13.5px] font-bold whitespace-nowrap">
-        {row.volume}
-      </span>
+      {row.volume === null ? null : (
+        <span className="text-right font-display text-[13.5px] font-bold whitespace-nowrap">
+          {row.volume}
+        </span>
+      )}
     </Link>
   );
 }

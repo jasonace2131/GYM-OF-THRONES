@@ -38,13 +38,15 @@ const session = (over: Partial<ClassSession> = {}): ClassSession =>
   }) as ClassSession;
 
 describe('the coach class form', () => {
-  it('starts a new class on the day in view at 6pm, an hour, 16 places', () => {
+  it('starts a new class on the day in view at 6pm, an hour, 16 places, once', () => {
     expect(draftFor(null, '2026-09-18')).toEqual({
       title: '',
       date: '2026-09-18',
       start: '18:00',
       minutes: 60,
       capacity: 16,
+      repeat: false,
+      weeks: 4,
     });
   });
 
@@ -55,6 +57,8 @@ describe('the coach class form', () => {
       start: '18:00',
       minutes: 60,
       capacity: 12,
+      repeat: false,
+      weeks: 4,
     });
   });
 
@@ -78,6 +82,16 @@ describe('the coach class form', () => {
     expect(classFormProblem({ ...ok, capacity: 0 })).toBe('Places must be 1 to 500.');
   });
 
+  it('checks the weeks only while Repeat weekly is on', () => {
+    const ok = { ...draftFor(null, '2026-09-18'), title: 'Yoga' };
+    expect(classFormProblem({ ...ok, repeat: false, weeks: Number.NaN })).toBeNull();
+    expect(classFormProblem({ ...ok, repeat: true, weeks: 12 })).toBeNull();
+    expect(classFormProblem({ ...ok, repeat: true, weeks: 13 })).toBe('Repeat for 2 to 12 weeks.');
+    expect(classFormProblem({ ...ok, repeat: true, weeks: Number.NaN })).toBe(
+      'Repeat for 2 to 12 weeks.',
+    );
+  });
+
   it('creates with the coach fixed to the caller', () => {
     const draft = { ...draftFor(null, '2026-09-18'), title: ' Yoga ' };
     expect(createBody(draft, ME)).toEqual({
@@ -86,6 +100,15 @@ describe('the coach class form', () => {
       startsAt: '2026-09-18T10:00:00.000Z',
       endsAt: '2026-09-18T11:00:00.000Z',
       capacity: 16,
+    });
+  });
+
+  it('asks for the weeks only when repeating', () => {
+    const draft = { ...draftFor(null, '2026-09-18'), title: 'Yoga', weeks: 6 };
+    expect(createBody(draft, ME)).not.toHaveProperty('repeatWeeks');
+    expect(createBody({ ...draft, repeat: true }, ME)).toMatchObject({
+      startsAt: '2026-09-18T10:00:00.000Z',
+      repeatWeeks: 6,
     });
   });
 

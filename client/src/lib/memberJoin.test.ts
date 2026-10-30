@@ -6,10 +6,11 @@ vi.mock('./api', () => ({
   ApiError: class ApiError extends Error {},
 }));
 
+import { earliestBirthDateFor, latestBirthDateFor } from '@got/shared';
 import { apiFetch } from './api';
 import {
+  asksDateOfBirth,
   birthDateProblem,
-  dayBefore,
   deadJoinCopy,
   isSamePasswordError,
   joinErrorCopy,
@@ -84,16 +85,12 @@ describe('joinStage', () => {
   });
 });
 
-describe('dayBefore', () => {
-  it('steps back one calendar day, across month and year ends and a leap day', () => {
-    expect(dayBefore('2026-10-14')).toBe('2026-10-13');
-    expect(dayBefore('2026-03-01')).toBe('2026-02-28');
-    expect(dayBefore('2028-03-01')).toBe('2028-02-29');
-    expect(dayBefore('2027-01-01')).toBe('2026-12-31');
-  });
-
-  it('is a date birthDateProblem accepts — the picker never offers a refused day', () => {
-    expect(birthDateProblem(dayBefore('2026-10-14'), '2026-10-14')).toBeNull();
+describe('the date picker bounds', () => {
+  it('are both dates birthDateProblem accepts: the picker never offers a refused day', () => {
+    for (const today of ['2026-10-14', '2026-03-01', '2028-02-29']) {
+      expect(birthDateProblem(latestBirthDateFor(today), today)).toBeNull();
+      expect(birthDateProblem(earliestBirthDateFor(today), today)).toBeNull();
+    }
   });
 });
 
@@ -156,6 +153,13 @@ describe('joinErrorCopy', () => {
     expect(copy.body).not.toMatch(/try again/i);
   });
 
+  it('explains an under-12 refusal with the shared message, not "try again"', () => {
+    expect(joinErrorCopy('AGE_REQUIREMENT_NOT_MET')).toEqual({
+      title: 'Date of birth',
+      body: 'You need to be at least 12 years old to create an account.',
+    });
+  });
+
   it('falls back to "try again" for anything else', () => {
     expect(joinErrorCopy(null).body).toMatch(/try again/i);
   });
@@ -178,8 +182,32 @@ describe('birthDateProblem', () => {
     expect(birthDateProblem('2030-01-01', today)).toMatch(/past/i);
   });
 
-  it('refuses a date more than 120 years ago', () => {
-    expect(birthDateProblem('1900-01-01', today)).toMatch(/check the year/i);
+  it('refuses a date 120 or more years ago, as the database does', () => {
+    expect(birthDateProblem('1906-10-14', today)).toMatch(/check the year/i);
+    expect(birthDateProblem('1906-10-15', today)).toBeNull();
+  });
+
+  // Owner, 2026-10-30: nobody under 12 has an account.
+  it('refuses under 12 with the shared message, and takes the 12th birthday itself', () => {
+    expect(birthDateProblem('2015-01-01', today)).toBe(
+      'You need to be at least 12 years old to create an account.',
+    );
+    expect(birthDateProblem('2014-10-15', today)).toBe(
+      'You need to be at least 12 years old to create an account.',
+    );
+    expect(birthDateProblem('2014-10-14', today)).toBeNull();
+  });
+});
+
+describe('asksDateOfBirth', () => {
+  it('skips the field only when the lookup says one is on file', () => {
+    expect(asksDateOfBirth({ ...pending, needsDateOfBirth: false })).toBe(false);
+    expect(asksDateOfBirth({ ...pending, needsDateOfBirth: true })).toBe(true);
+  });
+
+  it('asks when an older API does not say, or before the lookup', () => {
+    expect(asksDateOfBirth(pending)).toBe(true);
+    expect(asksDateOfBirth(null)).toBe(true);
   });
 });
 
@@ -230,6 +258,14 @@ describe('memberJoinApi', () => {
     expect(apiFetch).toHaveBeenLastCalledWith('/member-join/accept', {
       method: 'POST',
       body: JSON.stringify({ token: 'tok', dateOfBirth: '1995-03-02' }),
+    });
+  });
+
+  it('accepts without a date of birth when the desk already entered one', async () => {
+    await memberJoinApi.accept('tok');
+    expect(apiFetch).toHaveBeenLastCalledWith('/member-join/accept', {
+      method: 'POST',
+      body: JSON.stringify({ token: 'tok' }),
     });
   });
 });

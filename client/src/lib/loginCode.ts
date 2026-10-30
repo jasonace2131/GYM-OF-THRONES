@@ -2,7 +2,7 @@
 
 import type { LoginCodeInvalidDetails, LoginCodeSendResult, LoginCodeVerified } from '@got/shared';
 import { ApiError, apiFetch } from './api';
-import { LOGIN_CODE_REQUIRED } from './loginCodeRedirect';
+import { LOGIN_CODE_REQUIRED, SESSION_REPLACED } from './loginCodeRedirect';
 
 /**
  * The login page's second step: password, then a 6-digit code emailed by our
@@ -57,9 +57,21 @@ export function resendLabel(secondsLeft: number): string {
  * What a failed `/me` means on the login page. LOGIN_CODE_REQUIRED is a 401
  * too, and must NOT reach the "session could not be verified → sign out"
  * branch: the session is fine, it just needs its code.
+ *
+ * Nor may SESSION_REPLACED: that branch signs out GLOBALLY, which would also
+ * end the sign-in on the device that just replaced this one. `apiFetch` has
+ * already signed this device out locally; the page only shows why.
+ *
+ * `too-young`: the API will not create an account for this sign-up, because
+ * its date of birth is under 12 (owner, 2026-10-30). Retrying cannot help, so
+ * the page signs the session out and shows `MINIMUM_AGE_MESSAGE`.
  */
-export function classifyMeFailure(caught: unknown): 'code-required' | 'signed-out' | 'retry' {
+export function classifyMeFailure(
+  caught: unknown,
+): 'code-required' | 'replaced' | 'too-young' | 'signed-out' | 'retry' {
   if (caught instanceof ApiError && caught.code === LOGIN_CODE_REQUIRED) return 'code-required';
+  if (caught instanceof ApiError && caught.code === SESSION_REPLACED) return 'replaced';
+  if (caught instanceof ApiError && caught.code === 'AGE_REQUIREMENT_NOT_MET') return 'too-young';
   if (caught instanceof ApiError && caught.status === 401) return 'signed-out';
   return 'retry';
 }
@@ -70,6 +82,10 @@ export const SIGN_IN_ENDED_MESSAGE = 'Your sign-in ended. Please sign in again.'
 /**
  * What a failed verify or resend does to the code step.
  *
+ * - `replaced`: SESSION_REPLACED. The two code routes never answer it, but a
+ *   401 that did must not reach `session-ended`, whose sign-out is GLOBAL and
+ *   would end the newer device's sign-in too. Back to the password step with
+ *   the reason, and no further sign-out (`apiFetch` signed out locally).
  * - `session-ended`: a 401 that is not LOGIN_CODE_REQUIRED — the session was
  *   revoked or signed out in another tab. No code can rescue it, so the page
  *   signs out and goes back to the password step.
@@ -77,8 +93,11 @@ export const SIGN_IN_ENDED_MESSAGE = 'Your sign-in ended. Please sign in again.'
  *   signs out and puts that message on the password step, where the sign-in is.
  * - `stay`: everything else; show the message and let them retry here.
  */
-export function codeStepFailure(caught: unknown): 'session-ended' | 'start-over' | 'stay' {
+export function codeStepFailure(
+  caught: unknown,
+): 'replaced' | 'session-ended' | 'start-over' | 'stay' {
   if (!(caught instanceof ApiError)) return 'stay';
+  if (caught.code === SESSION_REPLACED) return 'replaced';
   if (caught.code === 'LOGIN_CODE_SEND_LIMIT') return 'start-over';
   if (caught.status === 401 && caught.code !== LOGIN_CODE_REQUIRED) return 'session-ended';
   return 'stay';

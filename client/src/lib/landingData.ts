@@ -106,7 +106,7 @@ export const PLANS: LandingPlan[] = [
     tier: 'Most flexible',
     price: '₱800',
     unit: 'per month',
-    perMonth: '₱800 / mo',
+    perMonth: null,
     saves: null,
     featured: true,
     badge: 'Most popular',
@@ -141,36 +141,6 @@ export const PLANS: LandingPlan[] = [
     badge: 'Best value',
     perks: ['Everything in Quarterly', '2 guest passes / month', 'Free member tee'],
   },
-] as const;
-
-/**
- * Announcements are split into a lead story and a list rather than one
- * flat feed.
- *
- * Not every notice is worth the same: a discount that drives signups
- * and "equipment maintenance on Sunday" were previously rendered at
- * identical weight, so nothing led and the whole block read as filler.
- * The lead carries the offer and its own call to action; everything
- * else stays scannable.
- */
-export const NEWS_LEAD = {
-  tag: 'Promo',
-  title: 'New Year Discount — 20% off every plan',
-  body: 'New members who sign up before the end of January get 20% off their first term. Applies to Monthly, Quarterly and Annual — stacked on top of the multi-month rates.',
-  date: 'Jan 15, 2024',
-  cta: 'Claim 20% off',
-  image: '/assets/gym-f.webp',
-} as const;
-
-export const NEWS = [
-  { tag: 'Schedule', text: 'Holiday schedule: gym closes early on weekends', date: 'Jan 12, 2024' },
-  {
-    tag: 'Classes',
-    text: 'New group classes starting next month — sign up now',
-    date: 'Jan 10, 2024',
-  },
-  { tag: 'Notice', text: 'Equipment maintenance scheduled for this Sunday', date: 'Jan 8, 2024' },
-  { tag: 'Team', text: 'Welcome our new certified coach, Marcus Rivera', date: 'Jan 5, 2024' },
 ] as const;
 
 /**

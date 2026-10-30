@@ -11,7 +11,6 @@ const LINKS = [
   { label: 'Services', href: '#services' },
   { label: 'Membership', href: '#membership' },
   { label: 'The Floor', href: '#floor' },
-  { label: 'News', href: '#news' },
   { label: 'Visit', href: '#contact' },
 ] as const;
 

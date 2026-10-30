@@ -45,8 +45,8 @@ describe('recentRow', () => {
     });
   });
 
-  it('says "Bodyweight" rather than "0 kg" for a workout with no weights', () => {
-    expect(recentRow({ ...SUMMARY_MONDAY, volumeKg: 0 }).volume).toBe('Bodyweight');
+  it('leaves the weight out of a workout logged without weights, rather than "0 kg"', () => {
+    expect(recentRow({ ...SUMMARY_MONDAY, volumeKg: 0 }).volume).toBeNull();
     expect(recentRow({ ...SUMMARY_MONDAY, setsDone: 1 }).when).toBe('Mon, Sep 28 · 48 min · 1 set');
   });
 });
@@ -64,9 +64,15 @@ describe('the finish screen', () => {
       { value: '4,435 kg', label: 'Weight moved', highlight: false },
       { value: '1', label: 'New best', highlight: true },
     ]);
-    const plain = statTiles({ ...SUMMARY, bests: [], volumeKg: 0 });
-    expect(plain[2]).toEqual({ value: 'Bodyweight', label: 'Weight moved', highlight: false });
-    expect(plain[3]).toEqual({ value: '0', label: 'New bests', highlight: false });
+    const noBest = statTiles({ ...SUMMARY, bests: [] });
+    expect(noBest[3]).toEqual({ value: '0', label: 'New bests', highlight: false });
+  });
+
+  it('shows only sets and exercises for a workout logged without weights', () => {
+    expect(statTiles({ ...SUMMARY, bests: [], volumeKg: 0 })).toEqual([
+      { value: '13', label: 'Sets done', highlight: false },
+      { value: '5 / 5', label: 'Exercises', highlight: false },
+    ]);
   });
 
   it('says what the best beat, and only what it knows', () => {
@@ -78,12 +84,15 @@ describe('the finish screen', () => {
       '3 sets · top 80 kg × 12',
       '3 sets · top 37.5 kg × 10',
       '3 sets · top 14 kg × 10',
-      '2 sets · bodyweight × 10',
-      '2 of 3 sets · bodyweight × 8',
+      '2 sets · up to 10 reps',
+      '2 of 3 sets · up to 8 reps',
     ]);
     expect(
       exerciseLine({ name: 'Row', setsDone: 1, plannedSets: 1, top: { weightKg: 40, reps: 8 } }),
     ).toBe('1 set · 40 kg × 8');
+    expect(
+      exerciseLine({ name: 'Dip', setsDone: 1, plannedSets: 3, top: { weightKg: null, reps: 1 } }),
+    ).toBe('1 of 3 sets · 1 rep');
     expect(exerciseLine({ name: 'Row', setsDone: 0, plannedSets: 3, top: null })).toBe('Not done');
   });
 

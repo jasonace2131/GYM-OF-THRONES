@@ -8,6 +8,7 @@ import { MEMBER_DEVICE_CACHE_KEYS, clearMemberDeviceCache } from '@/lib/deviceCa
 import { apiFetch } from '@/lib/api';
 import { signOutMember } from '@/lib/memberSignOut';
 import { accountJustDeleted } from '@/lib/accountDeleted';
+import { signedOutLoginPath } from '@/lib/sessionReplaced';
 import { COACH_HOME, isCoach, isStaff } from '@/lib/safeNext';
 import { PORTAL_NOTICES_HOME } from '@/lib/announcements/focus';
 import { MeProvider, useMe } from '@/components/rbac/MeProvider';
@@ -192,8 +193,10 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     // each of them dynamic and demand a Suspense boundary at build time. Inside
     // an effect the read is client-only and safe.
     const search = typeof window === 'undefined' ? '' : window.location.search;
-    const next = `${pathname}${search}`;
-    router.replace(`/login?next=${encodeURIComponent(next)}`);
+    // `/login?next=…`, or `/login?reason=replaced&next=…` when another device
+    // signed in to this account: apiFetch's local sign-out is what emptied the
+    // session, and its own redirect goes to the same address.
+    router.replace(signedOutLoginPath(pathname, search));
   }, [auth, pathname, router]);
 
   const signOut = useCallback(async () => {

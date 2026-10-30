@@ -21,6 +21,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import type { ClassSession } from '@/lib/classes';
+import { REPEAT_WEEKS, repeatSummary } from '@/lib/schedule/classRepeat';
 import {
   CLASS_LIMITS,
   classFormProblem,
@@ -112,6 +113,7 @@ function ClassForm({
   const ids = useId();
   const set = (patch: Partial<ClassDraft>): void => setDraft((current) => ({ ...current, ...patch }));
   const shown = problem ?? error;
+  const repeatLine = draft.repeat ? repeatSummary(draft.date, draft.start, draft.weeks) : null;
 
   return (
     <form
@@ -203,6 +205,46 @@ function ClassForm({
           </label>
         </div>
 
+        {/* "Repeat weekly" (owner, 2026-10-30), a new class only: an edit
+            changes one class. The server makes every week or none. */}
+        {session === null ? (
+          <div className="flex flex-col gap-3">
+            <label className="flex w-fit cursor-pointer items-center gap-2 text-[13.5px] font-semibold text-ink-2">
+              <input
+                type="checkbox"
+                className="size-4 accent-gold"
+                checked={draft.repeat}
+                onChange={(e) => set({ repeat: e.target.checked })}
+                disabled={busy}
+              />
+              Repeat weekly
+            </label>
+            {draft.repeat ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className={LABEL}>
+                    Weeks
+                    <input
+                      className={FIELD}
+                      type="number"
+                      min={REPEAT_WEEKS.min}
+                      max={REPEAT_WEEKS.max}
+                      step={1}
+                      onKeyDown={blockIntJunk}
+                      value={Number.isNaN(draft.weeks) ? '' : draft.weeks}
+                      onChange={(e) => set({ weeks: wholeOrNaN(e.target.value) })}
+                      disabled={busy}
+                    />
+                  </label>
+                </div>
+                <p aria-live="polite" className="m-0 text-[13px] text-ink-2">
+                  {repeatLine ?? `Repeat for ${REPEAT_WEEKS.min} to ${REPEAT_WEEKS.max} weeks.`}
+                </p>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+
         {shown === null ? null : (
           <p id={`${ids}-err`} role="alert" className="m-0 text-[13.5px] text-danger">
             {shown}
@@ -215,7 +257,13 @@ function ClassForm({
           Close
         </Button>
         <Button type="submit" disabled={busy}>
-          {busy ? 'Saving…' : session === null ? 'Put it on the timetable' : 'Save changes'}
+          {busy
+            ? 'Saving…'
+            : session !== null
+              ? 'Save changes'
+              : draft.repeat
+                ? 'Put them on the timetable'
+                : 'Put it on the timetable'}
         </Button>
       </SheetFooter>
     </form>

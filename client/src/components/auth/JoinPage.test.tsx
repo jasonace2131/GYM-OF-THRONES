@@ -119,5 +119,40 @@ describe('JoinPage password', () => {
     type(field('Date of birth'), '1995-05-05');
     await submit();
     expect(updateUser).toHaveBeenCalledWith({ password: 'Thr0nes!Gym' });
+    expect(accept).toHaveBeenCalledWith('tok', '1995-05-05');
+  });
+});
+
+/** Owner, 2026-10-30: nobody under 12 has an account. */
+describe('JoinPage date of birth', () => {
+  it('refuses under 12 before the password is saved or the link is used', async () => {
+    await render();
+    type(field('Password'), 'Thr0nes!Gym');
+    type(field('Confirm password'), 'Thr0nes!Gym');
+    type(field('Date of birth'), '2020-06-01');
+    await submit();
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      'You need to be at least 12 years old to create an account.',
+    );
+  });
+
+  it('does not ask when the desk already entered it, and sends none', async () => {
+    lookup.mockResolvedValue({
+      firstName: 'Juan',
+      status: 'PENDING',
+      email: 'juan@example.com',
+      needsDateOfBirth: false,
+    });
+    updateUser.mockResolvedValue({ error: null });
+    accept.mockResolvedValue({ dateOfBirthSaved: false });
+    await render();
+    expect(container.querySelector('#join-dob')).toBeNull();
+    type(field('Password'), 'Thr0nes!Gym');
+    type(field('Confirm password'), 'Thr0nes!Gym');
+    await submit();
+    expect(updateUser).toHaveBeenCalledWith({ password: 'Thr0nes!Gym' });
+    expect(accept).toHaveBeenCalledWith('tok', undefined);
   });
 });

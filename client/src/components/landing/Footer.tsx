@@ -8,7 +8,6 @@ const LINK_COLUMNS = [
       { label: 'Services', href: '#services' },
       { label: 'Membership', href: '#membership' },
       { label: 'The Floor', href: '#floor' },
-      { label: 'News', href: '#news' },
     ],
   },
   {
@@ -20,30 +19,18 @@ const LINK_COLUMNS = [
       { label: 'gymofthrones2023@gmail.com', href: 'mailto:gymofthrones2023@gmail.com' },
     ],
   },
-  {
-    heading: 'Hours',
-    links: [
-      { label: 'Holidays · reduced hours', href: '#news' },
-    ],
-  },
 ] as const;
 
 export default function Footer({ hours }: { hours: string[] }) {
   // The Hours column is assembled from live data, so the footer cannot
-  // advertise a closing time the door will refuse. "Holidays · reduced hours"
-  // survives because it is a standing caveat rather than a claim about a
-  // specific time.
-  const columns = LINK_COLUMNS.map((column) =>
-    column.heading !== 'Hours'
-      ? column
-      : {
-          heading: 'Hours',
-          links: [
-            ...hours.map((line) => ({ label: line, href: '#contact' })),
-            ...column.links,
-          ],
-        },
-  );
+  // advertise a closing time the door will refuse. With no hours to show (the
+  // API unreachable) the column is left out rather than shown as a bare heading.
+  const columns = [
+    ...LINK_COLUMNS,
+    ...(hours.length > 0
+      ? [{ heading: 'Hours', links: hours.map((line) => ({ label: line, href: '#contact' })) }]
+      : []),
+  ];
 
   return (
     <footer

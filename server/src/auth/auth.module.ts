@@ -4,6 +4,7 @@ import { UserProvisioningService } from './user-provisioning.service';
 import { AuthGuard } from './auth.guard';
 import { SupabaseAdminService } from './supabase-admin.service';
 import { LoginGateService } from './login-gate.service';
+import { SingleSessionService } from './single-session.service';
 import { LoginCodeSettingSync } from './login-code/login-code-setting.sync';
 import { LoginCodeController } from './login-code/login-code.controller';
 import { LoginCodeService } from './login-code/login-code.service';
@@ -19,9 +20,10 @@ import { LoginCodeService } from './login-code/login-code.service';
  *
  * `LoginGateService` is exported because the emailed sign-in code is enforced
  * in TWO guards — AuthGuard and CheckinModule's StationTokenAccessGuard — and
- * both must ask the same service. `LoginCodeSettingSync` (boot-time copy of
- * LOGIN_CODE_REQUIRED for the Realtime policy) injects `EmailService` from
- * the @Global NotificationsModule.
+ * both must ask the same service. `SingleSessionService` (one device at a
+ * time) is exported for the same two guards and the same reason.
+ * `LoginCodeSettingSync` (boot-time copy of LOGIN_CODE_REQUIRED for the
+ * Realtime policy) injects `EmailService` from the @Global NotificationsModule.
  *
  * It also owns the emailed sign-in code: `LoginCodeController` and the gate both guards call.
  */
@@ -33,6 +35,7 @@ import { LoginCodeService } from './login-code/login-code.service';
     AuthGuard,
     SupabaseAdminService,
     LoginGateService,
+    SingleSessionService,
     LoginCodeSettingSync,
     LoginCodeService,
   ],
@@ -42,6 +45,7 @@ import { LoginCodeService } from './login-code/login-code.service';
     AuthGuard,
     SupabaseAdminService,
     LoginGateService,
+    SingleSessionService,
   ],
 })
 export class AuthModule {}

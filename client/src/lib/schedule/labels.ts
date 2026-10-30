@@ -26,7 +26,11 @@ const MONTH_LONG = [
 const utc = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
 
 export const shortWeekday = (day: string): string => WEEKDAY_SHORT[utc(day).getUTCDay()] as string;
+export const longWeekday = (day: string): string => WEEKDAY_LONG[utc(day).getUTCDay()] as string;
 export const dayNumber = (day: string): string => String(utc(day).getUTCDate());
+/** '26 Nov' — a day and its month, no weekday. */
+export const dayMonth = (day: string): string =>
+  `${dayNumber(day)} ${MONTH_SHORT[utc(day).getUTCMonth()]}`;
 export const shortDay = (day: string): string =>
   `${shortWeekday(day)} ${dayNumber(day)} ${MONTH_SHORT[utc(day).getUTCMonth()]}`;
 export const longDay = (day: string): string =>

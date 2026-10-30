@@ -3,6 +3,7 @@ import type {
   BookingStatus,
   ClassRegisterEntryWire,
   ClassSessionWire,
+  CreateClassSessionResultWire,
   MarkAttendanceResultWire,
   MyBookingWire,
 } from '@got/shared';
@@ -96,6 +97,25 @@ export function toClassSession(row: ClassSessionRow): ClassSessionDto {
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     cancelReason: row.cancelReason,
   };
+}
+
+/**
+ * What scheduling a class answers: the FIRST class, exactly as a single create
+ * always has, plus how many were made and every one of them — "Repeat weekly"
+ * (owner, 2026-10-30) makes up to twelve on one request.
+ */
+export interface CreateClassSessionResult extends ClassSessionDto {
+  count: number;
+  sessions: ClassSessionDto[];
+}
+
+/** `sessions` in date order, as created. Never empty: a create makes at least one. */
+export function toCreateClassSessionResult(
+  sessions: readonly ClassSessionDto[],
+): CreateClassSessionResult {
+  const first = sessions[0];
+  if (first === undefined) throw new Error('a class create answered with no class');
+  return { ...first, count: sessions.length, sessions: [...sessions] };
 }
 
 export interface MyBookingRow {
@@ -293,3 +313,6 @@ export function toMarkAttendanceResult(row: MarkedRow): MarkAttendanceResult {
 // contract the client imports. If a field drifts, this file stops compiling.
 export const assertClassSessionWire = (dto: ClassSessionDto): ClassSessionWire => dto;
 export const assertMyBookingWire = (dto: MyBooking): MyBookingWire => dto;
+export const assertCreateClassSessionResultWire = (
+  dto: CreateClassSessionResult,
+): CreateClassSessionResultWire => dto;

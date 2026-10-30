@@ -1168,3 +1168,181 @@ describe('ClassesService — a coach managing their own classes (ownerId)', () =
     ).resolves.toMatchObject({ coachId: NEW_COACH_ID });
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+
+/**
+ * "Repeat weekly" (owner, 2026-10-30): one request schedules the same class
+ * once a week, all of the classes or none of them.
+ */
+describe('ClassesService.create — repeat weekly', () => {
+  /** Wed 23 Sep 2026, 7:00–8:15 AM in Manila: the day before, in UTC. */
+  const series = (repeatWeeks: number | undefined, coachId = COACH_ID) => ({
+    title: 'Sunrise Yoga',
+    coachId,
+    startsAt: '2026-09-22T23:00:00.000Z',
+    endsAt: '2026-09-23T00:15:00.000Z',
+    capacity: 12,
+    ...(repeatWeeks === undefined ? {} : { repeatWeeks }),
+  });
+
+  const created = (ctx: ReturnType<typeof build>): SessionRec[] =>
+    [...ctx.db.sessions.values()].filter((s) => s.id !== SESSION_ID);
+
+  it('makes one class a week, same gym start and length, across the end of a month', async () => {
+    const ctx = build();
+
+    const result = await ctx.service.create(ADMIN_ID, series(4), NOW);
+
+    expect(result.sessions.map((s) => [s.businessDate, s.startsAt, s.endsAt])).toEqual([
+      ['2026-09-23', '2026-09-22T23:00:00.000Z', '2026-09-23T00:15:00.000Z'],
+      ['2026-09-30', '2026-09-29T23:00:00.000Z', '2026-09-30T00:15:00.000Z'],
+      ['2026-10-07', '2026-10-06T23:00:00.000Z', '2026-10-07T00:15:00.000Z'],
+      ['2026-10-14', '2026-10-13T23:00:00.000Z', '2026-10-14T00:15:00.000Z'],
+    ]);
+    expect(result.sessions.map((s) => [s.title, s.coachId, s.capacity])).toEqual(
+      Array(4).fill(['Sunrise Yoga', COACH_ID, 12]),
+    );
+    expect(created(ctx)).toHaveLength(4);
+  });
+
+  it('answers with the first class as before, plus the count and every class', async () => {
+    const ctx = build();
+
+    const result = await ctx.service.create(ADMIN_ID, series(3), NOW);
+
+    expect(result).toMatchObject({
+      title: 'Sunrise Yoga',
+      businessDate: '2026-09-23',
+      waitlistCount: 0,
+      count: 3,
+    });
+    expect(result.id).toBe(result.sessions[0]?.id);
+    expect(new Set(result.sessions.map((s) => s.id)).size).toBe(3);
+  });
+
+  it('writes the series on one transaction', async () => {
+    const ctx = build();
+
+    await ctx.service.create(ADMIN_ID, series(3), NOW);
+
+    expect(ctx.db.log.filter((entry) => entry !== 'read:user.findUnique')).toEqual([
+      'begin',
+      'write:classSession.create',
+      'write:classSession.create',
+      'write:classSession.create',
+      'commit',
+    ]);
+    expect(ctx.db.txOptions).toEqual([{ timeout: 8_000 }]);
+  });
+
+  it('treats 1 week, or none given, as the single class it always was', async () => {
+    for (const weeks of [undefined, 1]) {
+      const ctx = build();
+      const result = await ctx.service.create(ADMIN_ID, series(weeks), NOW);
+      expect([result.count, result.sessions.map((s) => s.id)]).toEqual([1, [result.id]]);
+      expect(created(ctx)).toHaveLength(1);
+    }
+  });
+
+  it('refuses the whole series when a class would start in the past, naming its date', async () => {
+    const ctx = build();
+    // Wed 23 Sep 07:00 Manila has passed by 08:00 that morning.
+    const later = new Date('2026-09-23T00:00:00.000Z');
+
+    const error = await refusal(ctx.service.create(ADMIN_ID, series(4), later));
+
+    expect([error.code, error.getStatus(), error.message]).toEqual([
+      'CLASS_ALREADY_STARTED',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'The class on 23 Sep starts at a time that has already passed, so none of the 4 classes were scheduled. Check the date and the time.',
+    ]);
+    expect(ctx.db.classSession.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps the single-class message when there is no series', async () => {
+    const ctx = build();
+    const later = new Date('2026-09-23T00:00:00.000Z');
+    expect((await refusal(ctx.service.create(ADMIN_ID, series(1), later))).message).toBe(
+      'That start time has already passed. Check the date and the time.',
+    );
+  });
+
+  it('takes the earlier weeks back when a later write fails — nothing is left half made', async () => {
+    const ctx = build();
+    const write = ctx.db.classSession.create.getMockImplementation();
+    if (write === undefined) throw new Error('fake: no create');
+    let calls = 0;
+    ctx.db.classSession.create.mockImplementation((args: Args) => {
+      calls += 1;
+      return calls === 3 ? Promise.reject(new Error('fake: connection dropped')) : write(args);
+    });
+
+    await expect(ctx.service.create(ADMIN_ID, series(4), NOW)).rejects.toThrow(
+      'fake: connection dropped',
+    );
+
+    expect(calls).toBe(3);
+    expect(created(ctx)).toEqual([]);
+    expect(ctx.db.log.at(-1)).toBe('rollback');
+  });
+
+  it('makes up to twelve, and refuses thirteen or none before writing anything', async () => {
+    const ctx = build();
+    const twelve = await ctx.service.create(ADMIN_ID, series(12), NOW);
+    expect(twelve.count).toBe(12);
+    // Eleven weeks after the first: Wed 9 Dec.
+    expect(twelve.sessions.at(-1)?.businessDate).toBe('2026-12-09');
+
+    for (const weeks of [13, 0, 2.5]) {
+      const again = build();
+      await expect(again.service.create(ADMIN_ID, series(weeks), NOW)).rejects.toThrow(RangeError);
+      expect(again.db.classSession.create).not.toHaveBeenCalled();
+    }
+  });
+
+  it('lets a coach repeat their own class, and refuses a series for another coach', async () => {
+    const ctx = build();
+    const mine = await ctx.service.create(COACH_ID, series(4), NOW, COACH_ID);
+    expect(mine.sessions.map((s) => s.coachId)).toEqual(Array(4).fill(COACH_ID));
+
+    const other = build();
+    const error = await refusal(
+      other.service.create(COACH_ID, series(4, NEW_COACH_ID), NOW, COACH_ID),
+    );
+    expect([error.code, error.getStatus()]).toEqual(['CLASS_NOT_YOURS', HttpStatus.FORBIDDEN]);
+    expect(other.db.classSession.create).not.toHaveBeenCalled();
+  });
+
+  it('runs the coach check for a series too — NOT_A_COACH, nothing made', async () => {
+    const ctx = build();
+    expect((await refusal(ctx.service.create(ADMIN_ID, series(4, CLIENT_ID), NOW))).code).toBe(
+      'NOT_A_COACH',
+    );
+    expect(ctx.db.classSession.create).not.toHaveBeenCalled();
+  });
+
+  // Manila keeps no daylight saving; a zone that does shows why each week is
+  // rebuilt from the calendar. New York leaves EDT on Sun 1 Nov 2026: 6:00 PM
+  // stays 6:00 PM, which is an hour later in UTC.
+  it('keeps the wall-clock start across a daylight-saving change', async () => {
+    const ctx = build();
+    const newYork = new ClassesService(
+      ctx.db as unknown as PrismaService,
+      { timeZone: 'America/New_York' } as unknown as GymConfigService,
+      {} as BookingsService,
+      ctx.notices as unknown as MemberNoticesService,
+    );
+
+    const result = await newYork.create(
+      ADMIN_ID,
+      { ...series(2), startsAt: '2026-10-29T22:00:00.000Z', endsAt: '2026-10-29T23:00:00.000Z' },
+      NOW,
+    );
+
+    expect(result.sessions.map((s) => [s.businessDate, s.startsAt, s.endsAt])).toEqual([
+      ['2026-10-29', '2026-10-29T22:00:00.000Z', '2026-10-29T23:00:00.000Z'],
+      ['2026-11-05', '2026-11-05T23:00:00.000Z', '2026-11-06T00:00:00.000Z'],
+    ]);
+  });
+});

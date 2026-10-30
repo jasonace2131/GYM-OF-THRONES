@@ -33,6 +33,7 @@ import {
   type StationMode,
 } from '@/lib/stationAuth';
 import { supabase } from '@/lib/supabase';
+import { signOutReplacedSession } from '@/lib/sessionReplaced';
 import { CODE_CHAR_CLASS, STATION_CODE_LENGTH } from '@got/shared';
 import { CODE_HINT, filterCodeTyping } from '@/lib/codeInput';
 
@@ -106,7 +107,7 @@ const INITIAL: Feed = {
 /** The display's next state after one token request. */
 function nextFeed(
   previous: Feed,
-  result: Exclude<StationFetchResult, { kind: 'SESSION_EXPIRED' }>,
+  result: Exclude<StationFetchResult, { kind: 'SESSION_EXPIRED' | 'SESSION_REPLACED' }>,
 ): Feed {
   switch (result.kind) {
     case 'OK':
@@ -212,6 +213,12 @@ function StationDisplay() {
     // goes back to sign in and returns here afterwards.
     if (choice.kind === 'SIGNED_OUT' || result?.kind === 'SESSION_EXPIRED') {
       toLogin();
+      return;
+    }
+    // The account signed in on another device: sign this screen out LOCALLY
+    // and go to the login page, which says why and comes back here after.
+    if (result?.kind === 'SESSION_REPLACED') {
+      void signOutReplacedSession();
       return;
     }
     if (result === null) return;

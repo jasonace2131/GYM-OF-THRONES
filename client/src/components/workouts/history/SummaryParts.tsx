@@ -12,17 +12,24 @@ import { KickerHeading, RadioPill } from '../ui';
  * screen and the plain history entry both build from these.
  */
 
-/** SETS DONE · EXERCISES · WEIGHT MOVED · NEW BEST — 2 across on a phone. */
+/**
+ * SETS DONE · EXERCISES, then WEIGHT MOVED · NEW BEST for a workout logged
+ * with weights — 2 across on a phone. `wide` puts all four on one line from
+ * @2xl; a workout with only the first two keeps them two across.
+ */
 export function StatTiles({
   summary,
-  className,
+  wide = false,
 }: {
   summary: WorkoutSessionSummary;
-  className?: string;
+  wide?: boolean;
 }) {
+  const tiles = statTiles(summary);
   return (
-    <dl className={cn('m-0 grid grid-cols-2 gap-2.5', className)}>
-      {statTiles(summary).map((tile) => (
+    <dl
+      className={cn('m-0 grid grid-cols-2 gap-2.5', wide && tiles.length > 2 && '@2xl:grid-cols-4')}
+    >
+      {tiles.map((tile) => (
         <div
           key={tile.label}
           className={cn(

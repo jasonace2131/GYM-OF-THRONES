@@ -14,6 +14,7 @@ const NOW = new Date('2026-10-15T02:00:00.000Z');
 const SESSION: AuthSession = {
   sessionId: '99999999-9999-4999-8999-999999999999',
   viaEmailLink: false,
+  signedInAt: null,
 };
 const USER = {
   id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

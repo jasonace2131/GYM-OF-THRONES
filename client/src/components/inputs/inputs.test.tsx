@@ -5,6 +5,7 @@ import { PhoneInput } from './PhoneInput';
 import { NameInput } from './NameInput';
 import { EmailInput } from './EmailInput';
 import { CharCounter } from './CharCounter';
+import { BirthDateInput } from './BirthDateInput';
 import {
   filterDecimalTyping,
   filterIntTyping,
@@ -55,6 +56,41 @@ function Email() {
   const [value, setValue] = useState('');
   return <EmailInput value={value} onChange={setValue} />;
 }
+function BirthDate() {
+  const [value, setValue] = useState('');
+  return <BirthDateInput value={value} onChange={setValue} today="2026-10-30" />;
+}
+
+/** Owner, 2026-10-30: nobody under 12 has an account. */
+describe('BirthDateInput', () => {
+  it('offers only dates the API accepts: 120 years back to the latest 12th birthday', async () => {
+    await act(async () => root.render(<BirthDate />));
+    const input = container.querySelector('input')!;
+    expect(input.type).toBe('date');
+    expect(input.min).toBe('1906-10-31');
+    expect(input.max).toBe('2014-10-30');
+  });
+
+  it("puts the minimum-age sentence in the browser's own bubble for a date after max", async () => {
+    await act(async () => root.render(<BirthDate />));
+    const input = container.querySelector('input')!;
+    await type(input, '2020-06-01');
+    expect(input.checkValidity()).toBe(false);
+    expect(input.validationMessage).toBe(
+      'You need to be at least 12 years old to create an account.',
+    );
+  });
+
+  it('clears that message once a date that is old enough is picked', async () => {
+    await act(async () => root.render(<BirthDate />));
+    const input = container.querySelector('input')!;
+    await type(input, '2020-06-01');
+    input.checkValidity();
+    await type(input, '1995-05-05');
+    expect(input.checkValidity()).toBe(true);
+    expect(input.value).toBe('1995-05-05');
+  });
+});
 
 describe('PhoneInput', () => {
   it('typing letters into it yields nothing', async () => {

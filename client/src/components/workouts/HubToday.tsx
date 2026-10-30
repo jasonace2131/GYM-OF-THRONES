@@ -19,8 +19,8 @@ type Progress = { done: number; total: number } | null;
 const TITLE =
   'm-0 font-display text-[30px] leading-[1.05] font-extrabold tracking-[-0.01em] @3xl:text-[40px]';
 
-/** IN PROGRESS / DONE beside the kicker (PhoneHubCoach.dc.html). */
-function StateBadge({ kind }: { kind: 'open' | 'done' }) {
+/** IN PROGRESS / NOT FINISHED / DONE beside the kicker (PhoneHubCoach.dc.html). */
+function StateBadge({ kind, leftOpen = false }: { kind: 'open' | 'done'; leftOpen?: boolean }) {
   return (
     <span
       className={cn(
@@ -33,7 +33,7 @@ function StateBadge({ kind }: { kind: 'open' | 'done' }) {
       ) : (
         <IconCheck size={12} strokeWidth={2.8} />
       )}
-      {kind === 'open' ? 'In progress' : 'Done'}
+      {kind === 'open' ? (leftOpen ? 'Not finished' : 'In progress') : 'Done'}
     </span>
   );
 }
@@ -78,7 +78,11 @@ export function HubToday({
             <span className="@md:hidden">{todayKicker(today, 'short')}</span>
             <span className="hidden @md:inline">{todayKicker(today, 'long')}</span>
           </Kicker>
-          {model.kind === 'open' || model.kind === 'done' ? <StateBadge kind={model.kind} /> : null}
+          {model.kind === 'open' ? (
+            <StateBadge kind="open" leftOpen={model.leftOpen} />
+          ) : model.kind === 'done' ? (
+            <StateBadge kind="done" />
+          ) : null}
         </div>
 
         {model.kind === 'none' ? (
@@ -122,12 +126,18 @@ export function HubToday({
               </div>
               <SegmentBar segments={model.progress.segments} size="card" />
             </div>
+            {model.leftOpen ? (
+              <p className="m-0 text-[13.5px] leading-[1.5] text-ink-2">
+                This workout was never finished. Open it to finish or discard it, then you can start
+                today&apos;s.
+              </p>
+            ) : null}
             <Link
               href={model.href}
               className={buttonClass('gold', 'md', 'h-[50px] text-[14.5px] @md:w-fit')}
             >
               <IconPlay />
-              Continue workout
+              {model.leftOpen ? 'Finish or discard' : 'Continue workout'}
             </Link>
           </>
         ) : model.kind === 'done' ? (

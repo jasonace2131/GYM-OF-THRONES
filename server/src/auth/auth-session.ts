@@ -22,10 +22,13 @@ export const EMAIL_LINK_AMR_METHODS: readonly string[] = [
   'email_change',
 ];
 
-/** The sign-in behind a verified token, as the gate needs it. */
-export function authSessionFrom(claims: Pick<SupabaseClaims, 'sessionId' | 'amr'>): AuthSession {
+/** The sign-in behind a verified token, as the gate and the one-device rule need it. */
+export function authSessionFrom(
+  claims: Pick<SupabaseClaims, 'sessionId' | 'amr' | 'signedInAt'>,
+): AuthSession {
   return {
     sessionId: claims.sessionId,
     viaEmailLink: claims.amr.some((method) => EMAIL_LINK_AMR_METHODS.includes(method)),
+    signedInAt: claims.signedInAt,
   };
 }

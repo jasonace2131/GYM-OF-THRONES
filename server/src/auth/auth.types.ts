@@ -18,7 +18,9 @@ export interface SupabaseClaims {
   /** Metric. Null when not supplied at sign-up or outside sane bounds. */
   weightKg: number | null;
   /**
-   * `yyyy-mm-dd`, or null when absent, malformed, or below the joining age.
+   * `yyyy-mm-dd`, or null when absent, malformed, in the future, or 120 or
+   * more years back. A date under the minimum account age is kept: provisioning
+   * refuses the account on it.
    *
    * A STRING, not a Date: a birthday is a calendar date and parsing it into
    * an instant here is how it drifts by a day for anyone east of UTC.
@@ -32,6 +34,12 @@ export interface SupabaseClaims {
   sessionId: string;
   /** `amr` method names, lower-case: how this sign-in happened ('password', 'otp', …). */
   amr: string[];
+  /**
+   * When this sign-in happened: the latest `amr` timestamp. Unchanged by token
+   * refreshes, so it identifies the sign-in's age, not the token's. Null when
+   * the token carries none; such a sign-in can never displace another device.
+   */
+  signedInAt: Date | null;
 }
 
 /**
@@ -66,4 +74,18 @@ export interface AuthSession {
   sessionId: string;
   /** Created by a link opened in the inbox (magic link, invite, password reset). */
   viaEmailLink: boolean;
+  /** When the sign-in happened (`SupabaseClaims.signedInAt`). The one-device rule compares it. */
+  signedInAt: Date | null;
+}
+
+/**
+ * The account's one current sign-in (the one-device rule): `User.activeSessionId`
+ * and `User.activeSessionSignedInAt`. Both null until a verified sign-in first
+ * makes a request. Read by provisioning's per-request read and handed to
+ * `SingleSessionService`; never part of `AuthUser`, so it cannot reach a
+ * response by way of `@CurrentUser()`.
+ */
+export interface ActiveSession {
+  sessionId: string | null;
+  signedInAt: Date | null;
 }

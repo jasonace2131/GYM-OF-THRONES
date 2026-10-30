@@ -1,33 +1,22 @@
 'use client';
 
 import type { SetRow } from '@/lib/workouts/sessionState';
-import { formatKg } from '@/lib/workouts/sessionState';
 import { cn } from '@/lib/utils';
 import { IconCheck } from '../icons';
 import { Stepper } from './Stepper';
 
 /**
- * SET · KG · REPS · DONE — one grid for the header and every row.
+ * SET · REPS · DONE — one grid for the header and every row. There is no
+ * weight column: every set is logged as bodyweight (see sessionState).
  *
- * Two 44px-stepper cells need ~140px each to show "102.5", so a card under
- * 380px (every phone up to ~430px wide) stacks them: KG on the first line,
- * REPS under it, the set number and the tick spanning both. The header then
- * keeps only SET and DONE on screen; each stepper carries its own unit.
+ * One stepper fits on one line on the narrowest phone (~155px at 320px), so
+ * the rows never stack. On a wider card the stepper stops at 240px and sits
+ * centred under REPS rather than stretching the whole width.
  */
-const GRID =
-  'grid grid-cols-[30px_minmax(0,1fr)_minmax(0,1fr)_48px] gap-2 @max-[379px]:grid-cols-[30px_minmax(0,1fr)_48px] @max-[379px]:gap-x-2 @max-[379px]:gap-y-1.5';
-/** Narrow-card placement of each cell (see GRID). */
-const AT = {
-  set: '@max-[379px]:col-start-1 @max-[379px]:row-span-2 @max-[379px]:row-start-1',
-  kg: '@max-[379px]:col-start-2 @max-[379px]:row-start-1',
-  reps: '@max-[379px]:col-start-2 @max-[379px]:row-start-2',
-  done: '@max-[379px]:col-start-3 @max-[379px]:row-span-2 @max-[379px]:row-start-1',
-} as const;
+const GRID = 'grid grid-cols-[30px_minmax(0,1fr)_48px] gap-2';
 
 export interface SetTableHandlers {
-  onStepWeight: (setIndex: number, direction: 1 | -1) => void;
   onStepReps: (setIndex: number, direction: 1 | -1) => void;
-  onTypeWeight: (setIndex: number, text: string) => void;
   onTypeReps: (setIndex: number, text: string) => void;
   onToggle: (setIndex: number) => void;
 }
@@ -46,13 +35,10 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
         className={cn(GRID, 'px-0.5 text-[11px] font-bold tracking-[0.12em] text-ink-3')}
       >
         <span role="columnheader">SET</span>
-        <span role="columnheader" className="text-center @max-[379px]:sr-only">
-          KG
-        </span>
-        <span role="columnheader" className="text-center @max-[379px]:sr-only">
+        <span role="columnheader" className="text-center">
           REPS
         </span>
-        <span role="columnheader" className="text-center @max-[379px]:col-start-3">
+        <span role="columnheader" className="text-center">
           DONE
         </span>
       </div>
@@ -76,28 +62,14 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
               role="cell"
               className={cn(
                 'flex h-7 w-7 items-center justify-center self-center rounded-full text-[12.5px] font-bold',
-                AT.set,
                 row.done ? 'bg-ok text-white' : 'bg-[#f2f0ec] text-[color:var(--p-ink)]',
               )}
             >
               {n}
             </span>
             <Stepper
-              display={row.weightKg === null ? '' : formatKg(row.weightKg)}
-              placeholder="BW"
-              unit="KG"
-              className={AT.kg}
-              inputMode="decimal"
-              inputLabel={`Weight in kg, set ${n}. Blank is bodyweight.`}
-              downLabel={`Less weight, set ${n}`}
-              upLabel={`More weight, set ${n}`}
-              onStep={(direction) => handlers.onStepWeight(j, direction)}
-              onCommit={(text) => handlers.onTypeWeight(j, text)}
-            />
-            <Stepper
               display={String(row.reps)}
-              unit="REPS"
-              className={AT.reps}
+              className="w-full max-w-[240px] justify-self-center"
               inputMode="numeric"
               inputLabel={`Reps, set ${n}`}
               downLabel={`Fewer reps, set ${n}`}
@@ -105,7 +77,7 @@ export function SetTable({ rows, ...handlers }: { rows: readonly SetRow[] } & Se
               onStep={(direction) => handlers.onStepReps(j, direction)}
               onCommit={(text) => handlers.onTypeReps(j, text)}
             />
-            <div role="cell" className={cn('flex items-center justify-center', AT.done)}>
+            <div role="cell" className="flex items-center justify-center">
               <button
                 type="button"
                 aria-pressed={row.done}

@@ -6,16 +6,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import AuthBrandPanel from './AuthBrandPanel';
 import { supabase } from '@/lib/supabase';
 import {
-  BIRTH_DATE_MIN,
+  MINIMUM_AGE_MESSAGE,
   PROFILE_LIMITS,
   collapseSpaces,
   isPersonName,
   isPlausibleBirthDate,
+  meetsMinimumAge,
   normalisePhPhone,
 } from '@got/shared';
 import { normaliseIdentifier, normalisePassword } from '@/lib/credentials';
 import { GYM_TIMEZONE, gymToday } from '@/lib/gymTime';
 import { filterDecimalTyping, parseDecimalField } from '@/lib/numberInput';
+import { BirthDateInput } from '@/components/inputs/BirthDateInput';
 import { EmailInput } from '@/components/inputs/EmailInput';
 import { NameInput } from '@/components/inputs/NameInput';
 import { PhoneInput } from '@/components/inputs/PhoneInput';
@@ -77,7 +79,8 @@ export default function RegisterPage() {
   // on exactly as /login would rather than offering a second sign-up. A
   // sign-in still owed its emailed code goes to /login, which shows the code
   // step (/register is exempt from apiFetch's own redirect so the choice is
-  // made here). Any other failure shows the form; nobody is signed out.
+  // made here). A sign-up the API refused as under 12 is signed out, with the
+  // reason over the form. Any other failure shows the form; nobody is signed out.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -100,9 +103,19 @@ export default function RegisterPage() {
         if (!cancelled) router.replace(destinationFor(requested, me.permissions));
       } catch (caught) {
         if (cancelled) return;
-        if (classifyMeFailure(caught) === 'code-required') {
+        const failure = classifyMeFailure(caught);
+        if (failure === 'code-required') {
           router.replace(loginHref);
           return;
+        }
+        if (failure === 'too-young') {
+          try {
+            await supabase.auth.signOut();
+          } catch {
+            // The form is the right place either way.
+          }
+          if (cancelled) return;
+          setError(MINIMUM_AGE_MESSAGE);
         }
         setChecking(false);
       }
@@ -132,8 +145,15 @@ export default function RegisterPage() {
       setError('Enter a PH mobile number — 09XX XXX XXXX or +63 9XX XXX XXXX — or leave it blank.');
       return;
     }
-    if (!isPlausibleBirthDate(form.dateOfBirth, gymToday(new Date(), GYM_TIMEZONE))) {
+    const today = gymToday(new Date(), GYM_TIMEZONE);
+    if (!isPlausibleBirthDate(form.dateOfBirth, today)) {
       setError('Enter your real date of birth — it cannot be in the future.');
+      return;
+    }
+    // Owner, 2026-10-30. Checked here so a child is never sent to Supabase at
+    // all; the API refuses the account on first sight as well.
+    if (!meetsMinimumAge(form.dateOfBirth, today)) {
+      setError(MINIMUM_AGE_MESSAGE);
       return;
     }
     const L = PROFILE_LIMITS;
@@ -321,14 +341,12 @@ export default function RegisterPage() {
 
               <div className="field">
                 <label htmlFor="reg-dob">Date of birth</label>
-                <input
+                <BirthDateInput
                   id="reg-dob"
                   className="input"
-                  type="date"
-                  min={BIRTH_DATE_MIN}
-                  max={gymToday(new Date(), GYM_TIMEZONE)}
+                  today={gymToday(new Date(), GYM_TIMEZONE)}
                   value={form.dateOfBirth}
-                  onChange={(e) => setField('dateOfBirth', e.target.value)}
+                  onChange={(value) => setField('dateOfBirth', value)}
                   required
                 />
               </div>

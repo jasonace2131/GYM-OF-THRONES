@@ -159,10 +159,13 @@ export const NAV_GROUPS: NavGroup[] = [
     heading: 'More',
     items: [
       // Scanning in at the counter is a member's (coaches are not members
-      // here, owner 2026-10-06), so it carries the member's key.
+      // here, owner 2026-10-06), so it carries the member's key. "Attendance"
+      // rather than "Check In": the same scan checks the member out (owner,
+      // 2026-10-30). Only this label and the tab's changed; the page's
+      // check-in and check-out wording stays.
       {
         href: '/portal/checkin',
-        label: 'Check In',
+        label: 'Attendance',
         icon: IconQr,
         permission: PERMISSIONS.MEMBERSHIP_SELF,
       },
@@ -218,7 +221,7 @@ export const TAB_ITEMS: NavItem[] = [
   { href: '/portal/schedule', label: 'Classes', icon: IconCalendar },
   {
     href: '/portal/checkin',
-    label: 'Check In',
+    label: 'Attendance',
     icon: IconQr,
     permission: PERMISSIONS.MEMBERSHIP_SELF,
   },

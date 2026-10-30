@@ -14,12 +14,17 @@ interface RawUserMetadata {
 }
 
 /**
- * `yyyy-mm-dd` from a date input, or null (owner, 2026-10-23: NO minimum age).
+ * `yyyy-mm-dd` from a date input, or null.
  *
- * A real calendar date from 1900-01-01 up to today — never in the future —
- * the same rule every DOB input and `IsBirthDate` apply. Returned as the
+ * A real calendar date less than 120 years ago and never in the future, the
+ * same rule every DOB input and `IsBirthDate` apply, and the database's own
+ * bound, so a kept date can never fail the first-sight insert. Returned as the
  * civil-date STRING, not a Date: a birthday is a calendar date, not an
  * instant. Anything else is dropped rather than stored.
+ *
+ * The minimum account age (12, owner 2026-10-30) is NOT applied here: a
+ * child's date is kept, so provisioning can refuse the account
+ * (`minimum-age.ts`) rather than create one with no date on it.
  */
 export function asBirthDate(value: unknown, now: number = Date.now()): string | null {
   const raw = typeof value === 'string' ? value.trim() : '';
@@ -75,6 +80,24 @@ function asAmrMethods(value: unknown): string[] {
 }
 
 /**
+ * When this sign-in happened: the LATEST `amr[].timestamp` (epoch seconds), or
+ * null when no entry carries a usable one. Read beside the method names, never
+ * instead of them. `iat` is no use here: every refreshed token gets a new one,
+ * while `amr` is carried unchanged through refreshes.
+ */
+function asSignedInAt(value: unknown): Date | null {
+  if (!Array.isArray(value)) return null;
+  let latest: number | null = null;
+  for (const entry of value) {
+    if (entry === null || typeof entry !== 'object') continue;
+    const timestamp = (entry as { timestamp?: unknown }).timestamp;
+    if (typeof timestamp !== 'number' || !Number.isFinite(timestamp) || timestamp <= 0) continue;
+    if (latest === null || timestamp > latest) latest = timestamp;
+  }
+  return latest === null ? null : new Date(latest * 1000);
+}
+
+/**
  * Verifies a Supabase access token and narrows it to the claims this app uses.
  *
  * The key resolver is a parameter rather than something this function builds,
@@ -127,5 +150,6 @@ export async function verifyAccessToken(
     dateOfBirth: asBirthDate(metadata.dateOfBirth),
     sessionId,
     amr: asAmrMethods(payload['amr']),
+    signedInAt: asSignedInAt(payload['amr']),
   };
 }

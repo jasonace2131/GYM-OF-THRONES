@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { WorkoutSessionView } from '@got/shared';
+import { GYM_TIMEZONE, gymToday } from '@/lib/gymTime';
 import { workoutsApi } from '@/lib/workouts/api';
 import {
   isApiError,
@@ -22,21 +23,20 @@ import {
 } from '@/lib/workouts/sessionCache';
 import {
   addSet,
-  allDone,
   applyOps,
   exerciseCard,
   goTo,
   hasDone,
   initSession,
+  leftOpen,
   nextSetNumber,
+  offersFinish,
   parseRepsInput,
-  parseWeightInput,
   progress,
   segments,
   setReps,
-  setWeight,
+  startedLabel,
   stepReps,
-  stepWeight,
   toView,
   toggleSet,
   type Change,
@@ -88,6 +88,8 @@ export function SessionScreen() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [restOver, setRestOver] = useState('');
+  /** "Started Wed, Sep 30" when the workout was left open (`leftOpen`), else null. */
+  const [openSince, setOpenSince] = useState<string | null>(null);
   const main = useRef<HTMLDivElement>(null);
 
   const setModel = useCallback((next: SessionModel): void => {
@@ -97,20 +99,30 @@ export function SessionScreen() {
 
   /** Server first; this phone's unsent sets on top. */
   const rebuild = useCallback(
-    (session: WorkoutSessionView, current: number | null): void => {
+    (session: WorkoutSessionView, current: number | null): SessionModel => {
       const base = initSession(session, current);
       const ops = sharedSyncQueue().opsFor(session.id);
+      const built = applyOps(base, ops, new Date().toISOString());
       setView(session);
-      setModel(applyOps(base, ops, new Date().toISOString()));
+      setModel(built);
+      return built;
     },
     [setModel],
   );
 
-  /** …and the cache (with its running rest) when there is no server. */
+  /**
+   * …and the cache (with its running rest) when there is no server. A workout
+   * left open (`leftOpen`: an earlier day, or hours untouched) opens on Finish
+   * or Discard, with its start date in place of a clock that ran all night.
+   */
   const adopt = useCallback(
     (session: WorkoutSessionView, current: number | null, restAt: RestState | null): void => {
-      rebuild(session, current);
-      setRest(restAt);
+      const built = rebuild(session, current);
+      const today = gymToday(new Date(), GYM_TIMEZONE);
+      const stale = leftOpen(session, today, Date.now());
+      setOpenSince(stale ? startedLabel(session, today) : null);
+      setRest(stale ? null : restAt);
+      if (stale) setEnd(hasDone(built) ? 'finish' : 'discard');
       setPhase({ kind: 'ready' });
     },
     [rebuild],
@@ -191,11 +203,13 @@ export function SessionScreen() {
     setNotice(null);
     if (!done) return;
     setRestOver('');
+    // No rest after the exercise's last set: there is no next set to rest for.
     const exercise = next.exercises[e];
+    const nextSet = nextSetNumber(next, e);
     setRest(
-      exercise === undefined || allDone(next)
+      exercise === undefined || nextSet === null
         ? null
-        : startRest(Date.now(), exercise.restSeconds, e, nextSetNumber(next, e)),
+        : startRest(Date.now(), exercise.restSeconds, e, nextSet),
     );
   };
 
@@ -293,6 +307,7 @@ export function SessionScreen() {
   const exercise = model.exercises[e];
   const copy = exerciseCard(model, e);
   const done = progress(model);
+  const canFinish = offersFinish(model);
   const guide = exercise === undefined ? null : (guides[exercise.name] ?? null);
 
   return (
@@ -319,7 +334,13 @@ export function SessionScreen() {
             >
               {view.dayTitle}
             </h1>
-            <ElapsedClock startedAt={view.startedAt} />
+            {openSince === null ? (
+              <ElapsedClock startedAt={view.startedAt} />
+            ) : (
+              <span className="font-display text-[12.5px] font-semibold text-ink-3">
+                {openSince}
+              </span>
+            )}
           </div>
           <span className="text-center text-[13px] font-bold text-[color:var(--p-ink)]">
             <span aria-hidden>
@@ -355,12 +376,7 @@ export function SessionScreen() {
               const current = modelRef.current;
               if (current !== null) setModel(addSet(current, e));
             }}
-            onStepWeight={(s, d) => change((m) => stepWeight(m, e, s, d))}
             onStepReps={(s, d) => change((m) => stepReps(m, e, s, d))}
-            onTypeWeight={(s, text) => {
-              const parsed = parseWeightInput(text);
-              if (parsed.ok) change((m) => setWeight(m, e, s, parsed.value));
-            }}
             onTypeReps={(s, text) => {
               const parsed = parseRepsInput(text);
               if (parsed.ok) change((m) => setReps(m, e, s, parsed.value));
@@ -403,6 +419,7 @@ export function SessionScreen() {
         <EndBar
           mode={end}
           setsDone={done.setsDone}
+          leftOpen={openSince}
           busy={busy}
           onCancel={() => setEnd(null)}
           onConfirm={() => void (end === 'finish' ? finish() : discard())}
@@ -410,6 +427,7 @@ export function SessionScreen() {
       ) : rest !== null ? (
         <RestBar
           rest={rest}
+          finish={canFinish ? { busy, onFinish: () => void finish() } : null}
           onAdd={() => setRest((r) => (r === null ? r : extendRest(r, Date.now())))}
           onSkip={() => setRest(null)}
           onDone={onRestDone}
@@ -418,6 +436,7 @@ export function SessionScreen() {
         <StepBar
           isFirst={e === 0}
           isLast={e === model.exercises.length - 1}
+          canFinish={canFinish}
           busy={busy}
           onPrev={() => move(e - 1)}
           onNext={() => move(e + 1)}

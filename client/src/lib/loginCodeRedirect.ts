@@ -6,6 +6,14 @@
 export const LOGIN_CODE_REQUIRED = 'LOGIN_CODE_REQUIRED';
 
 /**
+ * The one-device rule's error code. Defined here, beside LOGIN_CODE_REQUIRED,
+ * because this module imports nothing: `loginCode.ts` needs only the string,
+ * and reaching it through `sessionReplaced.ts` would drag the Supabase client
+ * into every module (and test) that classifies a `/me` failure.
+ */
+export const SESSION_REPLACED = 'SESSION_REPLACED';
+
+/**
  * Pages that deal with an unverified sign-in themselves: the login page shows
  * the code step, and the join/reset pages run on email-link sessions, which
  * the server already counts as verified (a password session that reaches
@@ -26,12 +34,21 @@ const SELF_HANDLING_ROOTS = ['/login', '/join', '/reset-password', '/register'] 
  */
 const SELF_HANDLING_EXACT = ['/'] as const;
 
+/**
+ * Whether this page deals with a signed-in (or no-longer-signed-in) visitor
+ * itself, so a redirect to /login would only get in its way. Shared with the
+ * one-device rule's redirect (`sessionReplaced.ts`).
+ */
+export function handlesSignInItself(pathname: string): boolean {
+  return (
+    SELF_HANDLING_EXACT.some((path) => pathname === path) ||
+    SELF_HANDLING_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`))
+  );
+}
+
 /** `/login?next=<this page>`, or null when this page handles the code itself. */
 export function loginCodeRedirectFor(pathname: string, search: string): string | null {
-  const handled =
-    SELF_HANDLING_EXACT.some((path) => pathname === path) ||
-    SELF_HANDLING_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
-  if (handled) return null;
+  if (handlesSignInItself(pathname)) return null;
   return `/login?next=${encodeURIComponent(`${pathname}${search}`)}`;
 }
 

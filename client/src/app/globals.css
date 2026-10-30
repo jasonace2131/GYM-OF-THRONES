@@ -524,9 +524,9 @@ header.site-nav.scrolled {
   box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
 }
 
-/* The featured plan is physically larger, lit from within, and
-   swept by a highlight — the one thing on the page that moves
-   on its own. */
+/* The featured plan is the same size as the rest, but lit from
+   within and swept by a highlight — the one thing on the page
+   that moves on its own. */
 .pcard.featured {
   border-color: rgba(201, 146, 42, 0.55);
   background:
@@ -573,129 +573,6 @@ header.site-nav.scrolled {
   color: var(--gold);
 }
 
-/* ══════════════════════════════════════════════════════════
-   Announcements — lead story + list
-
-   Weighted roughly 60/40. The lead is the only announcement that can
-   convert, so it gets the scale, the photograph and the CTA; the rest
-   stay a scannable list. Equal weight for everything meant nothing led.
-   ══════════════════════════════════════════════════════════ */
-
-.news-layout {
-  display: grid;
-  grid-template-columns: 1.5fr 1fr;
-  gap: 20px;
-  align-items: stretch;
-}
-
-.news-lead {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  min-height: 350px;
-  padding: clamp(24px, 3vw, 38px);
-  border: 1px solid rgba(201, 146, 42, 0.32);
-  border-radius: 12px;
-  overflow: hidden;
-  transition:
-    border-color 0.3s,
-    box-shadow 0.3s;
-}
-
-.news-lead:hover {
-  border-color: rgba(201, 146, 42, 0.55);
-  box-shadow:
-    0 22px 50px rgba(0, 0, 0, 0.55),
-    0 0 60px -20px var(--gold-glow);
-}
-
-/* Two stacked scrims: a vertical one to seat the text, and a warm
-   diagonal so the photo reads as lit rather than merely darkened. */
-.news-lead-scrim {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      to top,
-      rgba(11, 11, 13, 0.96) 22%,
-      rgba(11, 11, 13, 0.62) 62%,
-      rgba(11, 11, 13, 0.42) 100%
-    ),
-    linear-gradient(115deg, rgba(60, 42, 12, 0.55) 0%, transparent 65%);
-}
-
-.news-list {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  overflow: hidden;
-  background: linear-gradient(160deg, var(--raised) 0%, var(--ground-2) 100%);
-}
-
-.news-list-head {
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--line);
-  font-family: var(--font-heading);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.news-row {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  flex: 1;
-  padding: 15px 18px;
-  border-left: 2px solid transparent;
-  border-bottom: 1px solid var(--line);
-  transition:
-    background 0.22s,
-    border-left-color 0.22s,
-    padding-left 0.22s;
-}
-
-.news-row:last-child {
-  border-bottom: 0;
-}
-
-.news-row:hover {
-  background: rgba(255, 255, 255, 0.028);
-  border-left-color: var(--gold);
-  padding-left: 22px;
-}
-
-.news-row:hover .news-arrow {
-  opacity: 1;
-  transform: none;
-}
-
-/* Fixed size and top offset so the dots form one vertical rule down
-   the list regardless of how long each headline runs. */
-.news-dot {
-  flex: none;
-  width: 7px;
-  height: 7px;
-  margin-top: 7px;
-  border-radius: 50%;
-}
-
-.news-arrow {
-  flex: none;
-  align-self: center;
-  opacity: 0;
-  transform: translateX(-6px);
-  transition:
-    opacity 0.22s,
-    transform 0.22s;
-  color: var(--gold);
-}
-
 /* ── Services grid ──
    Fixed 2×2, never auto-fit. With four cards in an 872px column,
    auto-fit resolved to three columns and left a single orphan card
@@ -704,16 +581,6 @@ header.site-nav.scrolled {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
-}
-
-@media (max-width: 980px) {
-  .news-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .news-lead {
-    min-height: 320px;
-  }
 }
 
 @media (max-width: 600px) {
@@ -1194,27 +1061,31 @@ header.site-nav.scrolled {
 }
 
 /* ══════════════════════════════════════════════════════════
-   Plan grid — the featured column is physically wider and taller
+   Plan grid — four even cards: one column, then 2×2, then four up
    ══════════════════════════════════════════════════════════ */
 
+/* `grid-auto-rows: 1fr` makes every row as tall as the tallest card, so the
+   cards match in height in the 2×2 and single-column layouts as well as side
+   by side. The column counts are explicit because `auto-fit` left a lone
+   fourth card under a row of three at tablet widths, and `minmax(0, 1fr)`
+   keeps a long unbreakable line from widening one column past the others. */
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: 1fr;
   gap: 20px;
-  align-items: stretch;
+}
+
+@media (min-width: 600px) {
+  .plan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 1120px) {
   .plan-grid {
-    grid-template-columns: 1fr 1.28fr 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 18px;
-    align-items: center;
-  }
-
-  /* Protrudes above and below its neighbours */
-  .plan-grid .pcard.featured {
-    margin-block: -20px;
-    padding-block: 36px 34px;
   }
 }
 
@@ -1467,11 +1338,6 @@ header.site-nav.scrolled {
 
   .m-wide {
     grid-column: span 2;
-  }
-
-  .news-row {
-    flex-wrap: wrap;
-    gap: 10px;
   }
 
   /* Leave room for the sticky join bar */

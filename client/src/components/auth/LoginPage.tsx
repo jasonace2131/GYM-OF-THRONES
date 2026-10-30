@@ -21,8 +21,9 @@ import {
   sendLoginCode,
   verifyLoginCode,
 } from '@/lib/loginCode';
+import { SESSION_REPLACED_MESSAGE, SESSION_REPLACED_REASON } from '@/lib/sessionReplaced';
 import { PasswordInput } from './PasswordInput';
-import { EMAIL_MAX } from '@got/shared';
+import { EMAIL_MAX, MINIMUM_AGE_MESSAGE } from '@got/shared';
 
 /** One retry before giving up, long enough to outlast a cold start. */
 const RETRY_DELAY_MS = 600;
@@ -53,6 +54,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [stranded, setStranded] = useState(false);
+  /**
+   * Another device signed in to this account, so this one was signed out
+   * (`/login?reason=replaced`, or a `/me` here answering SESSION_REPLACED).
+   * Shown on the password step until the next sign-in attempt.
+   */
+  const [replaced, setReplaced] = useState(
+    () => searchParams.get('reason') === SESSION_REPLACED_REASON,
+  );
   const [submitting, setSubmitting] = useState(false);
   /**
    * True until the mount check below knows whether a session already exists,
@@ -93,7 +102,13 @@ export default function LoginPage() {
   const finishSignIn = async (): Promise<void> => {
     try {
       await routeByPermissions(undefined);
-    } catch {
+    } catch (caught) {
+      // The code was right, but another device signed in to this account
+      // after this one did, and it keeps the account.
+      if (classifyMeFailure(caught) === 'replaced') {
+        resetToPassword(null, true);
+        return;
+      }
       setVerifying(false);
       setStep('password');
       setStranded(true);
@@ -160,6 +175,17 @@ export default function LoginPage() {
       // Nothing to show: the local session is dropped either way, and the
       // password form is the right place to be.
     }
+    resetToPassword(message, false);
+  };
+
+  /**
+   * The password step, fresh, with `message` (if any) and, when `wasReplaced`,
+   * the "signed in on another device" notice. Signs nobody out: after
+   * SESSION_REPLACED `apiFetch` has already signed this device out LOCALLY,
+   * and `backToPassword`'s global sign-out would also end the sign-in of the
+   * device that replaced this one.
+   */
+  const resetToPassword = (message: string | null, wasReplaced: boolean): void => {
     setStep('password');
     setPending(null);
     setCode('');
@@ -170,6 +196,7 @@ export default function LoginPage() {
     setSubmitting(false);
     setStranded(false);
     setError(message);
+    setReplaced(wasReplaced);
   };
 
   /**
@@ -180,6 +207,10 @@ export default function LoginPage() {
   const leftCodeStep = async (caught: unknown): Promise<boolean> => {
     const outcome = codeStepFailure(caught);
     if (outcome === 'stay') return false;
+    if (outcome === 'replaced') {
+      resetToPassword(null, true);
+      return true;
+    }
     await backToPassword(
       outcome === 'session-ended' ? SIGN_IN_ENDED_MESSAGE : loginCodeErrorMessage(caught),
     );
@@ -199,6 +230,21 @@ export default function LoginPage() {
       // code. NOT the sign-out branch below — that would throw away a good session.
       if (failure === 'code-required') {
         await enterCodeStep(token);
+        return;
+      }
+
+      // Another device signed in after this one. NOT the sign-out branch
+      // below: its sign-out is global and would end that device's sign-in.
+      if (failure === 'replaced') {
+        setSubmitting(false);
+        setReplaced(true);
+        return;
+      }
+
+      // A sign-up under 12 (owner, 2026-10-30): the API will not create the
+      // account, today or on any retry. Signed out, so it is not tried again.
+      if (failure === 'too-young') {
+        await backToPassword(MINIMUM_AGE_MESSAGE);
         return;
       }
 
@@ -229,8 +275,18 @@ export default function LoginPage() {
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
         await routeByPermissions(token);
       } catch (again) {
-        if (classifyMeFailure(again) === 'code-required') {
+        const retried = classifyMeFailure(again);
+        if (retried === 'code-required') {
           await enterCodeStep(token);
+          return;
+        }
+        if (retried === 'replaced') {
+          setSubmitting(false);
+          setReplaced(true);
+          return;
+        }
+        if (retried === 'too-young') {
+          await backToPassword(MINIMUM_AGE_MESSAGE);
           return;
         }
         setSubmitting(false);
@@ -243,6 +299,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setStranded(false);
+    setReplaced(false);
     setSubmitting(true);
 
     // Normalised before it leaves the browser. Supabase treats
@@ -285,8 +342,9 @@ export default function LoginPage() {
   //  - a session STILL OWED ITS CODE (a reload mid-step, a deep link, or
   //    apiFetch / the console bouncing a LOGIN_CODE_REQUIRED here): go straight
   //    to the code step for this session.
-  // Any other outcome shows the password form exactly as it was; this effect
-  // never signs anybody out.
+  // A sign-up the API refused as under 12 (a confirmation link opened, then
+  // Log in) is signed out with the reason on the form. Any other outcome shows
+  // the password form exactly as it was, and signs nobody out.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -308,9 +366,16 @@ export default function LoginPage() {
       } catch (caught) {
         if (cancelled) return;
         setChecking(false);
-        if (classifyMeFailure(caught) === 'code-required') {
+        const failure = classifyMeFailure(caught);
+        if (failure === 'code-required') {
           await enterCodeStep(token);
+        } else if (failure === 'too-young') {
+          await backToPassword(MINIMUM_AGE_MESSAGE);
         }
+        // A sign-in another device has replaced: `apiFetch` signed it out
+        // locally (and stays on this page), so show the password form with
+        // the reason.
+        if (failure === 'replaced') setReplaced(true);
       }
     })();
     return () => {
@@ -420,6 +485,28 @@ export default function LoginPage() {
                   </Link>
                 </div>
               </div>
+
+              {/*
+              SIGNED OUT BY A NEWER SIGN-IN ELSEWHERE (one device at a time).
+              Informational, not an error: nothing went wrong on this device,
+              and signing in here again makes this the device in use.
+            */}
+              {replaced && (
+                <div
+                  role="status"
+                  style={{
+                    padding: '11px 14px',
+                    borderRadius: 7,
+                    border: '1px solid rgba(201,146,42,.42)',
+                    background: 'rgba(201,146,42,.09)',
+                    color: 'var(--text-2)',
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {SESSION_REPLACED_MESSAGE}
+                </div>
+              )}
 
               {error && (
                 <div

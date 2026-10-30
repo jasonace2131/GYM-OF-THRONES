@@ -20,6 +20,7 @@ import { bookingErrorMessage, isBookingRefusal } from '@/lib/schedule/bookingErr
 import { bookingState, holdsPlace } from '@/lib/schedule/bookingState';
 import { windowBanner, windowCoverageNote, windowSpan } from '@/lib/schedule/bookingWindow';
 import { waitlistJoinedCopy } from '@/lib/schedule/cancelCopy';
+import { classCountsByDay, nextClassDay, openingDay } from '@/lib/schedule/classDays';
 import { dayRange, gymClock12, gymParts, shiftDay } from '@/lib/schedule/gymClock';
 import { longDay, shortDay } from '@/lib/schedule/labels';
 import { isTimeFilter, matchesTime, type TimeFilter } from '@/lib/schedule/timeOfDay';
@@ -50,6 +51,12 @@ import { SessionCard } from '@/components/schedule/SessionCard';
  * Book (the banner, the coverage note), but the server still checks every
  * booking on the class's own day. When it refuses, the page reloads, because a
  * refusal means what was on screen was out of date.
+ *
+ * FUTURE CLASSES ARE FINDABLE (gym report, 2026-10-30). The strip marks every
+ * day that has a class; a link with no `?day=` opens on the first day with a
+ * class still to come when today has none left; and an empty day offers the
+ * next day that has one. Members could always book ahead — they just could
+ * not see that there was anything to book.
  */
 export default function SchedulePage() {
   return (
@@ -88,8 +95,16 @@ function Schedule() {
   const windowDays = ahead?.windowDays ?? CLASS_BOOKING_WINDOW_DAYS;
   const days = useMemo(() => dayRange(today, windowDays), [today, windowDays]);
 
+  /**
+   * The day a link with no `?day=` opens on: today, unless today has no class
+   * still to come, then the first day that has one (`openingDay`). Decided
+   * once, on the first load, so the page does not jump to tomorrow under the
+   * member when today's last class starts while they are reading it.
+   */
+  const [landing, setLanding] = useState<string | null>(null);
+  const defaultDay = landing ?? today;
   const requestedDay = params.get('day');
-  const day = requestedDay !== null && days.includes(requestedDay) ? requestedDay : today;
+  const day = requestedDay !== null && days.includes(requestedDay) ? requestedDay : defaultDay;
   const requestedTime = params.get('time');
   const time: TimeFilter = isTimeFilter(requestedTime) ? requestedTime : 'all';
   const coach = params.get('coach') ?? 'all';
@@ -98,14 +113,16 @@ function Schedule() {
     (updates: Record<string, string>) => {
       const next = new URLSearchParams(params.toString());
       for (const [key, value] of Object.entries(updates)) {
-        const isDefault = value === 'all' || (key === 'day' && value === today);
+        // The day the page opened on is the one a bare link shows. Today is
+        // not, once it opened further on: tapping Today must say so in the URL.
+        const isDefault = value === 'all' || (key === 'day' && value === defaultDay);
         if (isDefault) next.delete(key);
         else next.set(key, value);
       }
       const query = next.toString();
       router.replace(query === '' ? pathname : `${pathname}?${query}`, { scroll: false });
     },
-    [params, pathname, router, today],
+    [params, pathname, router, defaultDay],
   );
 
   const [sessions, setSessions] = useState<ClassSession[] | null>(null);
@@ -155,10 +172,13 @@ function Schedule() {
       // A day either side, so a class that started a moment ago still knows it is mine.
       classesApi.myBookings({ from: shiftDay(today, -1), to: shiftDay(today, span) }),
     ]);
+    const loadedAt = new Date();
     setAhead(nextWindow);
     setSessions(list);
     setBookings(mine);
-    setNow(new Date());
+    setNow(loadedAt);
+    // Only the first load decides; every reload after a booking keeps it.
+    setLanding((current) => current ?? openingDay(dayRange(today, span), list, today, loadedAt));
   }, [today]);
 
   useEffect(() => {
@@ -178,6 +198,8 @@ function Schedule() {
     [bookings],
   );
 
+  const classCounts = useMemo(() => classCountsByDay(sessions ?? []), [sessions]);
+
   const liveCount = bookings.filter((item) => bookingState(item, now).live).length;
 
   const coaches = useMemo<CoachOption[]>(() => {
@@ -188,14 +210,19 @@ function Schedule() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sessions]);
 
+  const matchesFilters = (item: ClassSession): boolean =>
+    matchesTime(item.startsAt, time) && (coach === 'all' || item.coachId === coach);
+
   const visible = (sessions ?? [])
-    .filter(
-      (item) =>
-        item.businessDate === day &&
-        matchesTime(item.startsAt, time) &&
-        (coach === 'all' || item.coachId === coach),
-    )
+    .filter((item) => item.businessDate === day && matchesFilters(item))
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+
+  // For an empty day: the next day with a class still to come that the
+  // filters would show, so the button never lands on another empty day.
+  const nextDay =
+    visible.length === 0
+      ? nextClassDay(days, (sessions ?? []).filter(matchesFilters), day, now)
+      : null;
 
   /** Book, Join waitlist and Take the free place are all this one POST. */
   const book = async (session: ClassSession): Promise<void> => {
@@ -266,7 +293,11 @@ function Schedule() {
     try {
       if (composing === null) {
         const created = await adminApi.createClassSession(createBody(draft, meId));
-        toast.success(`${created.title} is on the timetable.`);
+        toast.success(
+          created.count > 1
+            ? `${created.count} ${created.title} classes are on the timetable, one a week.`
+            : `${created.title} is on the timetable.`,
+        );
       } else {
         const patch = patchFor(composing, draft);
         // Nothing changed: close without a request, which would still tell
@@ -357,6 +388,7 @@ function Schedule() {
           today={today}
           selected={day}
           markedDays={markedDays}
+          classCounts={classCounts}
           onSelect={(value) => setParams({ day: value })}
         />
         {coverage === null ? null : <p className="m-0 text-[12.5px] text-ink-3">{coverage}</p>}
@@ -375,20 +407,33 @@ function Schedule() {
           <p className="font-display text-[15px] font-semibold">
             {filtered ? 'No classes match' : 'Nothing on this day'}
           </p>
-          <p className="max-w-[46ch] text-sm text-ink-3">
-            {filtered
-              ? `Nothing ${time === 'all' ? '' : `${time} `}on ${longDay(day)}${coachName ? ` with ${coachName}` : ''}.`
-              : `Try another day — the strip above covers the next ${windowSpan(windowDays)}.`}
-          </p>
           {filtered ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setParams({ time: 'all', coach: 'all' })}
-            >
-              Clear filters
-            </Button>
+            <p className="max-w-[46ch] text-sm text-ink-3">
+              {`Nothing ${time === 'all' ? '' : `${time} `}on ${longDay(day)}${coachName ? ` with ${coachName}` : ''}.`}
+            </p>
+          ) : nextDay === null ? (
+            <p className="max-w-[46ch] text-sm text-ink-3">
+              {`No later classes are on the timetable yet. The strip above covers the next ${windowSpan(windowDays)}.`}
+            </p>
           ) : null}
+          {nextDay === null && !filtered ? null : (
+            <div className="flex flex-wrap justify-center gap-2">
+              {nextDay === null ? null : (
+                <Button size="sm" onClick={() => setParams({ day: nextDay })}>
+                  Next class: {shortDay(nextDay)}
+                </Button>
+              )}
+              {filtered ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setParams({ time: 'all', coach: 'all' })}
+                >
+                  Clear filters
+                </Button>
+              ) : null}
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-3">

@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { Transform, type TransformFnParams } from 'class-transformer';
+import { CLASS_REPEAT_WEEKS_MAX } from '@got/shared';
 import { IsGymDate } from '../../common/validators/is-gym-date.validator';
 import type { CivilDate } from '../../common/time/gym-time';
 
@@ -47,6 +48,18 @@ export class CreateClassSessionDto {
   @Min(1)
   @Max(500)
   capacity!: number;
+
+  /**
+   * "Repeat weekly" (owner, 2026-10-30): how many classes to make, a week
+   * apart, this one included. Absent or 1 is a single class, exactly as
+   * before; at most CLASS_REPEAT_WEEKS_MAX. Every week keeps the gym-local
+   * start time and the length — the service works the dates out.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(CLASS_REPEAT_WEEKS_MAX)
+  repeatWeeks?: number;
 }
 
 export class UpdateClassSessionDto {

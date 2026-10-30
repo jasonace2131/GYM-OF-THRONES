@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Role } from '@prisma/client';
 import type { MemberJoinAccepted, MemberJoinClaim, MemberJoinLookup } from '@got/shared';
@@ -10,6 +10,7 @@ import { DomainException } from '../common/exceptions/domain.exception';
 import { gymToday, toDateColumn } from '../common/time/gym-time';
 import { SupabaseAdminService } from '../auth/supabase-admin.service';
 import { asBirthDate } from '../auth/jwt-verifier';
+import { ageRequirementNotMet, isOldEnoughForAccount } from '../auth/minimum-age';
 import { EmailService } from '../notifications/email.service';
 import { hashInvitationToken, newInvitationToken } from '../staff-invitations/invitation-token';
 
@@ -124,12 +125,20 @@ export class MemberJoinService {
     }
   }
 
-  /** `GET /member-join/lookup` — PUBLIC. The email only while the link is usable. */
+  /**
+   * `GET /member-join/lookup` — PUBLIC. The email, and whether to ask for a date
+   * of birth, only while the link is usable.
+   */
   async lookup(token: string, now: Date = new Date()): Promise<MemberJoinLookup> {
     const row = await this.findByToken(token);
     const status = statusOf(row, now);
     return status === 'PENDING'
-      ? { firstName: row.user.firstName, status, email: row.user.email }
+      ? {
+          firstName: row.user.firstName,
+          status,
+          email: row.user.email,
+          needsDateOfBirth: row.user.dateOfBirth === null,
+        }
       : { firstName: row.user.firstName, status };
   }
 
@@ -169,11 +178,16 @@ export class MemberJoinService {
    * the link and their password is already saved; refusing them in the last
    * minutes of day 7 would strand them, because staff cannot resend to somebody
    * who has signed in.
+   *
+   * A date of birth already on file (the desk entered it) is kept, and the page
+   * did not ask for one. Otherwise one is required, and under 12 is refused
+   * (owner, 2026-10-30), both BEFORE the link is claimed, so a refusal never
+   * uses it up. The page checks first, before it saves the password.
    */
   async accept(
     callerId: string,
     token: string,
-    dateOfBirth: string,
+    dateOfBirth: string | undefined,
     now: Date = new Date(),
   ): Promise<MemberJoinAccepted> {
     const row = await this.findByToken(token);
@@ -186,7 +200,14 @@ export class MemberJoinService {
     }
     if (row.usedAt !== null) return { dateOfBirthSaved: false };
 
-    const birth = asBirthDate(dateOfBirth, now.getTime());
+    let birth: string | null = null;
+    if (row.user.dateOfBirth === null) {
+      if (dateOfBirth === undefined) throw new BadRequestException('Enter your date of birth.');
+      birth = asBirthDate(dateOfBirth, now.getTime());
+      if (birth !== null && !isOldEnoughForAccount(birth, now.getTime())) {
+        throw ageRequirementNotMet(HttpStatus.BAD_REQUEST);
+      }
+    }
     return this.prisma.$transaction(async (tx) => {
       const claimed = await tx.memberJoinLink.updateMany({
         where: { id: row.id, usedAt: null },
@@ -232,6 +253,7 @@ export class MemberJoinService {
             role: true,
             supabaseId: true,
             deletedAt: true,
+            dateOfBirth: true,
           },
         },
       },

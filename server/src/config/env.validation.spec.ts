@@ -165,6 +165,24 @@ describe('envValidationSchema', () => {
     });
   });
 
+  describe('SINGLE_SESSION_REQUIRED', () => {
+    it('defaults to true — one device at a time unless someone turns it off', () => {
+      expect(parse().SINGLE_SESSION_REQUIRED).toBe(true);
+    });
+
+    it("parses the STRING 'false' to boolean false (the kill switch)", () => {
+      expect(parse({ SINGLE_SESSION_REQUIRED: 'false' }).SINGLE_SESSION_REQUIRED).toBe(false);
+    });
+
+    it("parses 'true' to boolean true", () => {
+      expect(parse({ SINGLE_SESSION_REQUIRED: 'true' }).SINGLE_SESSION_REQUIRED).toBe(true);
+    });
+
+    it('rejects anything else rather than guessing', () => {
+      expect(() => parse({ SINGLE_SESSION_REQUIRED: 'no' })).toThrow(/SINGLE_SESSION_REQUIRED/);
+    });
+  });
+
   describe('chunk 1 operating parameters', () => {
     it('accepts the bounds of MEMBERSHIP_GRACE_ADMISSIONS_MAX', () => {
       expect(parse({ MEMBERSHIP_GRACE_ADMISSIONS_MAX: '0' }).MEMBERSHIP_GRACE_ADMISSIONS_MAX).toBe(

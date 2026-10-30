@@ -12,6 +12,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { DiscountType, PaymentMethod } from '@got/shared';
 import { IsCentavos } from '../../common/validators/is-centavos.validator';
+import { IsBirthDate } from '../../common/validators/is-birth-date.validator';
 import { IsPaymentReference, IsPersonName, IsPhPhone, Trim, TrimOrNull } from '../../common/validators/text.validators';
 
 /** Trims AND lower-cases: `User.email` is a plain (case-sensitive) unique
@@ -101,6 +102,16 @@ export class CreateMemberDto {
   @Transform(normalizedEmail)
   @MaxLength(254)
   email!: string;
+
+  /**
+   * `yyyy-mm-dd`, required (owner, 2026-10-30): the desk asks, so no account is
+   * ever created for somebody under 12. The shape is checked here; the minimum
+   * age in `MembersService.create`, before anything is created, as a named 400
+   * `AGE_REQUIREMENT_NOT_MET`. Stored on the new row, so the setup link does not
+   * ask again.
+   */
+  @IsBirthDate()
+  dateOfBirth!: string;
 
   /** Same shape as `UpdateMemberDto.phone` / `ImportMemberRowDto.phone`. */
   @IsOptional()

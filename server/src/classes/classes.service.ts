@@ -1,14 +1,28 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { ClassBookingStatus, Prisma } from '@prisma/client';
+import { CLASS_REPEAT_WEEKS_MAX } from '@got/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { GymConfigService } from '../config/gym.config';
 import { DomainException } from '../common/exceptions/domain.exception';
-import { addDays, gymToday, toDateColumn, type CivilDate } from '../common/time/gym-time';
+import {
+  addDays,
+  gymToday,
+  gymWallClock,
+  shortDate,
+  toDateColumn,
+  zonedTimeToInstant,
+  type CivilDate,
+} from '../common/time/gym-time';
 import {
   MemberNoticesService,
   type MemberNoticeInput,
 } from '../notifications/member-notices.service';
-import { toClassSession, type ClassSessionDto } from './class.presenter';
+import {
+  toClassSession,
+  toCreateClassSessionResult,
+  type ClassSessionDto,
+  type CreateClassSessionResult,
+} from './class.presenter';
 import { resolveDateWindow } from '../common/time/date-window';
 import type { CreateClassSessionDto, UpdateClassSessionDto } from './dto/class-session.dto';
 import { BookingsService } from './bookings.service';
@@ -61,13 +75,61 @@ function assertOwner(ownerId: string | null, coachId: string): void {
  * A start time the admin typed into the past — 06:00 for 18:00, say. The
  * class it would make could never be edited or cancelled afterwards (both
  * refuse a class that has started), so it is refused before it exists.
+ *
+ * In a weekly series the message names the class that failed and says that
+ * none of them were made: the series is all or nothing.
  */
-function startInThePast(): DomainException {
+function startInThePast(failed?: { day: CivilDate; of: number }): DomainException {
   return new DomainException(
     'CLASS_ALREADY_STARTED',
-    'That start time has already passed. Check the date and the time.',
+    failed === undefined
+      ? 'That start time has already passed. Check the date and the time.'
+      : `The class on ${shortDate(failed.day)} starts at a time that has already passed, so none of the ${failed.of} classes were scheduled. Check the date and the time.`,
     HttpStatus.UNPROCESSABLE_ENTITY,
   );
+}
+
+/** One class of a weekly series: its gym day and its instants. */
+interface Occurrence {
+  day: CivilDate;
+  startsAt: Date;
+  endsAt: Date;
+}
+
+/**
+ * "Repeat weekly" (owner, 2026-10-30): the class given, then the same class on
+ * the same weekday, `weeks` classes in all, the first included.
+ *
+ * Each week is rebuilt from the gym CALENDAR, never by adding seven days of
+ * milliseconds to an instant: the date moves by seven gym days (`addDays`)
+ * and the start is that date at the first class's gym wall-clock time
+ * (`zonedTimeToInstant`). Manila keeps no daylight saving, so the two agree
+ * there today; in a zone that does, the instant sum would move every class
+ * after the change by an hour. The length is a duration and is carried as one.
+ *
+ * Anything past the minute the form sent (both forms send :00) is carried to
+ * every week too, which also makes week one exactly the instant sent.
+ *
+ * `weeks` outside 1..CLASS_REPEAT_WEEKS_MAX is a programming error — the DTO
+ * already refuses it — so it throws rather than answering a domain code.
+ */
+function weeklySeries(startsAt: Date, endsAt: Date, weeks: number, timeZone: string): Occurrence[] {
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > CLASS_REPEAT_WEEKS_MAX) {
+    throw new RangeError(
+      `${JSON.stringify(weeks)} is not a number of weeks (1..${CLASS_REPEAT_WEEKS_MAX})`,
+    );
+  }
+  const firstDay = gymToday(startsAt, timeZone);
+  const clock = gymWallClock(startsAt, timeZone);
+  const pastTheMinute =
+    startsAt.getTime() - zonedTimeToInstant(firstDay, clock, timeZone).getTime();
+  const length = endsAt.getTime() - startsAt.getTime();
+
+  return Array.from({ length: weeks }, (_, week) => {
+    const day = addDays(firstDay, week * 7);
+    const start = new Date(zonedTimeToInstant(day, clock, timeZone).getTime() + pastTheMinute);
+    return { day, startsAt: start, endsAt: new Date(start.getTime() + length) };
+  });
 }
 
 /**
@@ -132,13 +194,26 @@ export class ClassesService {
    * A new class. Its start must still be ahead: a class created in the past
    * is almost always a mistyped time, and nothing could correct it afterwards
    * — edit and cancel both refuse a class that has started.
+   *
+   * "Repeat weekly" (owner, 2026-10-30): with `repeatWeeks` the same class is
+   * made once a week, that many classes in all (`weeklySeries`). ALL OR
+   * NOTHING: every class is checked before any is written, and they are
+   * written on one transaction, so a refusal names the class that failed and
+   * leaves the timetable as it was — never "the first three went in". The
+   * coach is the same every week, so who they are is asked once.
+   *
+   * Answers with the first class, as a single create always has, plus `count`
+   * and `sessions`. One request carries one Idempotency-Key, and the
+   * interceptor stores this whole body, so a replay answers with the series it
+   * made instead of making another. Nothing is audited and nobody is notified
+   * on a create, for one class or twelve: nobody holds a place in it yet.
    */
   async create(
     createdById: string,
     dto: CreateClassSessionDto,
     now: Date = new Date(),
     ownerId: string | null = null,
-  ): Promise<ClassSessionDto> {
+  ): Promise<CreateClassSessionResult> {
     assertOwner(ownerId, dto.coachId);
     const startsAt = new Date(dto.startsAt);
     const endsAt = new Date(dto.endsAt);
@@ -152,28 +227,50 @@ export class ClassesService {
         HttpStatus.UNPROCESSABLE_ENTITY,
       );
     }
-    if (startsAt <= now) throw startInThePast();
+
+    const series = weeklySeries(startsAt, endsAt, dto.repeatWeeks ?? 1, this.gym.timeZone);
+    // Every class, before any is written. The weeks after the first start
+    // later than it, so in practice only the first can fail — but the rule is
+    // per class, and a series names the one it refused.
+    for (const occurrence of series) {
+      if (occurrence.startsAt <= now) {
+        throw startInThePast(
+          series.length === 1 ? undefined : { day: occurrence.day, of: series.length },
+        );
+      }
+    }
 
     await this.assertIsCoach(dto.coachId);
 
-    const row = await this.prisma.classSession.create({
-      data: {
-        title: dto.title,
-        description: dto.description ?? null,
-        coachId: dto.coachId,
-        startsAt,
-        endsAt,
-        // Derived from the START, in the gym's zone — never from the server's
-        // clock and never from `endsAt`. A class starting 23:30 belongs to the
-        // day it starts.
-        businessDate: toDateColumn(gymToday(startsAt, this.gym.timeZone)),
-        capacity: dto.capacity,
-        createdById,
-      },
-      include: SESSION_INCLUDE,
-    });
+    // One transaction for the series, so a write that fails halfway (a
+    // dropped connection, a CHECK) takes the earlier weeks back with it. The
+    // eight seconds a seat change gets: twelve inserts fit with room to spare.
+    const rows = await this.prisma.$transaction(async (tx) => {
+      const created = [];
+      for (const occurrence of series) {
+        created.push(
+          await tx.classSession.create({
+            data: {
+              title: dto.title,
+              description: dto.description ?? null,
+              coachId: dto.coachId,
+              startsAt: occurrence.startsAt,
+              endsAt: occurrence.endsAt,
+              // Derived from the START, in the gym's zone — never from the
+              // server's clock and never from `endsAt`. A class starting 23:30
+              // belongs to the day it starts.
+              businessDate: toDateColumn(gymToday(occurrence.startsAt, this.gym.timeZone)),
+              capacity: dto.capacity,
+              createdById,
+            },
+            include: SESSION_INCLUDE,
+          }),
+        );
+      }
+      return created;
+    }, SEAT_TX_OPTIONS);
 
-    return toClassSession(row);
+    return toCreateClassSessionResult(rows.map(toClassSession));
   }
 
   /**

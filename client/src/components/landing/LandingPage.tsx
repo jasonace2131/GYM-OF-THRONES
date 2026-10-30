@@ -5,7 +5,6 @@ import HeroSection from '@/components/landing/HeroSection';
 import ServicesSection from '@/components/landing/ServicesSection';
 import MembershipSection from '@/components/landing/MembershipSection';
 import GallerySection from '@/components/landing/GallerySection';
-import AnnouncementsSection from '@/components/landing/AnnouncementsSection';
 import ContactSection from '@/components/landing/ContactSection';
 import Footer from '@/components/landing/Footer';
 import MobileCta from '@/components/landing/MobileCta';
@@ -52,7 +51,6 @@ export default function LandingPage({
         <ServicesSection />
         <MembershipSection plans={plans} />
         <GallerySection />
-        <AnnouncementsSection />
         <ContactSection hours={hours} />
       </main>
       <Footer hours={hours} />

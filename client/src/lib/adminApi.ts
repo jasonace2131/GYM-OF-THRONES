@@ -13,6 +13,7 @@ import type {
   CheckInRecord,
   CheckInResult,
   ClassRegisterEntryWire,
+  CreateClassSessionResultWire,
   DailyCheckIns,
   DenialReason,
   DeskTodayPayload,
@@ -713,6 +714,22 @@ function sessionFromWire(raw: ClassSessionReply): ClassSession {
   return { ...raw, waitlistCount: raw.waitlistCount ?? 0 };
 }
 
+/** Scheduling a class: the first class, how many were made, and every one (2026-10-30). */
+export type CreatedClassSessions = CreateClassSessionResultWire;
+
+/** A create as either API answers it: the one before "Repeat weekly" sent the class alone. */
+type CreateClassReply = ClassSessionReply & {
+  count?: number;
+  sessions?: ClassSessionReply[];
+};
+
+/** An older API made one class, and that class is the whole series. */
+function createdFromWire(raw: CreateClassReply): CreatedClassSessions {
+  const first = sessionFromWire(raw);
+  const sessions = raw.sessions?.map(sessionFromWire) ?? [first];
+  return { ...first, count: raw.count ?? sessions.length, sessions };
+}
+
 /** `?a=1&b=2`, skipping anything unset. */
 function qs(params: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();
@@ -744,6 +761,11 @@ export const adminApi = {
   /**
    * A start that has already passed is refused — 422 CLASS_ALREADY_STARTED,
    * whose message the console shows as it is.
+   *
+   * `repeatWeeks` ("Repeat weekly", 2026-10-30) makes the class once a week,
+   * that many in all, every one or none. Leave it out for a single class: an
+   * API one release behind refuses a field it does not know (400), so a
+   * single class keeps sending exactly the body it always did.
    */
   createClassSession: (body: {
     title: string;
@@ -752,11 +774,12 @@ export const adminApi = {
     startsAt: string;
     endsAt: string;
     capacity: number;
-  }): Promise<ClassSession> =>
-    apiFetch<ClassSessionReply>('/admin/class-sessions', {
+    repeatWeeks?: number;
+  }): Promise<CreatedClassSessions> =>
+    apiFetch<CreateClassReply>('/admin/class-sessions', {
       method: 'POST',
       body: JSON.stringify(body),
-    }).then(sessionFromWire),
+    }).then(createdFromWire),
 
   /**
    * Editing a scheduled class — REQ013's "modify", which had no client wrapper
@@ -962,6 +985,8 @@ export const adminApi = {
     firstName: string;
     lastName: string;
     email: string;
+    /** `yyyy-mm-dd`, required: under 12 is refused (`AGE_REQUIREMENT_NOT_MET`, owner 2026-10-30). */
+    dateOfBirth: string;
     phone?: string;
     emergencyContact?: string;
     plan?: MemberPlanAssignment;

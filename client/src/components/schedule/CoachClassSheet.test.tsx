@@ -76,7 +76,63 @@ describe('CoachClassSheet', () => {
       start: '18:00',
       minutes: 60,
       capacity: 16,
+      repeat: false,
+      weeks: 4,
     });
+  });
+
+  it('repeats a new class weekly, saying when, and hands over the weeks', async () => {
+    const onSave = vi.fn();
+    await act(async () => {
+      root.render(
+        <CoachClassSheet
+          open
+          session={null}
+          day="2026-09-17"
+          coachName="Ana Cruz"
+          busy={false}
+          error={null}
+          onSave={onSave}
+          onClose={() => {}}
+        />,
+      );
+    });
+    const repeat = [...document.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+    expect(repeat).toHaveLength(1);
+    expect(repeat[0]?.checked).toBe(false);
+    expect(document.body.textContent).not.toContain('Every Thursday');
+
+    await act(async () => repeat[0]?.click());
+    // Thu 17 Sep at 6pm, four weeks: the last is Thu 8 Oct.
+    expect(document.body.textContent).toContain(
+      'Every Thursday at 6:00 PM, 4 classes, last on 8 Oct',
+    );
+    const weeks = document.querySelector<HTMLInputElement>('input[max="12"]')!;
+    await type(weeks, '6');
+    expect(document.body.textContent).toContain('6 classes, last on 22 Oct');
+
+    await type(document.querySelector<HTMLInputElement>('input[placeholder="HIIT Conditioning"]')!, 'Yoga');
+    await act(async () => button('Put them on the timetable').click());
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ repeat: true, weeks: 6 }));
+  });
+
+  it('offers no repeat when editing one class', async () => {
+    await act(async () => {
+      root.render(
+        <CoachClassSheet
+          open
+          session={session({})}
+          day="2026-09-14"
+          coachName="Ana Cruz"
+          busy={false}
+          error={null}
+          onSave={() => {}}
+          onClose={() => {}}
+        />,
+      );
+    });
+    expect(document.querySelector('input[type="checkbox"]')).toBeNull();
+    expect(document.body.textContent).not.toContain('Repeat weekly');
   });
 
   it("shows the server's sentence after a refused save", async () => {

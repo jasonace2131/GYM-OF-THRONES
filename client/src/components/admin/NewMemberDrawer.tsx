@@ -15,13 +15,18 @@ import { useAdminQuery } from '@/lib/useAdminQuery';
 import { DISCOUNTS, DISCRETIONARY } from './actions/SellMembershipModal';
 import {
   EMERGENCY_CONTACT_MAX,
+  MINIMUM_AGE_MESSAGE,
   PERMISSIONS,
   STATUTORY_ID_MAX,
   STATUTORY_ID_MIN,
   collapseSpaces,
   isPersonName,
+  isPlausibleBirthDate,
+  meetsMinimumAge,
   normalisePhPhone,
 } from '@got/shared';
+import { GYM_TIMEZONE, gymToday } from '@/lib/gymTime';
+import { BirthDateInput } from '@/components/inputs/BirthDateInput';
 import { CharCounter } from '@/components/inputs/CharCounter';
 import { EmailInput } from '@/components/inputs/EmailInput';
 import { NameInput } from '@/components/inputs/NameInput';
@@ -88,6 +93,7 @@ export function NewMemberDrawer({
   const [firstName, setFirstName] = useState(seed?.firstName ?? '');
   const [lastName, setLastName] = useState(seed?.lastName ?? '');
   const [email, setEmail] = useState(seed?.email ?? '');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [phone, setPhone] = useState(seed?.phone ?? '');
   const [emergencyContact, setEmergencyContact] = useState(seed?.emergencyContact ?? '');
 
@@ -149,6 +155,17 @@ export function NewMemberDrawer({
   const trimmedFirst = collapseSpaces(firstName);
   const trimmedLast = collapseSpaces(lastName);
   const trimmedEmail = email.trim();
+  // Required (owner, 2026-10-30): asked here so no account is ever made for
+  // somebody under 12. Stored on the account, so the setup link does not ask.
+  const today = gymToday(new Date(), GYM_TIMEZONE);
+  const dateOfBirthProblem =
+    dateOfBirth === ''
+      ? null
+      : !isPlausibleBirthDate(dateOfBirth, today)
+        ? 'Enter a real date of birth.'
+        : meetsMinimumAge(dateOfBirth, today)
+          ? null
+          : MINIMUM_AGE_MESSAGE;
   // Optional, but when given: a PH mobile, sent as +639XXXXXXXXX.
   const phoneOut = phone.trim() === '' ? null : normalisePhPhone(phone);
   const trimmedStatutoryId = statutoryIdNo.trim();
@@ -163,6 +180,8 @@ export function NewMemberDrawer({
     isPersonName(trimmedFirst) &&
     isPersonName(trimmedLast) &&
     trimmedEmail.length > 0 &&
+    dateOfBirth !== '' &&
+    dateOfBirthProblem === null &&
     (phone.trim() === '' || phoneOut !== null) &&
     (!sellingPlan ||
       (planCode !== '' &&
@@ -187,6 +206,7 @@ export function NewMemberDrawer({
         firstName: trimmedFirst,
         lastName: trimmedLast,
         email: trimmedEmail,
+        dateOfBirth,
         phone: phoneOut ?? undefined,
         emergencyContact: emergencyContact.trim() === '' ? undefined : emergencyContact.trim(),
         plan: sellingPlan
@@ -318,6 +338,33 @@ export function NewMemberDrawer({
                 autoComplete="off"
                 onChange={setEmail}
               />
+            </div>
+
+            <div className="a-field">
+              <label className="a-field-label" htmlFor="new-member-dob">
+                Date of birth
+              </label>
+              <BirthDateInput
+                id="new-member-dob"
+                className="a-input"
+                today={today}
+                value={dateOfBirth}
+                onChange={setDateOfBirth}
+                aria-invalid={dateOfBirthProblem !== null || undefined}
+                aria-describedby={
+                  dateOfBirthProblem !== null ? 'new-member-dob-problem' : undefined
+                }
+              />
+              {dateOfBirthProblem !== null ? (
+                <p
+                  id="new-member-dob-problem"
+                  className="a-field-hint"
+                  data-tone="danger"
+                  role="alert"
+                >
+                  {dateOfBirthProblem}
+                </p>
+              ) : null}
             </div>
 
             <div className="a-field">

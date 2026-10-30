@@ -40,6 +40,8 @@ export function sessionDate(civil: string): string {
 }
 
 const setsWord = (n: number): string => `${n} ${n === 1 ? 'set' : 'sets'}`;
+/** "1 rep", "12 reps". */
+export const repsWord = (n: number): string => `${n} ${n === 1 ? 'rep' : 'reps'}`;
 
 export function summaryHref(id: string, just = false): string {
   return `/portal/workouts/history/${encodeURIComponent(id)}${just ? '?just=1' : ''}`;
@@ -49,12 +51,19 @@ export interface RecentRow {
   id: string;
   title: string;
   when: string;
-  volume: string;
+  /** "4,435 kg", or null for a workout logged without weights. */
+  volume: string | null;
   href: string;
 }
 
-function volumeText(summary: Pick<WorkoutSessionSummary, 'volumeKg'>): string {
-  return summary.volumeKg > 0 ? kgText(summary.volumeKg) : 'Bodyweight';
+/**
+ * Logged with weights. The session screen stopped asking for one (owner,
+ * 2026-10-30), so only workouts from before then are; for the rest, a weight
+ * moved of nothing and a "0 new bests" that could never be anything else say
+ * nothing, and are left out.
+ */
+function isWeighted(summary: Pick<WorkoutSessionSummary, 'volumeKg' | 'bests'>): boolean {
+  return summary.volumeKg > 0 || summary.bests.length > 0;
 }
 
 /** One row of Recent workouts and of the history list. */
@@ -63,7 +72,7 @@ export function recentRow(summary: WorkoutSessionSummary): RecentRow {
     id: summary.id,
     title: summary.dayTitle,
     when: `${sessionDate(summary.businessDate)} · ${durationText(summary.durationMinutes)} · ${setsWord(summary.setsDone)}`,
-    volume: volumeText(summary),
+    volume: summary.volumeKg > 0 ? kgText(summary.volumeKg) : null,
     href: summaryHref(summary.id),
   };
 }
@@ -85,16 +94,21 @@ export interface StatTile {
   highlight: boolean;
 }
 
+/** Sets done and exercises; weight moved and new bests too for a workout logged with weights. */
 export function statTiles(summary: WorkoutSessionSummary): StatTile[] {
-  const bests = summary.bests.length;
-  return [
+  const tiles: StatTile[] = [
     { value: String(summary.setsDone), label: 'Sets done', highlight: false },
     {
       value: `${summary.exercisesDone} / ${summary.exerciseCount}`,
       label: 'Exercises',
       highlight: false,
     },
-    { value: volumeText(summary), label: 'Weight moved', highlight: false },
+  ];
+  if (!isWeighted(summary)) return tiles;
+  const bests = summary.bests.length;
+  return [
+    ...tiles,
+    { value: kgText(summary.volumeKg), label: 'Weight moved', highlight: false },
     { value: String(bests), label: bests === 1 ? 'New best' : 'New bests', highlight: bests > 0 },
   ];
 }
@@ -104,7 +118,11 @@ export function bestLine(best: NewBest): string {
   return `${kgText(best.weightKg)} × ${best.reps} — up from ${kgText(best.previousKg)}`;
 }
 
-/** WHAT YOU DID: "3 sets · top 80 kg × 12", "2 of 3 sets · bodyweight × 8". */
+/**
+ * WHAT YOU DID: "3 sets · up to 12 reps", "1 set · 8 reps", and for a set
+ * logged with a weight "3 sets · top 80 kg × 12". The summary carries each
+ * exercise's best set only, so reps are "up to" rather than a per-set count.
+ */
 export function exerciseLine(exercise: SessionExerciseSummary): string {
   if (exercise.setsDone === 0 || exercise.top === null) return 'Not done';
   const count =
@@ -112,10 +130,11 @@ export function exerciseLine(exercise: SessionExerciseSummary): string {
       ? `${exercise.setsDone} of ${exercise.plannedSets} sets`
       : setsWord(exercise.setsDone);
   const { weightKg, reps } = exercise.top;
+  const several = exercise.setsDone > 1;
   const top =
     weightKg === null
-      ? `bodyweight × ${reps}`
-      : `${exercise.setsDone > 1 ? 'top ' : ''}${kgText(weightKg)} × ${reps}`;
+      ? `${several ? 'up to ' : ''}${repsWord(reps)}`
+      : `${several ? 'top ' : ''}${kgText(weightKg)} × ${reps}`;
   return `${count} · ${top}`;
 }
 

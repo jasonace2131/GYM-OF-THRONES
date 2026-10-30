@@ -171,7 +171,7 @@ export function SummaryPage() {
           )}
         </Panel>
 
-        <StatTiles summary={summary} className="@2xl:grid-cols-4" />
+        <StatTiles summary={summary} wide />
         <NewBests summary={summary} />
         <WhatYouDid summary={summary} />
       </div>

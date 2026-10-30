@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loginCodeRedirectFor } from './loginCodeRedirect';
+import { handlesSignInItself, loginCodeRedirectFor } from './loginCodeRedirect';
 
 describe('loginCodeRedirectFor', () => {
   it('sends a portal page to /login with the page and its query as next', () => {
@@ -35,5 +35,16 @@ describe('loginCodeRedirectFor', () => {
 
   it('matches whole path segments, not prefixes', () => {
     expect(loginCodeRedirectFor('/loginhelp', '')).toBe('/login?next=%2Floginhelp');
+  });
+});
+
+describe('handlesSignInItself', () => {
+  it('is the same list loginCodeRedirectFor exempts', () => {
+    for (const pathname of ['/login', '/join/abc', '/reset-password', '/register', '/']) {
+      expect(handlesSignInItself(pathname)).toBe(true);
+    }
+    for (const pathname of ['/portal', '/admin/members', '/desk/station', '/invite/xyz']) {
+      expect(handlesSignInItself(pathname)).toBe(false);
+    }
   });
 });

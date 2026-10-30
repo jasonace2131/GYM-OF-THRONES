@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { clock, restAnnouncement, restRemaining, type RestState } from '@/lib/workouts/restTimer';
-import { BAR_INNER } from './bars';
+import { BAR_INNER, FinishButton } from './bars';
 
 /**
  * The dark rest bar that replaces Prev / Next while resting
- * (PhoneSession.dc.html): REST · NEXT SET n, the clock, +15 s, Skip.
+ * (PhoneSession.dc.html): REST · NEXT SET n, the clock, +15 s, Skip. On the
+ * last exercise `finish` adds Finish workout under them, so resting there
+ * never hides the way out.
  *
  * The clock is `endsAt - now` on every tick, so it is right after the phone
  * has slept. At zero the phone buzzes (where it can) and the bar hands back
@@ -15,11 +17,13 @@ import { BAR_INNER } from './bars';
  */
 export function RestBar({
   rest,
+  finish = null,
   onAdd,
   onSkip,
   onDone,
 }: {
   rest: RestState;
+  finish?: { busy: boolean; onFinish: () => void } | null;
   onAdd: () => void;
   onSkip: () => void;
   onDone: () => void;
@@ -77,6 +81,13 @@ export function RestBar({
         >
           Skip
         </button>
+        {finish === null ? null : (
+          <FinishButton
+            busy={finish.busy}
+            onFinish={finish.onFinish}
+            className="col-span-3 mt-1 focus-visible:outline-gold-lit"
+          />
+        )}
       </div>
     </div>
   );

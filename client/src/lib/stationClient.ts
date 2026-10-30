@@ -75,6 +75,11 @@ export type StationFetchResult =
   | { kind: 'REVOKED' }
   /** 401 on the staff display — the login expired; sign in again. */
   | { kind: 'SESSION_EXPIRED' }
+  /**
+   * 401 SESSION_REPLACED on the staff display — the account signed in on
+   * another device. The page signs out locally and says so on the login page.
+   */
+  | { kind: 'SESSION_REPLACED' }
   /** 403 on the staff display — this account may not show the code. */
   | { kind: 'FORBIDDEN' }
   /** Any other failure: no network, a 500, a proxy error page. */
@@ -111,6 +116,11 @@ export async function fetchStationBatch(
   }
 
   const refused = authFailureFor(credential.kind, response.status);
+  // Read as a literal, like GYM_CLOSED below: this file imports nothing that
+  // touches Supabase, and `sessionReplaced.ts` does.
+  if (refused === 'SESSION_EXPIRED' && (await errorCodeOf(response)) === 'SESSION_REPLACED') {
+    return { kind: 'SESSION_REPLACED' };
+  }
   if (refused !== null) return { kind: refused };
 
   let body: Envelope<StationTokenBatch>;
@@ -132,6 +142,16 @@ export async function fetchStationBatch(
   }
 
   return { kind: 'OK', batch: body.data, receivedAtMs: Date.now() };
+}
+
+/** The envelope's error code, or null when the body is not one. */
+async function errorCodeOf(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as Envelope<unknown>;
+    return body.error?.code ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -45,10 +45,10 @@ async function sign(
  * anybody, which matters most for the waiver: a minor cannot legally sign
  * one alone.
  *
- * The rule is deliberately NOT "reject the registration". It is "do not
- * accept an unverified self-declared age below the joining age" — the
- * account is created, the date is simply not taken on trust, and staff enter
- * it in person with a guardian's consent.
+ * The verifier only decides whether the date is a date. The minimum account
+ * age (12, owner 2026-10-30, reversing 2026-10-23's "no minimum age") is
+ * provisioning's: a child's date is KEPT here, so the first sight of that
+ * sign-up can refuse the account rather than create one with no date on it.
  */
 describe('verifyAccessToken — date of birth', () => {
   const withDob = async (dateOfBirth: unknown): Promise<string> =>
@@ -69,19 +69,23 @@ describe('verifyAccessToken — date of birth', () => {
     expect(claims.dateOfBirth).toBe(yearsAgo(30));
   });
 
-  // Owner, 2026-10-23: no minimum age. A child's date is kept.
-  it("keeps a child's birth date — there is no minimum age", async () => {
+  // Owner, 2026-10-30: under 12 has no account. The date is kept so that
+  // UserProvisioningService can refuse it; dropping it would let the account in.
+  it("keeps a child's birth date, for provisioning to refuse", async () => {
     const claims = await verifyAccessToken(await withDob('2020-06-01'), keys, ISSUER);
     expect(claims.dateOfBirth).toBe('2020-06-01');
   });
 
-  it('keeps 1900-01-01, the earliest date any form accepts', async () => {
-    const claims = await verifyAccessToken(await withDob('1900-01-01'), keys, ISSUER);
-    expect(claims.dateOfBirth).toBe('1900-01-01');
+  it('keeps a date just inside the 120-year bound', async () => {
+    const claims = await verifyAccessToken(await withDob(yearsAgo(119)), keys, ISSUER);
+    expect(claims.dateOfBirth).toBe(yearsAgo(119));
   });
 
   it.each<[unknown, string]>([
     ['2050-01-01', 'a date in the future'],
+    // Kept, these failed the database's 120-year CHECK at the first-sight
+    // insert, and AuthGuard turned that into 401 at every sign-in after.
+    ['1900-01-01', '120 or more years ago'],
     ['1899-12-31', 'before 1900'],
     ['2001-02-30', 'not a real date'],
     ['01/01/1990', 'the wrong format'],
@@ -130,6 +134,7 @@ describe('verifyAccessToken', () => {
       dateOfBirth: null,
       sessionId: SESSION_ID,
       amr: [],
+      signedInAt: null,
     });
   });
 
@@ -334,5 +339,59 @@ describe('verifyAccessToken — sign-in claims', () => {
   it('refuses a session_id that is not a uuid', async () => {
     const token = await sign({ ...base, session_id: 'not-a-uuid' });
     await expect(verifyAccessToken(token, keys, ISSUER)).rejects.toThrow('missing session_id');
+  });
+});
+
+/**
+ * One device at a time compares sign-ins by WHEN they happened. `amr`'s
+ * timestamps are the authentication times and survive every refresh; `iat`
+ * is renewed by each refreshed token, so it would make an old device look new.
+ */
+describe('verifyAccessToken — signedInAt', () => {
+  const base = { sub: '11111111-1111-1111-1111-111111111111', email: 'juan@example.com' };
+
+  it('is the LATEST amr timestamp, whatever the order', async () => {
+    const token = await sign({
+      ...base,
+      amr: [
+        { method: 'otp', timestamp: 1_700_000_100 },
+        { method: 'password', timestamp: 1_700_000_000 },
+      ],
+    });
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.signedInAt).toEqual(new Date(1_700_000_100 * 1000));
+    // The methods are read exactly as before.
+    expect(claims.amr).toEqual(['otp', 'password']);
+  });
+
+  it('is not the token issue time', async () => {
+    const token = await sign({ ...base, amr: [{ method: 'password', timestamp: 1_700_000_000 }] });
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.signedInAt).toEqual(new Date(1_700_000_000 * 1000));
+  });
+
+  it('skips entries without a usable timestamp and keeps the rest', async () => {
+    const token = await sign({
+      ...base,
+      amr: [
+        'password',
+        { method: 'otp', timestamp: '1700000500' },
+        { method: 'otp', timestamp: -5 },
+        { method: 'totp', timestamp: 1_700_000_200 },
+      ],
+    });
+    const claims = await verifyAccessToken(token, keys, ISSUER);
+    expect(claims.signedInAt).toEqual(new Date(1_700_000_200 * 1000));
+  });
+
+  it.each<[unknown, string]>([
+    [undefined, 'absent'],
+    ['password', 'a string, not a list'],
+    [['password', 'otp'], 'bare strings only'],
+    [[{ method: 'password' }], 'entries with no timestamp'],
+    [[null, { method: 'otp', timestamp: 0 }], 'nothing usable'],
+  ])('is null for %p (%s)', async (amr) => {
+    const token = await sign({ ...base, amr });
+    expect((await verifyAccessToken(token, keys, ISSUER)).signedInAt).toBeNull();
   });
 });

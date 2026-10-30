@@ -20,6 +20,7 @@ import { paginated, paginationSkipTake } from '../common/dto/paginate';
 import { addDays, gymToday, toDateColumn, type CivilDate } from '../common/time/gym-time';
 import type { ScopedWhere } from '../rbac/scope.util';
 import { SupabaseAdminService } from '../auth/supabase-admin.service';
+import { ageRequirementNotMet, isOldEnoughForAccount } from '../auth/minimum-age';
 import { PermissionsService } from '../rbac/permissions.service';
 import { MembershipSalesService } from '../membership/membership-sales.service';
 import type { AuthUser } from '../auth/auth.types';
@@ -707,8 +708,9 @@ export class MembersService {
 
   /**
    * `POST /members` — C2. In order: validate DTO (done by the pipe before
-   * this runs) → mint a Supabase user (`createAuthUser`, no link) → create
-   * the `User` row with that `supabaseId` inside a transaction → the optional
+   * this runs) → the minimum age (12) on its date of birth → mint a Supabase
+   * user (`createAuthUser`, no link) → create the `User` row, date of birth
+   * included, with that `supabaseId` inside a transaction → the optional
    * plan sale → issue our setup link (`MemberJoinService.issue`) AFTER the
    * commit and the optional sale.
    *
@@ -738,6 +740,12 @@ export class MembersService {
     requestOrigin?: string,
     now: Date = new Date(),
   ): Promise<CreateMemberResult> {
+    // Owner, 2026-10-30: no account for anybody under 12. First, before any
+    // other check can mint or charge anything.
+    if (!isOldEnoughForAccount(dto.dateOfBirth, now.getTime())) {
+      throw ageRequirementNotMet(HttpStatus.BAD_REQUEST);
+    }
+
     // Gated separately from `@RequirePermission('member.create')`: this
     // route can also record a sale, and a role holding member.create alone
     // must not be able to move money through it. Checked first, before
@@ -810,6 +818,8 @@ export class MembersService {
             lastName: dto.lastName,
             phone: dto.phone ?? null,
             emergencyContact: dto.emergencyContact ?? null,
+            // `@db.Date` wants UTC midnight for a civil date, as provisioning does.
+            dateOfBirth: new Date(`${dto.dateOfBirth}T00:00:00.000Z`),
             role: Role.CLIENT,
           },
         });

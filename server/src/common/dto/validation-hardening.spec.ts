@@ -150,7 +150,20 @@ describe('plans', () => {
 });
 
 describe('members (admin create/edit, import)', () => {
-  const base = { firstName: 'Juan', lastName: 'Dela Cruz', email: 'JUAN@x.com ' };
+  const base = {
+    firstName: 'Juan',
+    lastName: 'Dela Cruz',
+    email: 'JUAN@x.com ',
+    dateOfBirth: '1995-05-05',
+  };
+  it('requires a real date of birth (owner, 2026-10-30); the minimum age is the service', () => {
+    expect(run(CreateMemberDto, base).failed).toEqual([]);
+    const { dateOfBirth: _dropped, ...withoutDate } = base;
+    expect(run(CreateMemberDto, withoutDate).failed).toEqual(['dateOfBirth']);
+    expect(run(CreateMemberDto, { ...base, dateOfBirth: '2999-01-01' }).failed).toEqual(['dateOfBirth']);
+    expect(run(CreateMemberDto, { ...base, dateOfBirth: '1900-01-01' }).failed).toEqual(['dateOfBirth']);
+    expect(run(CreateMemberDto, { ...base, dateOfBirth: '05/05/1995' }).failed).toEqual(['dateOfBirth']);
+  });
   it('applies the name rule and 60-character cap to everyone', () => {
     expect(run(CreateMemberDto, { ...base, firstName: 'Juan2' }).failed).toEqual(['firstName']);
     expect(run(CreateMemberDto, { ...base, lastName: 'a'.repeat(61) }).failed).toEqual(['lastName']);
@@ -177,11 +190,16 @@ describe('members (admin create/edit, import)', () => {
 
 describe('member join: date of birth', () => {
   const token = 'a'.repeat(20);
-  it('refuses a future date and one before 1900, with no minimum age', () => {
+  // The shape only. Under 12 (owner, 2026-10-30) is MemberJoinService.accept's
+  // named 400 AGE_REQUIREMENT_NOT_MET, so 2020-06-01 passes HERE and is refused there.
+  it('refuses a future date, one 120 years back and an impossible one', () => {
     expect(run(AcceptMemberJoinDto, { token, dateOfBirth: '2999-01-01' }).failed).toEqual(['dateOfBirth']);
-    expect(run(AcceptMemberJoinDto, { token, dateOfBirth: '1899-12-31' }).failed).toEqual(['dateOfBirth']);
+    expect(run(AcceptMemberJoinDto, { token, dateOfBirth: '1900-01-01' }).failed).toEqual(['dateOfBirth']);
     expect(run(AcceptMemberJoinDto, { token, dateOfBirth: '2020-02-30' }).failed).toEqual(['dateOfBirth']);
     expect(run(AcceptMemberJoinDto, { token, dateOfBirth: '2020-06-01' }).failed).toEqual([]);
+  });
+  it('lets the date be left out: the page does not ask when one is on file', () => {
+    expect(run(AcceptMemberJoinDto, { token }).failed).toEqual([]);
   });
   it('treats "today" generously (UTC+14) so no zone refuses a real birthday', () => {
     expect(latestToday(Date.parse('2026-10-23T12:00:00Z'))).toBe('2026-10-24');

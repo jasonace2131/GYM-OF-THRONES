@@ -13,8 +13,10 @@ import { ALLOW_UNVERIFIED_LOGIN_KEY } from './decorators/allow-unverified-login.
 import { JwtVerifierService } from './jwt-verifier.service';
 import { UserProvisioningService } from './user-provisioning.service';
 import { LoginGateService } from './login-gate.service';
+import { SingleSessionService } from './single-session.service';
+import { isAgeRequirementRefusal } from './minimum-age';
 import { authSessionFrom } from './auth-session';
-import type { AuthSession, AuthUser } from './auth.types';
+import type { ActiveSession, AuthSession, AuthUser } from './auth.types';
 
 /**
  * Authenticates every request: verify the token, resolve the local user,
@@ -32,6 +34,7 @@ export class AuthGuard implements CanActivate {
     private readonly jwt: JwtVerifierService,
     private readonly provisioning: UserProvisioningService,
     private readonly gate: LoginGateService,
+    private readonly singleSession: SingleSessionService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -47,12 +50,17 @@ export class AuthGuard implements CanActivate {
     const token = this.extractBearerToken(request.headers.authorization);
 
     let user: AuthUser;
+    let activeSession: ActiveSession;
     let session: AuthSession;
     try {
       const claims = await this.jwt.verify(token);
-      user = await this.provisioning.resolve(claims);
+      ({ user, activeSession } = await this.provisioning.resolveWithActiveSession(claims));
       session = authSessionFrom(claims);
     } catch (error) {
+      // The token was fine; provisioning would not create an account for
+      // somebody under 12. Its own 403 and message, or the sign-in page could
+      // only say "sign in again" to a sign-in that can never work.
+      if (isAgeRequirementRefusal(error)) throw error;
       // Log the real reason server-side; tell the client only that auth
       // failed. Echoing the verification error back would tell an attacker
       // exactly which check they tripped.
@@ -86,6 +94,14 @@ export class AuthGuard implements CanActivate {
         context.getClass(),
       ]) === true;
     await this.gate.assertVerified(session, exempt);
+
+    // One device at a time. AFTER the code, so only a verified sign-in can
+    // take the account from another device, and never on the two code routes:
+    // a sign-in still entering its code must not claim, and must not be
+    // stopped from finishing either. Its 401 SESSION_REPLACED is a
+    // DomainException, outside the try above, so the client sees that code
+    // rather than "Invalid or expired token".
+    if (!exempt) await this.singleSession.assertCurrent(user.id, activeSession, session);
 
     request.user = user;
     request.authSession = session;

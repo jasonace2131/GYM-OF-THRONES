@@ -5,8 +5,10 @@ import {
   civilDateFromPrisma,
   civilDaysBetween,
   gymToday,
+  gymWallClock,
   isIanaTimeZone,
   toDateColumn,
+  zonedTimeToInstant,
 } from './gym-time';
 import type { CivilDate } from './gym-time';
 
@@ -161,5 +163,22 @@ describe('isIanaTimeZone', () => {
 
   it.each(['Asia/Manilla', 'Not/AZone', '', 'Manila'])('rejects %p', (zone) => {
     expect(isIanaTimeZone(zone)).toBe(false);
+  });
+});
+
+describe('gymWallClock', () => {
+  // 10:00Z is 18:00 in Manila; 16:00Z is midnight there, which must read 00:00, never 24:00.
+  it.each([
+    ['2026-09-16T10:00:00Z', '18:00'],
+    ['2026-09-15T23:05:00Z', '07:05'],
+    ['2026-09-16T16:00:00Z', '00:00'],
+  ])('reads %s as %s in Manila', (iso, clock) => {
+    expect(gymWallClock(new Date(iso), MANILA)).toBe(clock);
+  });
+
+  it('is the form zonedTimeToInstant takes back', () => {
+    const start = new Date('2026-10-29T23:00:00Z'); // Fri 30 Oct, 07:00 Manila
+    const day = gymToday(start, MANILA);
+    expect(zonedTimeToInstant(day, gymWallClock(start, MANILA), MANILA)).toEqual(start);
   });
 });

@@ -1,6 +1,7 @@
 // Barrel export — everything from @got/shared
 export * from './types/user.types';
-// Input rules: PH mobile phones, names, references, dates of birth.
+// Input rules: PH mobile phones, names, references, dates of birth and the
+// minimum account age.
 export * from './validation/inputs';
 export * from './types/time.types';
 export * from './types/membership.types';

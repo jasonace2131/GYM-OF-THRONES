@@ -18,6 +18,12 @@ export interface MemberJoinLookup {
   firstName: string;
   status: MemberJoinStatus;
   email?: string;
+  /**
+   * Present only while PENDING. False when a date of birth is already on file,
+   * as it is for every counter sign-up since 2026-10-30: the page does not ask
+   * for it again. Read as "ask" when absent.
+   */
+  needsDateOfBirth?: boolean;
 }
 
 /** `POST /member-join/claim-link` — public. Where "Set up my account" goes next. */
@@ -25,7 +31,7 @@ export interface MemberJoinClaim {
   url: string;
 }
 
-/** `POST /member-join/accept`. `dateOfBirthSaved` is false when the date was not joinable or one was already on file. */
+/** `POST /member-join/accept`. `dateOfBirthSaved` is false when no date was saved, e.g. one was already on file or the link was already used. */
 export interface MemberJoinAccepted {
   dateOfBirthSaved: boolean;
 }

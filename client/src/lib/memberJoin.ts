@@ -1,4 +1,11 @@
-import type { MemberJoinAccepted, MemberJoinClaim, MemberJoinLookup } from '@got/shared';
+import {
+  MINIMUM_AGE_MESSAGE,
+  isPlausibleBirthDate,
+  meetsMinimumAge,
+  type MemberJoinAccepted,
+  type MemberJoinClaim,
+  type MemberJoinLookup,
+} from '@got/shared';
 import { apiFetch } from './api';
 
 /**
@@ -96,6 +103,10 @@ export function joinErrorCopy(code: string | null): JoinCopy {
     case 'MEMBER_JOIN_EXPIRED':
     case 'MEMBER_JOIN_NOT_FOUND':
       return deadJoinCopy({ status: null, code });
+    // Under 12 (owner, 2026-10-30). The page checks first; this is the API
+    // agreeing. The link is not used up by it.
+    case 'AGE_REQUIREMENT_NOT_MET':
+      return { title: 'Date of birth', body: MINIMUM_AGE_MESSAGE };
     // A password sign-in that never entered its emailed code. /join is not a
     // `?next=` the login page will return to, so the way through is a fresh
     // email-link session: sign out, open the link again.
@@ -114,25 +125,25 @@ export function joinErrorCopy(code: string | null): JoinCopy {
 
 /**
  * The form's check on a `yyyy-mm-dd` from a date input. `today` is the same
- * shape. Whether the date is old enough to be stored is the server's rule
- * (`asJoinableBirthDate`), not this one.
+ * shape. The shared rules the API applies too: a real date less than 120 years
+ * ago, and at least 12 years old (owner, 2026-10-30). Checked BEFORE the
+ * password is saved, so a child never gets that far.
  */
 export function birthDateProblem(value: string, today: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Enter your date of birth.';
   if (value >= today) return 'Your date of birth must be in the past.';
-  const earliest = `${Number(today.slice(0, 4)) - 120}${today.slice(4)}`;
-  if (value < earliest) return 'Please check the year of your date of birth.';
+  if (!isPlausibleBirthDate(value, today)) return 'Please check the year of your date of birth.';
+  if (!meetsMinimumAge(value, today)) return MINIMUM_AGE_MESSAGE;
   return null;
 }
 
 /**
- * The calendar day before a `yyyy-mm-dd`. The date input's `max`: today itself
- * is refused by `birthDateProblem`, so the picker must not offer it.
+ * Whether the form asks for a date of birth. Not when the desk already entered
+ * one (every counter sign-up since 2026-10-30). A lookup that does not say, from
+ * an API older than that, is asked, as before.
  */
-export function dayBefore(day: string): string {
-  const date = new Date(`${day}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
+export function asksDateOfBirth(link: MemberJoinLookup | null): boolean {
+  return link?.needsDateOfBirth !== false;
 }
 
 /**
@@ -164,9 +175,10 @@ export const memberJoinApi = {
       body: JSON.stringify({ token }),
     }),
 
-  accept: (token: string, dateOfBirth: string): Promise<MemberJoinAccepted> =>
+  /** `dateOfBirth` is left out when the desk already entered one (`needsDateOfBirth: false`). */
+  accept: (token: string, dateOfBirth?: string): Promise<MemberJoinAccepted> =>
     apiFetch<MemberJoinAccepted>('/member-join/accept', {
       method: 'POST',
-      body: JSON.stringify({ token, dateOfBirth }),
+      body: JSON.stringify(dateOfBirth === undefined ? { token } : { token, dateOfBirth }),
     }),
 };

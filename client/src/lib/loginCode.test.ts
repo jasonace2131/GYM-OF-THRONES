@@ -71,6 +71,14 @@ describe('classifyMeFailure', () => {
     expect(classifyMeFailure(err('HTTP_401', 401))).toBe('signed-out');
   });
 
+  it('keeps SESSION_REPLACED out of the sign-out branch, whose sign-out is global', () => {
+    expect(classifyMeFailure(err('SESSION_REPLACED', 401))).toBe('replaced');
+  });
+
+  it('names the under-12 refusal (owner, 2026-10-30), which no retry can fix', () => {
+    expect(classifyMeFailure(err('AGE_REQUIREMENT_NOT_MET', 403))).toBe('too-young');
+  });
+
   it('retries everything else, including a bare network TypeError', () => {
     expect(classifyMeFailure(err('HTTP_500', 500))).toBe('retry');
     expect(classifyMeFailure(new TypeError('Failed to fetch'))).toBe('retry');
@@ -115,6 +123,10 @@ describe('codeStepFailure', () => {
   it('ends the code step on a 401 that is not LOGIN_CODE_REQUIRED', () => {
     expect(codeStepFailure(err('UNAUTHORIZED', 401))).toBe('session-ended');
     expect(codeStepFailure(err('HTTP_401', 401))).toBe('session-ended');
+  });
+
+  it('never treats SESSION_REPLACED as an ended session, whose sign-out is global', () => {
+    expect(codeStepFailure(err('SESSION_REPLACED', 401))).toBe('replaced');
   });
 
   it('keeps the code step on LOGIN_CODE_REQUIRED — the session is fine', () => {

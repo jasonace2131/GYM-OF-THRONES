@@ -181,6 +181,7 @@ function createDto(overrides: Partial<CreateMemberDto> = {}): CreateMemberDto {
     firstName: 'Jon',
     lastName: 'Snow',
     email: 'jon@example.com',
+    dateOfBirth: '1995-05-05',
     ...overrides,
   } as CreateMemberDto;
 }
@@ -1177,8 +1178,48 @@ describe('MembersService', () => {
           email: 'jon@example.com',
           firstName: 'Jon',
           lastName: 'Snow',
+          dateOfBirth: new Date('1995-05-05T00:00:00.000Z'),
           role: Role.CLIENT,
         }),
+      });
+    });
+
+    // Owner, 2026-10-30: the desk asks for the date of birth, and no account is
+    // ever created for somebody under 12.
+    it('400s AGE_REQUIREMENT_NOT_MET under 12, before any lookup, mint or sale', async () => {
+      stubHappyPath();
+
+      await expect(
+        service.create(
+          createDto({
+            dateOfBirth: '2015-01-01',
+            plan: { planCode: 'MONTHLY', method: 'CASH' } as CreateMemberDto['plan'],
+          }),
+          ADMIN,
+          undefined,
+          NOW,
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          code: 'AGE_REQUIREMENT_NOT_MET',
+          message: 'You need to be at least 12 years old to create an account.',
+        },
+        status: HttpStatus.BAD_REQUEST,
+      });
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+      expect(supabaseAdmin.createAuthUser).not.toHaveBeenCalled();
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(sales.sell).not.toHaveBeenCalled();
+    });
+
+    it('creates the account on the 12th birthday itself', async () => {
+      stubHappyPath();
+
+      // NOW is 2026-08-27 04:00 UTC.
+      await service.create(createDto({ dateOfBirth: '2014-08-27' }), ADMIN, undefined, NOW);
+
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ dateOfBirth: new Date('2014-08-27T00:00:00.000Z') }),
       });
     });
 

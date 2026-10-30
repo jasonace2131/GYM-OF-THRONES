@@ -71,12 +71,24 @@ export default function MembershipSection({ plans }: { plans: LandingPlan[] }) {
           </p>
         </div>
 
+        {/* Every slot above the perks has a fixed height, so the badge row,
+            label, price and terms line sit at the same height on every card
+            and the button lands on the same line at the bottom. The perk
+            list takes up whatever is left. */}
         <div className="plan-grid">
           {plans.map((plan) => (
             <div key={plan.id} className={`pcard glow rv${plan.featured ? ' featured' : ''}`}>
-              {/* Badge row is always present so every card's price sits
-                  on the same baseline, badge or not. */}
-              <div style={{ minHeight: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Badge row is always present, and as tall as the pill, so a
+                  card with a badge does not push its price lower. */}
+              <div
+                style={{
+                  height: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {plan.badge && (
                   <span
                     className="pill"
@@ -110,11 +122,16 @@ export default function MembershipSection({ plans }: { plans: LandingPlan[] }) {
                 )}
               </div>
 
+              {/* Room for two lines on every card: "Quarterly · Best balance"
+                  wraps on the narrowest four-up widths, and a label that wraps
+                  on one card only would drop that card's price below the rest. */}
               <div
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontSize: 11,
                   fontWeight: 600,
+                  lineHeight: 1.4,
+                  minHeight: '2.8em',
                   letterSpacing: '0.2em',
                   textTransform: 'uppercase',
                   color: 'var(--text-3)',
@@ -123,33 +140,39 @@ export default function MembershipSection({ plans }: { plans: LandingPlan[] }) {
                 {plan.name} · {plan.tier}
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontWeight: 800,
-                    fontSize: plan.featured ? 56 : 46,
-                    lineHeight: 1,
-                    color: plan.featured ? 'var(--gold-lit)' : 'var(--text)',
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  {plan.price}
-                </span>
-                <span style={{ fontSize: 12.5, color: 'var(--text-3)' }}>{plan.unit}</span>
+              {/* One size on every card. The featured plan is picked out by
+                  its colour, not by a bigger number. */}
+              <div
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontWeight: 800,
+                  fontSize: 48,
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                  color: plan.featured ? 'var(--gold-lit)' : 'var(--text)',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {plan.price}
               </div>
 
-              {/* True per-month equivalent — the anchor that makes the
-                  longer plans obviously the better deal. */}
+              {/* The unit sits under the price rather than beside it: beside
+                  it, "per 12 months" wrapped on some cards and not others.
+                  The per-month figure is the anchor that makes the longer
+                  plans obviously the better deal. */}
               <div
                 style={{
                   fontSize: 12.5,
-                  color: plan.perMonth ? 'var(--gold)' : 'transparent',
+                  lineHeight: '18px',
+                  color: 'var(--text-3)',
                   fontVariantNumeric: 'tabular-nums',
-                  minHeight: 18,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
-                {plan.perMonth ?? '—'}
+                {plan.unit}
+                {plan.perMonth && <span style={{ color: 'var(--gold)' }}> · {plan.perMonth}</span>}
               </div>
 
               <hr className="hairline" style={{ margin: '6px 0 10px' }} />

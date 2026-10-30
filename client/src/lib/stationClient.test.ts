@@ -54,6 +54,21 @@ describe('fetchStationBatch', () => {
     expect(await fetchStationBatch(STAFF, null)).toEqual({ kind: 'SESSION_EXPIRED' });
   });
 
+  it('reads 401 SESSION_REPLACED on the staff display as signed in on another device', async () => {
+    const replaced = {
+      success: false,
+      error: { code: 'SESSION_REPLACED', message: 'Signed in on another device.' },
+    };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(401, replaced)));
+    expect(await fetchStationBatch(STAFF, null)).toEqual({ kind: 'SESSION_REPLACED' });
+  });
+
+  it('keeps a tablet key 401 as revoked, whatever its code: a tablet has no sign-in', async () => {
+    const replaced = { success: false, error: { code: 'SESSION_REPLACED', message: 'x' } };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(401, replaced)));
+    expect(await fetchStationBatch(TABLET, null)).toEqual({ kind: 'REVOKED' });
+  });
+
   it('reads a 403 on the staff display as an account that may not show the code', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respond(403, { success: false })));
     expect(await fetchStationBatch(STAFF, null)).toEqual({ kind: 'FORBIDDEN' });

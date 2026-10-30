@@ -61,7 +61,12 @@ describe('adminApi — C4 wrappers', () => {
   });
 
   it('createMember() posts to /members', async () => {
-    const body = { firstName: 'Jon', lastName: 'Snow', email: 'jon@wall.example' };
+    const body = {
+      firstName: 'Jon',
+      lastName: 'Snow',
+      email: 'jon@wall.example',
+      dateOfBirth: '1995-05-05',
+    };
     await adminApi.createMember(body);
     expect(apiFetch).toHaveBeenCalledWith('/members', {
       method: 'POST',
@@ -397,6 +402,36 @@ describe('adminApi — classes and the register', () => {
       vi.mocked(apiFetch).mockResolvedValueOnce(OLD_SESSION);
       expect((await write()).waitlistCount).toBe(0);
     }
+  });
+
+  /** "Repeat weekly" (2026-10-30): one POST, the first class back, and the series with it. */
+  it('createClassSession() sends repeatWeeks only when asked, and reads either API as a series', async () => {
+    const body = {
+      title: 'HIIT',
+      coachId: 'c1',
+      startsAt: OLD_SESSION.startsAt,
+      endsAt: OLD_SESSION.endsAt,
+      capacity: 16,
+    };
+    // The API before it answered with the class alone: a series of one.
+    vi.mocked(apiFetch).mockResolvedValueOnce(OLD_SESSION);
+    const single = await adminApi.createClassSession(body);
+    expect(apiFetch).toHaveBeenLastCalledWith('/admin/class-sessions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+    expect([single.id, single.count, single.sessions.map((s) => s.id)]).toEqual(['s1', 1, ['s1']]);
+
+    const first = { ...OLD_SESSION, waitlistCount: 0 };
+    const second = { ...first, id: 's2', businessDate: '2026-10-21' };
+    vi.mocked(apiFetch).mockResolvedValueOnce({ ...first, count: 2, sessions: [first, second] });
+    const series = await adminApi.createClassSession({ ...body, repeatWeeks: 2 });
+    expect(apiFetch).toHaveBeenLastCalledWith('/admin/class-sessions', {
+      method: 'POST',
+      body: JSON.stringify({ ...body, repeatWeeks: 2 }),
+    });
+    expect(series).toMatchObject({ id: 's1', businessDate: '2026-10-14', count: 2 });
+    expect(series.sessions.map((s) => s.businessDate)).toEqual(['2026-10-14', '2026-10-21']);
   });
 
   it('classRegister() reads the register under the session', async () => {

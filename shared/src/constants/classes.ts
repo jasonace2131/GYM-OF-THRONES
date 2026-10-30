@@ -78,3 +78,11 @@ export function bookingWindowDaysFor(planCode: string | null | undefined): numbe
     ? CLASS_PRIORITY_BOOKING_WINDOW_DAYS
     : CLASS_BOOKING_WINDOW_DAYS;
 }
+
+/**
+ * "Repeat weekly" (owner, 2026-10-30): the most classes one scheduling request
+ * may create, a week apart, the first included — twelve weeks, about three
+ * months of a regular slot. The console and the coach's form offer 2 to this;
+ * the API takes 1 to this, where 1 (or nothing) is a single class.
+ */
+export const CLASS_REPEAT_WEEKS_MAX = 12;

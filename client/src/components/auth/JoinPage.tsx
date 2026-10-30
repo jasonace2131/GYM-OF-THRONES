@@ -3,17 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { BIRTH_DATE_MIN, type MemberJoinLookup } from '@got/shared';
+import type { MemberJoinLookup } from '@got/shared';
 import AuthBrandPanel from './AuthBrandPanel';
 import { NewPasswordFields } from './NewPasswordFields';
+import { BirthDateInput } from '@/components/inputs/BirthDateInput';
 import { supabase } from '@/lib/supabase';
 import { ApiError, apiFetch } from '@/lib/api';
 import { normalisePassword } from '@/lib/credentials';
 import { newPasswordProblem, passwordRefusalMessage } from '@/lib/passwordRules';
 import { homeFor, type HeldPermission } from '@/lib/safeNext';
 import {
+  asksDateOfBirth,
   birthDateProblem,
-  dayBefore,
   deadJoinCopy,
   isSamePasswordError,
   joinErrorCopy,
@@ -77,8 +78,10 @@ function localToday(): string {
  *
  * Faces: loading; dead (already set up, expired, not valid); signed out or
  * signed in as somebody else ("Set up my account"); signed in as the member
- * (choose a password, date of birth, finish). The password is saved with
- * Supabase BEFORE `accept`, so a failed accept never leaves them without one.
+ * (choose a password, date of birth unless the desk entered it, finish). The
+ * password is saved with Supabase BEFORE `accept`, so a failed accept never
+ * leaves them without one; the date of birth, under 12 included, is checked
+ * before either.
  */
 export default function JoinPage({ token }: { token: string }) {
   const router = useRouter();
@@ -154,7 +157,8 @@ export default function JoinPage({ token }: { token: string }) {
       setPasswordTried(true);
       return;
     }
-    const dobProblem = birthDateProblem(dateOfBirth, localToday());
+    const askDate = asksDateOfBirth(joinLink);
+    const dobProblem = askDate ? birthDateProblem(dateOfBirth, localToday()) : null;
     if (dobProblem !== null) {
       setProblem({ title: 'Date of birth', body: dobProblem });
       return;
@@ -173,7 +177,7 @@ export default function JoinPage({ token }: { token: string }) {
         }
         savedPassword.current = next;
       }
-      await memberJoinApi.accept(token, dateOfBirth);
+      await memberJoinApi.accept(token, askDate ? dateOfBirth : undefined);
       const me = await apiFetch<{ permissions: HeldPermission[] }>('/me');
       // Stays busy: the page is leaving, and a live button would invite a second
       // submit while the portal loads.
@@ -182,7 +186,7 @@ export default function JoinPage({ token }: { token: string }) {
       setProblem(joinErrorCopy(caught instanceof ApiError ? caught.code : null));
       setBusy(false);
     }
-  }, [password, confirm, dateOfBirth, token, router]);
+  }, [password, confirm, dateOfBirth, joinLink, token, router]);
 
   const signOut = async (): Promise<void> => {
     await supabase.auth.signOut();
@@ -290,19 +294,19 @@ export default function JoinPage({ token }: { token: string }) {
                   showMissing={passwordTried}
                   disabled={busy}
                 />
-                <div className="field">
-                  <label htmlFor="join-dob">Date of birth</label>
-                  <input
-                    id="join-dob"
-                    className="input"
-                    type="date"
-                    value={dateOfBirth}
-                    min={BIRTH_DATE_MIN}
-                    max={dayBefore(localToday())}
-                    onChange={(event) => setDateOfBirth(event.target.value)}
-                    required
-                  />
-                </div>
+                {asksDateOfBirth(joinLink) ? (
+                  <div className="field">
+                    <label htmlFor="join-dob">Date of birth</label>
+                    <BirthDateInput
+                      id="join-dob"
+                      className="input"
+                      today={localToday()}
+                      value={dateOfBirth}
+                      onChange={setDateOfBirth}
+                      required
+                    />
+                  </div>
+                ) : null}
 
                 {problemAlert}
 

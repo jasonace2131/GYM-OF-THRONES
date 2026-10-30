@@ -63,6 +63,14 @@ export function loadTestEnv(): void {
   if (process.env['LOGIN_CODE_REQUIRED'] === undefined) {
     process.env['LOGIN_CODE_REQUIRED'] = 'false';
   }
+
+  // One device at a time is OFF too unless a spec turns it on: every
+  // `tokenFor()` is a fresh sign-in, so a spec that mints a second token for
+  // the same fixture user would find its first one answered 401
+  // SESSION_REPLACED.
+  if (process.env['SINGLE_SESSION_REQUIRED'] === undefined) {
+    process.env['SINGLE_SESSION_REQUIRED'] = 'false';
+  }
 }
 
 loadTestEnv();

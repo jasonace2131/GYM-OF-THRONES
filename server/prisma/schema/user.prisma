@@ -39,6 +39,16 @@ model User {
 
   lastSeenAt DateTime? @db.Timestamptz(3)
 
+  // One device at a time (owner, 2026-10-30): the Supabase sign-in
+  // (`session_id`) allowed to use this account, and when it signed in (its
+  // latest `amr` timestamp, NOT `iat`, which every token refresh renews). A
+  // verified sign-in that is newer takes it over; an older one is answered
+  // 401 SESSION_REPLACED. Both null until the first verified request, and
+  // written only on a takeover, never on every request. Read with the
+  // per-request user row but kept out of AuthUser (user-provisioning.service.ts).
+  activeSessionId         String?   @db.Uuid
+  activeSessionSignedInAt DateTime? @db.Timestamptz(3)
+
   // The member's announcements watermark: every notice created at or before
   // this instant counts as seen. Moved ONLY by opening the bell
   // (POST /me/announcements/seen), and only forwards. NULL means "never

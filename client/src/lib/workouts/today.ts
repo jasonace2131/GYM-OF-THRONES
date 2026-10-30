@@ -17,7 +17,7 @@ import { coachDayHref, coachDays, coachName, coachPlanTitle } from './coachPlan'
 import { durationText, kgText, summaryHref } from './history';
 import { TIME_LABEL, WEEKDAY_LONG, WEEKDAY_SHORT, WEEK_ORDER } from './labels';
 import { aboutMinutes, dose, doseLine, exerciseCount, restLabel } from './planView';
-import { viewProgress } from './sessionState';
+import { startedBefore, startedLabel, viewProgress } from './sessionState';
 import { coachToday, finishedOn, todaySource } from './todaySource';
 
 /**
@@ -326,7 +326,13 @@ export type TodayModel =
       /** "From Coach Ana's plan · 5 exercises". */
       line: string;
       progress: ReturnType<typeof viewProgress>;
+      /** "Started 6:12 PM", or "Started Wed, Sep 30" when it is from an earlier day. */
       startedLabel: string;
+      /**
+       * Started on an earlier gym day and never finished. Nothing new can be
+       * started until it is finished or discarded, so the card says so.
+       */
+      leftOpen: boolean;
       href: string;
     }
   | {
@@ -415,7 +421,8 @@ export function todayModel(
       title: home.session.dayTitle,
       line: openLine(home.session),
       progress: viewProgress(home.session),
-      startedLabel: `Started ${gymClock12(home.session.startedAt)}`,
+      startedLabel: startedLabel(home.session, today),
+      leftOpen: startedBefore(home.session, today),
       href: SESSION_HREF,
     };
   }
@@ -550,12 +557,12 @@ export function dashboardCard(model: TodayModel): DashboardCardCopy | null {
   switch (model.kind) {
     case 'open':
       return {
-        heading: 'Workout in progress',
+        heading: model.leftOpen ? 'Workout not finished' : 'Workout in progress',
         planLabel: model.session.planName,
         title: model.title,
-        meta: `${model.progress.complete} of ${model.progress.total} exercises done`,
+        meta: `${model.leftOpen ? `${model.startedLabel} · ` : ''}${model.progress.complete} of ${model.progress.total} exercises done`,
         href: model.href,
-        cta: 'Continue',
+        cta: model.leftOpen ? 'Open' : 'Continue',
       };
     case 'done':
       return {

@@ -125,6 +125,7 @@ so the deployed values are visible rather than implied:**
 | `SCHEDULER_ENABLED`  | `true`          | **Set to `false` on every instance but one** if you ever scale past one — the nightly job is not distributed-safe.                 |
 | `GYM_VAT_REGISTERED` | `false`         | Drives the statutory senior/PWD computation. Ask the owner before changing.                                                        |
 | `LOGIN_CODE_REQUIRED` | `true`         | Every sign-in must enter an emailed 6-digit code. **Needs `RESEND_API_KEY` and `RESEND_FROM` set first** — with them missing nobody can finish signing in (the boot log says so). Merge the change that turns it on outside opening hours: every device already signed in asks for one code. If email breaks, set `false` and restart: everyone signs in with the password alone until it is fixed. The chat (Realtime) side of the switch follows only a production process (`NODE_ENV=production`): a local `npm run dev:server` never writes it. |
+| `SINGLE_SESSION_REQUIRED` | `true`     | One device at a time: when an account signs in on a second device, the first is signed out on its next request and its login page says why. Needs migration `20261030000000_user_active_session` (applied by the normal `prisma migrate deploy`). If it ever gets in the way, set `false` and restart: accounts may then stay signed in on several devices. |
 
 Everything else (`MEMBERSHIP_*`, `CHECKIN_*`, `STATION_*` thresholds,
 `SHIFT_VARIANCE_NOTE_THRESHOLD_CENTAVOS`, `IDEMPOTENCY_RETENTION_HOURS`,

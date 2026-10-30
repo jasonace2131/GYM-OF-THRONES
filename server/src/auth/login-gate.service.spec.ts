@@ -9,6 +9,7 @@ import { LoginGateService, VERIFIED_SESSION_CACHE_SIZE } from './login-gate.serv
 const SESSION: AuthSession = {
   sessionId: '99999999-9999-4999-8999-999999999999',
   viaEmailLink: false,
+  signedInAt: null,
 };
 
 function build(
@@ -52,7 +53,7 @@ describe('LoginGateService', () => {
     gate.remember(SESSION.sessionId);
     // A refreshed token carries the same session_id and nothing else the gate reads.
     await expect(
-      gate.isVerified({ sessionId: SESSION.sessionId, viaEmailLink: false }),
+      gate.isVerified({ sessionId: SESSION.sessionId, viaEmailLink: false, signedInAt: null }),
     ).resolves.toBe(true);
     expect(findUnique).not.toHaveBeenCalled();
   });
@@ -77,12 +78,12 @@ describe('LoginGateService', () => {
     gate.remember(id(1));
     for (let n = 2; n < VERIFIED_SESSION_CACHE_SIZE; n += 1) gate.remember(id(n));
     // id(0) is touched, so id(1) is now the coldest.
-    await expect(gate.isVerified({ sessionId: id(0), viaEmailLink: false })).resolves.toBe(true);
+    await expect(gate.isVerified({ ...SESSION, sessionId: id(0) })).resolves.toBe(true);
     gate.remember(id(VERIFIED_SESSION_CACHE_SIZE));
 
-    await expect(gate.isVerified({ sessionId: id(0), viaEmailLink: false })).resolves.toBe(true);
+    await expect(gate.isVerified({ ...SESSION, sessionId: id(0) })).resolves.toBe(true);
     expect(findUnique).not.toHaveBeenCalled();
-    await expect(gate.isVerified({ sessionId: id(1), viaEmailLink: false })).resolves.toBe(false);
+    await expect(gate.isVerified({ ...SESSION, sessionId: id(1) })).resolves.toBe(false);
     expect(findUnique).toHaveBeenCalledTimes(1);
   });
 

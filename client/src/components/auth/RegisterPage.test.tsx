@@ -4,14 +4,15 @@ import { createRoot, type Root } from 'react-dom/client';
 
 /** A signed-in visitor on /register is routed on, not offered a second account (2026-10-23). */
 
-const { getSession, apiFetch, replace, signUp } = vi.hoisted(() => ({
+const { getSession, apiFetch, replace, signUp, signOut } = vi.hoisted(() => ({
   getSession: vi.fn(),
   apiFetch: vi.fn(),
   replace: vi.fn(),
   signUp: vi.fn(),
+  signOut: vi.fn(),
 }));
 
-vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getSession, signUp } } }));
+vi.mock('@/lib/supabase', () => ({ supabase: { auth: { getSession, signUp, signOut } } }));
 vi.mock('@/lib/api', () => ({
   apiFetch,
   ApiError: class ApiError extends Error {
@@ -46,6 +47,7 @@ beforeEach(() => {
   getSession.mockReset();
   apiFetch.mockReset();
   replace.mockReset();
+  signOut.mockReset();
 });
 
 afterEach(() => {
@@ -94,37 +96,51 @@ describe('RegisterPage with an existing session', () => {
     await render();
     expect(form()).not.toBeNull();
     expect(replace).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  // Owner, 2026-10-30: the API refused this sign-up's account as under 12.
+  it('a sign-up refused as under 12: signed out, the form, and the reason', async () => {
+    getSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } });
+    apiFetch.mockRejectedValue(new ApiError('too young', 403, 'AGE_REQUIREMENT_NOT_MET'));
+    await render();
+    expect(signOut).toHaveBeenCalled();
+    expect(form()).not.toBeNull();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      'You need to be at least 12 years old to create an account.',
+    );
+    expect(replace).not.toHaveBeenCalled();
   });
 });
 
+function field(label: string): HTMLInputElement {
+  const el = Array.from(container.querySelectorAll('label')).find(
+    (node) => node.textContent === label,
+  );
+  return container.querySelector(`[id="${el?.getAttribute('for') ?? ''}"]`) as HTMLInputElement;
+}
+
+function type(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  act(() => {
+    setter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+async function fillAndSubmit(password: string, dateOfBirth = '1995-05-05'): Promise<void> {
+  type(field('Full name'), 'Juan Dela Cruz');
+  type(field('Email'), 'juan@example.com');
+  type(field('Date of birth'), dateOfBirth);
+  type(field('Password'), password);
+  type(field('Confirm password'), password);
+  await act(async () => {
+    form()?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+  });
+}
+
 /** Sign-up follows the same five password rules as every screen that sets one (2026-10-26). */
 describe('RegisterPage password', () => {
-  function field(label: string): HTMLInputElement {
-    const el = Array.from(container.querySelectorAll('label')).find(
-      (node) => node.textContent === label,
-    );
-    return container.querySelector(`[id="${el?.getAttribute('for') ?? ''}"]`) as HTMLInputElement;
-  }
-
-  function type(input: HTMLInputElement, value: string): void {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    act(() => {
-      setter?.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  }
-
-  async function fillAndSubmit(password: string): Promise<void> {
-    type(field('Full name'), 'Juan Dela Cruz');
-    type(field('Email'), 'juan@example.com');
-    type(field('Date of birth'), '1995-05-05');
-    type(field('Password'), password);
-    type(field('Confirm password'), password);
-    await act(async () => {
-      form()?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-    });
-  }
-
   beforeEach(() => {
     signUp.mockReset();
     getSession.mockResolvedValue({ data: { session: null } });
@@ -165,5 +181,31 @@ describe('RegisterPage password', () => {
     await render();
     await fillAndSubmit(`Thr0nes!Gym${String.fromCharCode(0x200b)}`);
     expect(signUp).toHaveBeenCalledWith(expect.objectContaining({ password: 'Thr0nes!Gym' }));
+  });
+});
+
+/** Owner, 2026-10-30: nobody under 12 has an account. Refused before Supabase is asked. */
+describe('RegisterPage date of birth', () => {
+  beforeEach(() => {
+    signUp.mockReset();
+    getSession.mockResolvedValue({ data: { session: null } });
+  });
+
+  it('refuses under 12 with the shared message, and never signs up', async () => {
+    await render();
+    await fillAndSubmit('Thr0nes!Gym', '2020-06-01');
+    expect(signUp).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      'You need to be at least 12 years old to create an account.',
+    );
+  });
+
+  it('offers no date in the picker after the latest 12th birthday', async () => {
+    await render();
+    const input = field('Date of birth');
+    expect(input.type).toBe('date');
+    const max = input.getAttribute('max') ?? '';
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    expect(max).toBe(`${Number(today.slice(0, 4)) - 12}${today.slice(4)}`);
   });
 });

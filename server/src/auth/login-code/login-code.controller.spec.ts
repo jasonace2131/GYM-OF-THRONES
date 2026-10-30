@@ -17,6 +17,7 @@ const USER = { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } as AuthUser;
 const SESSION: AuthSession = {
   sessionId: '99999999-9999-4999-8999-999999999999',
   viaEmailLink: false,
+  signedInAt: null,
 };
 
 /** Every .ts file under `dir`, recursively. */

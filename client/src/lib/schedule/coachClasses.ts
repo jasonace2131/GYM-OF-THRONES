@@ -1,4 +1,5 @@
 import type { ClassSession } from '@/lib/classes';
+import { REPEAT_WEEKS, repeatWeeksProblem } from './classRepeat';
 import { gymParts } from './gymClock';
 
 /**
@@ -19,6 +20,13 @@ export interface ClassDraft {
   start: string;
   minutes: number;
   capacity: number;
+  /**
+   * "Repeat weekly" (owner, 2026-10-30), a new class only: the same class
+   * every week for `weeks` weeks, the first included. `weeks` is kept while
+   * the switch is off, so switching it back on finds the number it had.
+   */
+  repeat: boolean;
+  weeks: number;
 }
 
 export const CLASS_LIMITS = { titleMax: 80, minutesMin: 10, minutesMax: 300, placesMax: 500 };
@@ -28,8 +36,9 @@ const hhmm = (minutes: number): string =>
 
 /** The form's starting values: a new class on `day`, or the class as it is. */
 export function draftFor(session: ClassSession | null, day: string): ClassDraft {
+  const once = { repeat: false, weeks: REPEAT_WEEKS.default };
   if (session === null) {
-    return { title: '', date: day, start: '18:00', minutes: 60, capacity: 16 };
+    return { title: '', date: day, start: '18:00', minutes: 60, capacity: 16, ...once };
   }
   return {
     title: session.title,
@@ -39,6 +48,7 @@ export function draftFor(session: ClassSession | null, day: string): ClassDraft 
       (new Date(session.endsAt).getTime() - new Date(session.startsAt).getTime()) / 60_000,
     ),
     capacity: session.capacity,
+    ...once,
   };
 }
 
@@ -72,17 +82,34 @@ export function classFormProblem(draft: ClassDraft): string | null {
   if (!Number.isInteger(draft.capacity) || draft.capacity < 1 || draft.capacity > CLASS_LIMITS.placesMax) {
     return 'Places must be 1 to 500.';
   }
+  if (draft.repeat) return repeatWeeksProblem(draft.weeks);
   return null;
 }
 
-/** `POST /admin/class-sessions` — the coach is always the caller. */
+/**
+ * `POST /admin/class-sessions` — the coach is always the caller. `repeatWeeks`
+ * only when repeating: a single class sends exactly the body it always did.
+ */
 export function createBody(
   draft: ClassDraft,
   coachId: string,
-): { title: string; coachId: string; startsAt: string; endsAt: string; capacity: number } {
+): {
+  title: string;
+  coachId: string;
+  startsAt: string;
+  endsAt: string;
+  capacity: number;
+  repeatWeeks?: number;
+} {
   const times = instantsOf(draft);
   if (times === null) throw new Error('createBody: no date');
-  return { title: draft.title.trim(), coachId, ...times, capacity: draft.capacity };
+  return {
+    title: draft.title.trim(),
+    coachId,
+    ...times,
+    capacity: draft.capacity,
+    ...(draft.repeat ? { repeatWeeks: draft.weeks } : {}),
+  };
 }
 
 export interface ClassPatchBody {

@@ -213,16 +213,27 @@ describe('MemberJoinService', () => {
   });
 
   describe('lookup', () => {
-    it('answers PENDING with the first name and the full email', async () => {
+    it('answers PENDING with the first name, the full email and whether to ask for a birth date', async () => {
       prisma.memberJoinLink.findUnique.mockResolvedValue(link());
       await expect(service.lookup(TOKEN, NOW)).resolves.toEqual({
         firstName: 'Ana',
         status: 'PENDING',
         email: 'ana@example.com',
+        needsDateOfBirth: true,
       });
       expect(prisma.memberJoinLink.findUnique).toHaveBeenCalledWith(
         expect.objectContaining({ where: { tokenHash: hashInvitationToken(TOKEN) } }),
       );
+    });
+
+    it('tells the page not to ask when the desk already entered the date of birth', async () => {
+      prisma.memberJoinLink.findUnique.mockResolvedValue(
+        link({ user: { ...link().user, dateOfBirth: new Date('1995-03-02T00:00:00.000Z') } }),
+      );
+      await expect(service.lookup(TOKEN, NOW)).resolves.toMatchObject({
+        status: 'PENDING',
+        needsDateOfBirth: false,
+      });
     });
 
     it('answers USED and EXPIRED without the email', async () => {
@@ -416,14 +427,61 @@ describe('MemberJoinService', () => {
       expect(prisma.memberJoinLink.updateMany).not.toHaveBeenCalled();
     });
 
-    it("stores a child's birth date — there is no minimum age (owner, 2026-10-23)", async () => {
+    // Owner, 2026-10-30: under 12 has no account (reversing 2026-10-23's "no
+    // minimum age", when this test stored a child's date). Refused before the
+    // link is claimed, so the refusal does not use it up.
+    it('refuses under 12 with 400 AGE_REQUIREMENT_NOT_MET, and leaves the link unused', async () => {
+      prisma.memberJoinLink.findUnique.mockResolvedValue(link());
+
+      await expect(service.accept(MEMBER_ID, TOKEN, '2015-01-01', NOW)).rejects.toMatchObject({
+        response: {
+          code: 'AGE_REQUIREMENT_NOT_MET',
+          message: 'You need to be at least 12 years old to create an account.',
+        },
+        status: 400,
+      });
+      expect(prisma.memberJoinLink.updateMany).not.toHaveBeenCalled();
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('stores a date on the 12th birthday itself', async () => {
       prisma.memberJoinLink.findUnique.mockResolvedValue(link());
       prisma.memberJoinLink.updateMany.mockResolvedValue({ count: 1 });
       prisma.user.updateMany.mockResolvedValue({ count: 1 });
 
-      await expect(service.accept(MEMBER_ID, TOKEN, '2015-01-01', NOW)).resolves.toEqual({
+      // NOW is 2026-10-14 04:00 UTC.
+      await expect(service.accept(MEMBER_ID, TOKEN, '2014-10-14', NOW)).resolves.toEqual({
         dateOfBirthSaved: true,
       });
+    });
+
+    it('requires a date (400) when none is on file, before claiming the link', async () => {
+      prisma.memberJoinLink.findUnique.mockResolvedValue(link());
+
+      await expect(service.accept(MEMBER_ID, TOKEN, undefined, NOW)).rejects.toMatchObject({
+        status: 400,
+      });
+      expect(prisma.memberJoinLink.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('needs no date when the desk entered one, and never overwrites it', async () => {
+      prisma.memberJoinLink.findUnique.mockResolvedValue(
+        link({ user: { ...link().user, dateOfBirth: new Date('1995-03-02T00:00:00.000Z') } }),
+      );
+      prisma.memberJoinLink.updateMany.mockResolvedValue({ count: 1 });
+
+      await expect(service.accept(MEMBER_ID, TOKEN, undefined, NOW)).resolves.toEqual({
+        dateOfBirthSaved: false,
+      });
+      // A date sent anyway (an older page) is ignored, not judged.
+      await expect(service.accept(MEMBER_ID, TOKEN, '2015-01-01', NOW)).resolves.toEqual({
+        dateOfBirthSaved: false,
+      });
+      expect(prisma.memberJoinLink.updateMany).toHaveBeenCalledWith({
+        where: { id: 'link-1', usedAt: null },
+        data: { usedAt: NOW },
+      });
+      expect(prisma.user.updateMany).not.toHaveBeenCalled();
     });
 
     it('does not store a date in the future, and still finishes', async () => {

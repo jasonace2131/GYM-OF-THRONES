@@ -1,4 +1,4 @@
-import { IsString, Length, Matches } from 'class-validator';
+import { IsOptional, IsString, Length, Matches } from 'class-validator';
 import { IsBirthDate } from '../../common/validators/is-birth-date.validator';
 
 /**
@@ -21,8 +21,10 @@ export class MemberJoinTokenDto {
  * sets it with Supabase directly, before calling this.
  *
  * `dateOfBirth` is a `yyyy-mm-dd` civil date from a date input. The SHAPE is
- * checked here; the service re-checks it with `asBirthDate`, the same rule self sign-up uses —
- * service, the same rule self sign-up uses.
+ * checked here; the service re-checks it with `asBirthDate`, the same rule self
+ * sign-up uses, and applies the minimum age. Optional because the page does not
+ * ask when one is already on file (every counter sign-up since 2026-10-30); the
+ * service still requires it when none is.
  */
 export class AcceptMemberJoinDto {
   @IsString()
@@ -30,6 +32,7 @@ export class AcceptMemberJoinDto {
   @Matches(TOKEN_SHAPE)
   token!: string;
 
+  @IsOptional()
   @IsBirthDate()
-  dateOfBirth!: string;
+  dateOfBirth?: string;
 }

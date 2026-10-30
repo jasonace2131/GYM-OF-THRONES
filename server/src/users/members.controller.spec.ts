@@ -55,7 +55,12 @@ describe('MembersController — write routes', () => {
 
   it('create() forwards the dto, the CALLER object (not just its id) and the origin', async () => {
     const { controller, members } = buildController();
-    const dto = { firstName: 'Jon', lastName: 'Snow', email: 'jon@example.com' };
+    const dto = {
+      firstName: 'Jon',
+      lastName: 'Snow',
+      email: 'jon@example.com',
+      dateOfBirth: '1995-05-05',
+    };
     members.create.mockResolvedValue('result' as never);
 
     await controller.create(dto, CALLER, ORIGIN);

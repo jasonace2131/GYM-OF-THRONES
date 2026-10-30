@@ -84,7 +84,7 @@ describe('portal nav', () => {
     expect(labels(portalVisibleNav(CLIENT_PERMISSIONS))).toEqual({
       Main: ['Dashboard', 'Workouts', 'Class Schedule', 'My Bookings', 'Check-in History'],
       Membership: ['My Subscription', 'Pay / GCash'],
-      More: ['Check In', 'My Progress', 'My Coach', 'Ask the Gym', 'My Account'],
+      More: ['Attendance', 'My Progress', 'My Coach', 'Ask the Gym', 'My Account'],
     });
   });
 
@@ -125,7 +125,7 @@ describe('portal nav', () => {
       Main: ['Dashboard', 'Workouts', 'Class Schedule', 'My Bookings', 'Check-in History'],
       Membership: ['My Subscription', 'Pay / GCash'],
       Coaching: ['My Clients', 'Messages'],
-      More: ['Check In', 'My Progress', 'My Coach', 'Ask the Gym', 'My Account'],
+      More: ['Attendance', 'My Progress', 'My Coach', 'Ask the Gym', 'My Account'],
     });
   });
 
@@ -142,6 +142,11 @@ describe('portal nav', () => {
     expect(titleForPath('/portal/account')).toBe('My Account');
   });
 
+  // The same scan checks a member in and out, so the page is Attendance (owner, 2026-10-30).
+  it('titles the check-in page Attendance', () => {
+    expect(titleForPath('/portal/checkin')).toBe('Attendance');
+  });
+
   it("titles a client's own page after My Clients, which it was reached from", () => {
     expect(titleForPath('/portal/coaching/members/u1')).toBe('My Clients');
     expect(titleForPath('/portal/coaching/messages')).toBe('Messages');
@@ -154,7 +159,7 @@ describe('portal tab bar', () => {
   // feat/member-workouts: Workouts is the member's fourth tab; Plan (the
   // subscription) moves to More. A coach gets their clients and messages.
   it('gives a member Workouts and a coach Clients and Messages', () => {
-    expect(tabs(CLIENT_PERMISSIONS)).toEqual(['Home', 'Classes', 'Check In', 'Workouts']);
+    expect(tabs(CLIENT_PERMISSIONS)).toEqual(['Home', 'Classes', 'Attendance', 'Workouts']);
     expect(tabs(COACH_PERMISSIONS)).toEqual(['Home', 'Classes', 'Clients', 'Messages']);
   });
 
@@ -178,7 +183,7 @@ describe('portal tab bar', () => {
   });
 
   it('holds at most four tabs — the fifth column is More', () => {
-    expect(tabs(DEV_PERMISSIONS)).toEqual(['Home', 'Classes', 'Check In', 'Workouts']);
+    expect(tabs(DEV_PERMISSIONS)).toEqual(['Home', 'Classes', 'Attendance', 'Workouts']);
   });
 });
 

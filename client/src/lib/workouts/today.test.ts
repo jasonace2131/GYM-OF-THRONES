@@ -188,6 +188,7 @@ describe('todayModel', () => {
     expect(model.title).toBe('Full body B');
     expect(model.line).toBe('Beginner Muscle · 5 exercises');
     expect(model.startedLabel).toBe('Started 6:12 PM');
+    expect(model.leftOpen).toBe(false);
     expect(model.progress).toMatchObject({ complete: 2, total: 5 });
     expect(model.progress.segments).toEqual(['done', 'done', 'current', 'todo', 'todo']);
 
@@ -334,6 +335,21 @@ describe('dashboardCard', () => {
       meta: '3 days to choose from',
       href: '/portal/workouts',
       cta: 'Choose',
+    });
+  });
+
+  it('says a workout from an earlier day was never finished, and when it started', () => {
+    const later = '2026-10-02' as CivilDate;
+    const model = todayModel({ ...HOME, session: SESSION }, later);
+    expect(model.kind === 'open' && model.leftOpen).toBe(true);
+    expect(model.kind === 'open' && model.startedLabel).toBe('Started Wed, Sep 30');
+    expect(dashboardCard(model)).toEqual({
+      heading: 'Workout not finished',
+      planLabel: 'Beginner Muscle',
+      title: 'Full body B',
+      meta: 'Started Wed, Sep 30 · 2 of 5 exercises done',
+      href: '/portal/workouts/session',
+      cta: 'Open',
     });
   });
 

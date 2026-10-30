@@ -17,6 +17,7 @@ import {
 import { RequirePermission } from '@/components/rbac/guards';
 import { hasPermission } from '@/lib/rbac/permissions';
 import { STAFF_HOME, isStaff } from '@/lib/safeNext';
+import { signedOutLoginPath } from '@/lib/sessionReplaced';
 import { IconSignOut } from '@/components/portal/icons';
 import { SurfaceSwitch } from '@/components/portal/SurfaceSwitch';
 import { SignOutButton } from '@/components/auth/ConfirmSignOutDialog';
@@ -115,10 +116,13 @@ function AdminShell({ children }: { children: React.ReactNode }) {
             ? 'forbidden'
             : 'unreachable';
 
+  // After 401 SESSION_REPLACED (a newer sign-in on another device) this is the
+  // same `?reason=replaced` address `apiFetch` is about to load, so the login
+  // page says why whichever navigation lands first.
   useEffect(() => {
     if (gate !== 'anonymous') return;
     const search = typeof window === 'undefined' ? '' : window.location.search;
-    router.replace(`/login?next=${encodeURIComponent(`${pathname}${search}`)}`);
+    router.replace(signedOutLoginPath(pathname, search));
   }, [gate, pathname, router]);
 
   const signOut = useCallback(async () => {

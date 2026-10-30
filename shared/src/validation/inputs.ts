@@ -120,17 +120,73 @@ export const STATUTORY_ID_MAX = 64;
 export const EMERGENCY_CONTACT_MAX = 200;
 
 // ── Dates of birth ───────────────────────────────────────────────────────
-
-/** The earliest date of birth any form accepts. */
-export const BIRTH_DATE_MIN = '1900-01-01';
+//
+// Every `today` below is a `yyyy-mm-dd` civil date, and so is every result.
 
 /**
- * A `yyyy-mm-dd` date of birth: a real calendar date, not before
- * `BIRTH_DATE_MIN`, never after `today` (also `yyyy-mm-dd`). No minimum age.
+ * A date of birth is less than this many years before today: the database's
+ * own bound (`User_dob_plausible`: `dateOfBirth > CURRENT_DATE - interval
+ * '120 years'`), so no form accepts a date the database refuses. It used to be
+ * a fixed 1900-01-01, and a self-registered member born before the CHECK's
+ * bound failed the first-sight insert and was turned away at every sign-in.
  */
-export function isPlausibleBirthDate(value: string, today: string): boolean {
+export const BIRTH_DATE_MAX_YEARS = 120;
+
+/**
+ * Nobody under this age has an account (owner, 2026-10-30, reversing
+ * 2026-10-23's "no minimum age"). Refused at sign-up, at the counter and on
+ * the setup link. Accounts already on file are left alone.
+ */
+export const MINIMUM_ACCOUNT_AGE = 12;
+
+export const MINIMUM_AGE_MESSAGE = `You need to be at least ${MINIMUM_ACCOUNT_AGE} years old to create an account.`;
+
+function isCalendarDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return false;
-  return value >= BIRTH_DATE_MIN && value <= today;
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * The same month and day `years` earlier, as a STRING that may name 29
+ * February of a common year. Only ever compared, and that is deliberate: the
+ * string sorts between the 28th and 1 March, which is exactly where the
+ * comparisons below need it.
+ */
+function yearsBefore(day: string, years: number): string {
+  return `${String(Number(day.slice(0, 4)) - years).padStart(4, '0')}${day.slice(4)}`;
+}
+
+/**
+ * A real calendar date, less than `BIRTH_DATE_MAX_YEARS` years ago, never after
+ * `today`. Says nothing about the minimum age: that is `meetsMinimumAge`.
+ */
+export function isPlausibleBirthDate(value: string, today: string): boolean {
+  if (!isCalendarDate(value)) return false;
+  return value > yearsBefore(today, BIRTH_DATE_MAX_YEARS) && value <= today;
+}
+
+/**
+ * Whether somebody born on `dateOfBirth` is `MINIMUM_ACCOUNT_AGE` or older on
+ * `today`. The 12th birthday itself counts. A 29 February birthday turns 12 on
+ * 1 March in a common year (it is not yet 12 on the 28th).
+ */
+export function meetsMinimumAge(dateOfBirth: string, today: string): boolean {
+  return isCalendarDate(dateOfBirth) && dateOfBirth <= yearsBefore(today, MINIMUM_ACCOUNT_AGE);
+}
+
+/** The latest date of birth `meetsMinimumAge` accepts on `today`: a date input's `max`. */
+export function latestBirthDateFor(today: string): string {
+  const latest = yearsBefore(today, MINIMUM_ACCOUNT_AGE);
+  // Only 29 February of a common year is not a real day; the 28th is the last before it.
+  return isCalendarDate(latest) ? latest : `${latest.slice(0, 8)}28`;
+}
+
+/** The earliest date of birth `isPlausibleBirthDate` accepts on `today`: a date input's `min`. */
+export function earliestBirthDateFor(today: string): string {
+  const bound = yearsBefore(today, BIRTH_DATE_MAX_YEARS);
+  if (!isCalendarDate(bound)) return `${bound.slice(0, 5)}03-01`;
+  const next = new Date(`${bound}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
 }

@@ -22,6 +22,7 @@ import { BookingsService } from './bookings.service';
 import type {
   ClassRegisterEntry,
   ClassSessionDto,
+  CreateClassSessionResult,
   MarkAttendanceResult,
   MyBooking,
 } from './class.presenter';
@@ -128,6 +129,9 @@ export class AdminClassesController {
    * 2026-10-23) only classes the caller coaches — the service refuses any
    * other with 403 CLASS_NOT_YOURS, under the class lock. Same service, so
    * the same time, capacity and coach checks either way.
+   *
+   * With `repeatWeeks` one request schedules the class weekly, all or none;
+   * the Idempotency-Key covers the whole series (see ClassesService.create).
    */
   @Post()
   @RequirePermission('class.manage')
@@ -136,7 +140,7 @@ export class AdminClassesController {
     @CurrentUser() user: AuthUser,
     @GrantedScope() scope: PermissionScope,
     @Body() dto: CreateClassSessionDto,
-  ): Promise<ClassSessionDto> {
+  ): Promise<CreateClassSessionResult> {
     return this.classes.create(user.id, dto, undefined, ownerFor(user, scope));
   }
 

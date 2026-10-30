@@ -150,6 +150,14 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('true')
       .transform((value) => value === 'true'),
+    // One device at a time (owner, 2026-10-30): a newer verified sign-in signs
+    // the account's other device out (SingleSessionService). THE KILL SWITCH:
+    // 'false' and a restart lets an account stay signed in on several devices
+    // again. On by default. NOT z.coerce.boolean(), which maps "false" to true.
+    SINGLE_SESSION_REQUIRED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
     // ±₱200. Beyond this the closing staffer must type a note explaining the
     // difference, which is the only thing that makes a blind count useful.
     SHIFT_VARIANCE_NOTE_THRESHOLD_CENTAVOS: z.coerce.number().int().min(0).default(20000),
