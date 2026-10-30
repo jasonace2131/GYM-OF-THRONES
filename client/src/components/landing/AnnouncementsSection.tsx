@@ -35,11 +35,7 @@ export default function AnnouncementsSection() {
               LATEST <em>NEWS</em>
             </h2>
           </div>
-          <p className="lede" style={{ margin: 0, maxWidth: '34ch' }}>
-            Promos, schedule changes and new classes — posted here first, and sent to members by
-            SMS.
-          </p>
-        </div>
+          
 
         <div className="news-layout">
           {/* ── Lead story ──
