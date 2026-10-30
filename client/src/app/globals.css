@@ -1089,6 +1089,20 @@ header.site-nav.scrolled {
   }
 }
 
+/* The plan label. "Quarterly · Best balance" needs about 201px at 0.2em
+   tracking and the first four-up widths give it 191, so two cards broke
+   mid-phrase ("Monthly · Most / flexible") while two did not. Slightly
+   tighter tracking in that band keeps every label on one line. */
+.pcard-tier {
+  letter-spacing: 0.2em;
+}
+
+@media (min-width: 1120px) and (max-width: 1199px) {
+  .pcard-tier {
+    letter-spacing: 0.15em;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════
    Full-bleed gallery mosaic
    ══════════════════════════════════════════════════════════ */

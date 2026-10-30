@@ -122,22 +122,25 @@ export default function MembershipSection({ plans }: { plans: LandingPlan[] }) {
                 )}
               </div>
 
-              {/* Room for two lines on every card: "Quarterly · Best balance"
-                  wraps on the narrowest four-up widths, and a label that wraps
-                  on one card only would drop that card's price below the rest. */}
+              {/* Room for two lines on every card. The live labels fit on one
+                  (`.pcard-tier` tightens the tracking where they would not),
+                  but the fallback list's "Quarterly · 3 months upfront" wraps,
+                  and a label that wraps on one card only would drop that
+                  card's price below the rest. A plan the client has no tier
+                  copy for shows its name alone, not "Name ·". */}
               <div
+                className="pcard-tier"
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontSize: 11,
                   fontWeight: 600,
                   lineHeight: 1.4,
                   minHeight: '2.8em',
-                  letterSpacing: '0.2em',
                   textTransform: 'uppercase',
                   color: 'var(--text-3)',
                 }}
               >
-                {plan.name} · {plan.tier}
+                {plan.tier ? `${plan.name} · ${plan.tier}` : plan.name}
               </div>
 
               {/* One size on every card. The featured plan is picked out by
@@ -200,7 +203,15 @@ export default function MembershipSection({ plans }: { plans: LandingPlan[] }) {
                 id={`plan-join-${plan.id}`}
                 href="/register"
                 className={`btn btn-block ${plan.featured ? 'btn-gold' : 'btn-ghost'}`}
-                style={{ padding: 13, fontSize: 13, letterSpacing: '0.1em', marginTop: 18 }}
+                // `.btn-gold` has no border and `.btn-ghost` has 1px, so the
+                // gold one takes the 1px back as padding (as `.btn-auth` does):
+                // every card's button is 44px tall and starts on the same line.
+                style={{
+                  padding: plan.featured ? 14 : 13,
+                  fontSize: 13,
+                  letterSpacing: '0.1em',
+                  marginTop: 18,
+                }}
               >
                 {plan.featured ? 'JOIN NOW' : 'CHOOSE'}
               </Link>
