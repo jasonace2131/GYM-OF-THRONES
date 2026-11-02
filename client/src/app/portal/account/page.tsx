@@ -169,7 +169,7 @@ export default function AccountPage() {
                 <RowIcon d={ICONS.lock} />
                 <span className="acct-li-text">
                   <b>Change password</b>
-                  <small>Asks for your current one first</small>
+                  
                 </span>
                 <Chevron />
               </button>
