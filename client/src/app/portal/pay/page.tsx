@@ -20,7 +20,7 @@ import { GcashClaimCard } from '@/components/portal/GcashClaimCard';
  * that came up ₱800 short would have no explanation.
  *
  * What this replaced: a GCash screenshot-upload flow that posted to nothing and
- * hardcoded `0917 123 4567` as the gym's number — a fake number on a payment
+ * hardcoded `0917 123 4567` as the gym's number a fake number on a payment
  * screen, which is how a member's money reaches a stranger.
  * ═══════════════════════════════════════════════════════════════════════════
  */

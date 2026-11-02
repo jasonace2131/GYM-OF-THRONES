@@ -146,13 +146,13 @@ export function amendBody(detail: PaymentDetail, raw: AmendDraft): AmendPaymentB
  */
 export function draftProblem(draft: AmendDraft): string | null {
   if (draft.reason.trim().length < 3) {
-    return 'Say why this payment is being corrected — at least 3 characters.';
+    return 'Say why this payment is being corrected at least 3 characters.';
   }
   if (draft.method === 'GCASH' && draft.reference.trim() === '') {
     return 'A GCash payment needs the reference from the member’s screen.';
   }
   if (STATUTORY.includes(draft.discountType) && draft.statutoryIdNo.trim() === '') {
-    return 'Enter the OSCA or PWD ID number — BIR keeps that register separately.';
+    return 'Enter the OSCA or PWD ID BIR keeps that register separately.';
   }
   if (DISCRETIONARY.includes(draft.discountType) && draft.discountReason.trim().length < 3) {
     return 'A discretionary discount needs a reason of at least 3 characters.';

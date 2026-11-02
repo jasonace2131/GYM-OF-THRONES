@@ -96,7 +96,7 @@ export function formatPhPhone(raw: string): string {
   return `+63 ${e164.slice(3, 6)} ${e164.slice(6, 9)} ${e164.slice(9)}`;
 }
 
-export const PH_PHONE_MESSAGE = 'Enter a PH mobile number — 09XX XXX XXXX or +63 9XX XXX XXXX';
+export const PH_PHONE_MESSAGE = 'Enter a PH mobile number 09XX XXX XXXX or +63 9XX XXX XXXX';
 
 // ── Other shared text limits ─────────────────────────────────────────────
 

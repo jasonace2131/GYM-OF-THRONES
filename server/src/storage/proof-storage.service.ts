@@ -39,7 +39,7 @@ export const ALLOWED_PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as 
  * and it still does.
  *
  * A GCash SEND CONFIRMATION is a different image. It carries the amount, the
- * timestamp, the reference, and the RECIPIENT's name and number — which is the
+ * timestamp, the reference, and the RECIPIENT's name and number which is the
  * gym's own account, not the member's. The sender's name and number are not on
  * it. So the proportionality objection does not reach this image, and what is
  * left is an ordinary business record of a payment the gym received.

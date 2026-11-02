@@ -157,7 +157,7 @@ export default function Footer({ hours }: { hours: string[] }) {
             © {new Date().getFullYear()} Gym of Thrones · All rights reserved
           </span>
           {/* These three pointed at `#contact` — the same in-page section as
-              the phone number — so clicking "Waiver" scrolled you to a contact
+              the phone number so clicking "Waiver" scrolled you to a contact
               block and nothing else. Not a broken link, which QA would catch,
               but a link that appears to work and delivers nothing, which it
               does not. The documents exist now. */}

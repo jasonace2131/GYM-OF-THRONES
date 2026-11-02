@@ -142,7 +142,7 @@ export default function RegisterPage() {
     }
     const phone = form.mobile.trim() === '' ? null : normalisePhPhone(form.mobile);
     if (form.mobile.trim() !== '' && phone === null) {
-      setError('Enter a PH mobile number — 09XX XXX XXXX or +63 9XX XXX XXXX — or leave it blank.');
+      setError('Enter a PH mobile number 09XX XXX XXXX or +63 9XX XXX XXXX — or leave it blank.');
       return;
     }
     const today = gymToday(new Date(), GYM_TIMEZONE);

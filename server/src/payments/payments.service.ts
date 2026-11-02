@@ -1017,7 +1017,7 @@ export class PaymentsService {
       if (statutoryIdNo === undefined || statutoryIdNo.trim() === '') {
         throw new DomainException(
           'STATUTORY_ID_REQUIRED',
-          'Enter the OSCA or PWD ID number — BIR keeps that register separately.',
+          'Enter the OSCA or PWD ID number BIR keeps that register separately.',
           HttpStatus.UNPROCESSABLE_ENTITY,
         );
       }

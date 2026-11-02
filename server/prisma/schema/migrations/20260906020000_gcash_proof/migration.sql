@@ -12,7 +12,7 @@
 -- and still does.
 --
 -- A GCash SEND CONFIRMATION is a different image. It carries the amount, the
--- timestamp, the reference, and the RECIPIENT's name and number — which is the
+-- timestamp, the reference, and the RECIPIENT's name and number which is the
 -- gym's own account. The sender's name and number are not on it. What is left
 -- is an ordinary business record of a payment the gym received, kept for the
 -- life of that payment (owner decision).

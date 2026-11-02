@@ -492,7 +492,7 @@ describe('detailsPatch', () => {
   });
 
   it('refuses anything but a PH mobile, landlines included', () => {
-    const message = 'Enter a PH mobile number — 09XX XXX XXXX or +63 9XX XXX XXXX.';
+    const message = 'Enter a PH mobile number 09XX XXX XXXX or +63 9XX XXX XXXX.';
     expect(detailsPatch(PROFILE, { ...form, phone: 'call me' }).problems.phone).toBe(message);
     expect(detailsPatch(PROFILE, { ...form, phone: '(02) 8123 4567' }).problems.phone).toBe(
       message,

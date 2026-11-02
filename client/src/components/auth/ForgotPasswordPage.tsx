@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
                 }}
               >
                 If an account exists for <strong>{email}</strong>, a reset link is on its way. The
-                link expires after a short while — request another if it does.
+                link expires after a short while request another if it does.
               </p>
               <Link href="/login" className="btn btn-gold btn-block btn-auth">
                 BACK TO SIGN IN

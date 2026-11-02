@@ -31,7 +31,7 @@ interface PendingCheckIn {
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * THE SEARCH IS THE WHOLE INTERACTION. One field, and it takes a name, a
- * member code, an email or a phone number — because the staffer does not know
+ * member code, an email or a phone number because the staffer does not know
  * in advance which of those the member will offer, and asking them to pick a
  * mode first is a decision made at the counter with a queue behind it.
  *
