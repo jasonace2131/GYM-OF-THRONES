@@ -11,16 +11,9 @@ export default function ContactSection({ hours }: { hours: string[] }) {
   return (
     <section id="contact" className="sec grid-tex" style={{ background: 'var(--ground)' }}>
       <div className="wrap" style={{ position: 'relative', zIndex: 1 }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 'clamp(28px, 4vw, 56px)',
-            alignItems: 'start',
-          }}
-        >
+        <div className="contact-grid">
           {/* Left — where to find us */}
-          <div>
+          <div className="visit-col">
             <div className="rv">
               <span className="eyebrow">Find us</span>
               <h2 className="h-sec">
@@ -29,9 +22,8 @@ export default function ContactSection({ hours }: { hours: string[] }) {
             </div>
 
             <div
+              className="visit-tiles"
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
                 gap: 1,
                 marginTop: 30,
                 border: '1px solid var(--line)',
@@ -49,12 +41,14 @@ export default function ContactSection({ hours }: { hours: string[] }) {
                 ...(hours.length === 0
                   ? []
                   : [{ label: 'Hours', value: hours.join(NEWLINE), href: null } as const]),
-              ].map((item) => {
+              ].map((item, index, tiles) => {
                 // A tile with somewhere to go renders as an anchor. These
                 // were all plain divs, so tapping the phone number on a
                 // phone — the single most likely action on this section —
                 // did nothing at all.
                 const Tag = (item.href === null ? 'div' : 'a') as 'div';
+                // An odd number of tiles leaves the last one alone on its row.
+                const spansRow = tiles.length % 2 === 1 && index === tiles.length - 1;
                 return (
                 <Tag
                   key={item.label}
@@ -66,7 +60,7 @@ export default function ContactSection({ hours }: { hours: string[] }) {
                           ? { target: '_blank', rel: 'noopener noreferrer' }
                           : {}),
                       })}
-                  className="glow rv"
+                  className={spansRow ? 'glow rv visit-tile-wide' : 'glow rv'}
                   style={{
                     background: 'var(--ground-2)',
                     padding: '22px 20px',
@@ -93,6 +87,9 @@ export default function ContactSection({ hours }: { hours: string[] }) {
                       lineHeight: 1.6,
                       color: 'var(--text)',
                       whiteSpace: 'pre-line',
+                      // The email address is one unbreakable word; at the
+                      // narrowest two-up widths it would run out of its tile.
+                      overflowWrap: 'anywhere',
                     }}
                   >
                     {item.value}
@@ -156,7 +153,7 @@ export default function ContactSection({ hours }: { hours: string[] }) {
               ready — is kept as the footer below the form; the form's job is
               everybody else. */}
           <div
-            className="glow rv"
+            className="glow rv contact-card"
             style={{
               position: 'relative',
               overflow: 'hidden',

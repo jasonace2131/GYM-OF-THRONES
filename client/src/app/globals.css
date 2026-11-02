@@ -1769,6 +1769,70 @@ header.site-nav.scrolled {
   color: var(--text-2);
 }
 
+/* ── Contact section layout ────────────────────────────── */
+/*
+  One column on phones and tablets, two equal columns from 960px. The columns
+  STRETCH to one height and the form card is a flex column whose "Ready to
+  join?" footer sits at its bottom, so on a wide screen the card's top and
+  bottom line up with the left column's heading and its Get directions
+  button. `auto-fit` used to pick the column count: the card stopped 161px
+  short of the left column at 1920px, and a 700px tablet got a cramped two-up.
+*/
+.contact-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+}
+
+@media (min-width: 960px) {
+  .contact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.contact-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The stretched card's spare height goes to the form, and inside the form to
+   the message box, so the card fills evenly instead of leaving an empty band
+   above "Ready to join?". The "sent" note sits centred in that space. */
+.contact-card .cform,
+.contact-card .cform-message,
+.contact-card .cform-message .cform-textarea {
+  flex: 1;
+}
+
+.contact-card .cform-done {
+  margin: auto 0;
+}
+
+/* Address, phone, email, Instagram, hours. Two across only when the left
+   column is wide enough for the email address (about 210px of text) to fit a
+   tile unbroken, which depends on the COLUMN, not the screen: at 960px the
+   page is two-up and each tile would be 166px wide. Otherwise one per row.
+   An odd last tile runs the full width instead of leaving a blank cell. */
+.visit-col {
+  container-type: inline-size;
+}
+
+.visit-tiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container (min-width: 520px) {
+  .visit-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.visit-tile-wide {
+  grid-column: 1 / -1;
+}
+
 /* ── Visit us: map and directions ──────────────────────── */
 /*
   The map sits under the contact tiles and shares their border radius, so the
