@@ -122,7 +122,7 @@ export function greeting(now: Date): string {
   return 'Good evening';
 }
 
-/** "Next up — Spin tomorrow at 7:00 AM, with Mia Santos." in pieces. */
+/** "Next up Spin tomorrow at 7:00 AM, with Mia Santos." in pieces. */
 export function nextUpParts(
   next: MyBooking,
   now: Date,

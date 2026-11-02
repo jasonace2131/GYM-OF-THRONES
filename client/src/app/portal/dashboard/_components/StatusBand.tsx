@@ -106,7 +106,7 @@ export function StatusBand({
 
           {nextUp !== null ? (
             <p className="m-0 mt-3 text-[14px] leading-relaxed text-ink-2">
-              Next up — <strong className="font-semibold text-foreground">{nextUp.title}</strong>{' '}
+              Next up <strong className="font-semibold text-foreground">{nextUp.title}</strong>{' '}
               {nextUp.when}, with {nextUp.coach}.
             </p>
           ) : null}
