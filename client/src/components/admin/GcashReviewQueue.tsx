@@ -308,7 +308,7 @@ function SubmissionRow({
               asking === 'refuse'
                 ? {
                     required: true,
-                    label: 'Reason — the member reads this',
+                    label: 'Reason the member reads this',
                     maxLength: 300,
                     placeholder: 'e.g. No payment with that reference in our GCash history',
                   }

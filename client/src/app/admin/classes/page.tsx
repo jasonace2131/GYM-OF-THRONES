@@ -811,7 +811,7 @@ function Register({
           required: true,
           // The member reads it in their notice: `@Length(3, 300)` on the
           // route and the same bounds in the row's CHECK.
-          label: `Reason — ${removing?.member.firstName ?? 'the member'} will see this`,
+          label: `Reason ${removing?.member.firstName ?? 'the member'} will see this`,
           maxLength: 300,
           placeholder: 'e.g. Booked twice by mistake — the other booking stands',
         }}
