@@ -84,7 +84,7 @@ stamps the lead `CONVERTED` with the new member's id in the same transaction.
 
 ## C. Discounts (WalkInSheet paths only)
 
-- [ ] C1 · As ADMIN, Senior discount + OSCA ID `QA-OSCA-1` → net is **₱64.29** if `GYM_VAT_REGISTERED=true` (90 ÷ 1.12 × 0.8) or **₱72.00** if not — whichever your env says; receipt math on the payments row agrees
+- [ ] C1 · As ADMIN, Senior discount + OSCA ID `QA-OSCA-1` → net is **₱64.29** if `GYM_VAT_REGISTERED=true` (90 ÷ 1.12 × 0.8) or **₱72.00** if not whichever your env says; receipt math on the payments row agrees
 - [ ] C2 · Senior with **no ID** → refused with the ID message, not a constraint error
 - [ ] C3 · As FRONT_DESK: senior discount works (FRONT_DESK holds `payment.discount.statutory` — RA 9994 makes refusing it an offence, so it must not need a manager)
 - [ ] C4 · Try a promo code mentally: there is nowhere to enter one on a walk-in — correct, promos are members-only

@@ -160,7 +160,7 @@ export default function ContactForm() {
         </div>
       </div>
 
-      <p className="cform-hint">Either one is enough — whichever you would rather we used.</p>
+      <p className="cform-hint">Either one is enough whichever you would rather we used.</p>
 
       <div className="field">
         <label htmlFor="cf-message">

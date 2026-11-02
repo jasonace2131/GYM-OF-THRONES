@@ -16,7 +16,7 @@ import { CHAT_DELETE_WINDOW_MINUTES, type ChatMessageView, type ChatThreadView }
  * an unread counted once however many times the same message arrives.
  *
  * A send is OPTIMISTIC: a pending bubble shows at once and is swapped for the
- * saved message by its client id — whichever of the POST's answer or the
+ * saved message by its client id whichever of the POST's answer or the
  * broadcast lands first — and a failed send is ROLLED BACK (the bubble goes;
  * the composer gets the text back).
  *
