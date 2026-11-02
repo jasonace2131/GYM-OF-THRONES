@@ -284,7 +284,7 @@ export function CoachDashboard() {
                     <strong className="font-semibold text-foreground">
                       {live.length} {live.length === 1 ? 'class' : 'classes'} today
                     </strong>
-                    {' — first at '}
+                    {' first at '}
                     {gymClock12(live[0]!.startsAt)}.
                   </>
                 )}{' '}
