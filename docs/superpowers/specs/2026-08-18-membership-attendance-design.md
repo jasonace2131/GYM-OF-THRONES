@@ -1613,7 +1613,7 @@ The freeze rules commonly published by US gyms assume auto-billing, where a free
 | Who authorises | **`membership.freeze` — ADMIN only. Not `FRONT_DESK`.** | This is the load-bearing rule. It moves the "no" off the desk staff and onto the owner, where it belongs. A formal request-and-approve workflow with its own status is deliberately not built: it is a notification system pretending to be a state machine, and a phone call already exists. |
 | Member self-service | **No.** The portal says "ask the front desk." | Self-freeze without approval is free suspension-on-demand. |
 
-#### 5.6.1 Does a freeze extend the term? Yes — day for day, always
+#### 5.6.1 Does a freeze extend the term? Yes day for day, always
 
 The member bought N days of access, not N calendar days. Not extending means charging for days you did not provide, which is the single largest source of gym billing disputes and, locally, of DTI complaints. It is also the only rule a front-desk staffer can explain in one sentence.
 

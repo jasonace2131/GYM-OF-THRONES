@@ -10,7 +10,7 @@
  * more. No HTML is built and nothing reaches `dangerouslySetInnerHTML`.
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * The system prompt asks for plain text in a fixed shape — day headings on
+ * The system prompt asks for plain text in a fixed shape day headings on
  * their own line ending in ":", exercises on "- " lines, a blank line between
  * days — and that is the shape this reads best. A model does not always
  * comply, so the markdown it most often sends anyway (#-headings, bold, `*`

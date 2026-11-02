@@ -39,7 +39,7 @@ describe('todayView', () => {
     if (view.kind !== 'train') return;
     expect(view.day.title).toBe('Full body B');
     expect(view.dayNumber).toBe(2);
-    expect(view.lead).toBe('Legs, back and shoulders — day 2 of your active plan,');
+    expect(view.lead).toBe('Legs, back and shoulders day 2 of your active plan,');
     expect(view.planName).toBe('Beginner Muscle');
     expect(view.chips).toEqual(['5 exercises', 'About 45 min', 'Evening, within opening hours']);
     expect(view.phoneLine).toBe('5 exercises · about 45 min · Beginner Muscle');
@@ -218,7 +218,7 @@ describe('todayModel', () => {
       kind: 'train',
       source: 'member',
       title: 'Full body B',
-      lead: 'Legs, back and shoulders — day 2 of your active plan,',
+      lead: 'Legs, back and shoulders day 2 of your active plan,',
       planName: 'Beginner Muscle',
       minutes: 45,
       start: { source: 'MEMBER_PLAN', planId: 'plan-1', weekday: 3 },

@@ -74,7 +74,7 @@ export type TodayView =
       day: MemberPlanDay;
       dayNumber: number;
       title: string;
-      /** "Legs, back and shoulders — day 2 of your active plan," — the name follows in bold. */
+      /** "Legs, back and shoulders day 2 of your active plan," — the name follows in bold. */
       lead: string;
       planName: string;
       chips: string[];
@@ -108,7 +108,7 @@ export function todayView(plan: MemberWorkoutPlanView | null, today: CivilDate):
       day,
       dayNumber: index + 1,
       title: day.title,
-      lead: `${day.focus} — day ${index + 1} of your active plan,`,
+      lead: `${day.focus} day ${index + 1} of your active plan,`,
       planName: plan.name,
       chips: [
         exerciseCount(day.exercises.length),
