@@ -160,11 +160,11 @@ export default function ContactForm() {
         </div>
       </div>
 
-      <p className="cform-hint">Either one is enough — whichever you would rather we used.</p>
+      <p className="cform-hint">Either one is enough whichever you would rather we used.</p>
 
       <div className="field cform-message">
         <label htmlFor="cf-message">
-          Message <span className="cform-opt">optional</span>
+          Message
         </label>
         <textarea
           id="cf-message"
