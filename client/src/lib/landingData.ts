@@ -4,7 +4,7 @@
  */
 
 export const STATS = [
-  { value: 340, suffix: '+', label: 'Active members' },
+  { value: 120, suffix: '+', label: 'Active members' },
   { value: 18, suffix: 'h', label: 'Open daily' },
   { value: 4, suffix: '+', label: 'Certified coaches' },
   { value: 7, suffix: '', label: 'Days a week' },
