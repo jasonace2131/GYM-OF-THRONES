@@ -19,7 +19,6 @@ import { hasPermission } from '@/lib/rbac/permissions';
 import { STAFF_HOME, isStaff } from '@/lib/safeNext';
 import { signedOutLoginPath } from '@/lib/sessionReplaced';
 import { IconSignOut } from '@/components/portal/icons';
-import { SurfaceSwitch } from '@/components/portal/SurfaceSwitch';
 import { SignOutButton } from '@/components/auth/ConfirmSignOutDialog';
 import { MobileTabBar } from '@/components/portal/Sidebar';
 import { MoreSheet } from '@/components/portal/MoreSheet';
@@ -257,11 +256,6 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
             <div className="p-nav-spacer" />
 
-            {/* "My member portal" used to sit here. It is now <SurfaceSwitch>
-                in the topbar, matching the portal's, so the crossing looks and
-                behaves identically from both sides instead of being a nav row
-                on one and a nav row on the other with different wording. */}
-
             <SignOutButton surface="admin" className="p-link" onConfirm={signOut}>
               <IconSignOut />
               Sign out
@@ -283,12 +277,12 @@ function AdminShell({ children }: { children: React.ReactNode }) {
                 {me.firstName} {me.lastName}
               </span>
               {/* Role is the first thing to go when the bar gets tight: it is
-                  the least actionable item here, and dropping it is what makes
-                  room for the switch at 360px. */}
+                  the least actionable item here. There is no "Member portal"
+                  button: staff stay out of the portal (owner, 2026-11-07), and
+                  the portal sends a staff account back here. */}
               <span className="p-badge p-badge-neutral hide-mobile">
                 {me.role.replace('_', ' ')}
               </span>
-              <SurfaceSwitch to="portal" />
               <span className="p-avatar">{initials}</span>
             </div>
           </header>
@@ -324,7 +318,6 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         groups={groups.map((group) => ({ label: group.heading, items: group.items }))}
         onSignOut={signOut}
         surface="admin"
-        switchTo={<SurfaceSwitch to="portal" />}
       />
     </AdminFrame>
   );

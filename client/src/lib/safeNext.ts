@@ -142,8 +142,8 @@ export function isCoach(permissions: readonly HeldPermission[] | null): boolean 
 
 /**
  * Where "home" is INSIDE the member portal — the target of a "go home" link on
- * a portal page. A coach's is their dashboard; everybody else's, staff
- * visiting the portal included, is the member dashboard.
+ * a portal page. A coach's is their dashboard; a member's is the member
+ * dashboard. (Staff never stay in the portal; the shell sends them out.)
  */
 export function portalHomeFor(permissions: readonly HeldPermission[] | null): string {
   return isCoach(permissions) ? COACH_HOME : MEMBER_HOME;
@@ -198,8 +198,9 @@ export function canOpen(destination: string, permissions: readonly HeldPermissio
  * So a staff `?next=` into `/admin` or `/desk` is honoured — that is how the
  * console returns somebody to the page they were reaching for — and a
  * `?next=` into `/portal` is dropped in favour of the console. Staff signing
- * in are going to work. Their own membership is one labelled click away in
- * the topbar, which is a deliberate act rather than an accident of history.
+ * in are going to work. Since 2026-11-07 staff do not use the portal at all
+ * (owner): there is no button to it, and the portal shell sends a staff
+ * account straight back to the console.
  * ─────────────────────────────────────────────────────────────────────────
  */
 export function destinationFor(raw: string | null, permissions: readonly HeldPermission[]): string {

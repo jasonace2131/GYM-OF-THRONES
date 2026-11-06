@@ -275,8 +275,8 @@ describe('coach landing', () => {
   it('names the portal home for each caller, for "go home" links inside the portal', () => {
     expect(portalHomeFor(COACH)).toBe(COACH_HOME);
     expect(portalHomeFor(CLIENT)).toBe(MEMBER_HOME);
-    // Staff visiting the portal have the member dashboard as its home; their
-    // console is one SurfaceSwitch away.
+    // The function itself has no staff case: the portal shell sends a staff
+    // account to the console before any portal page renders.
     expect(portalHomeFor(ADMIN)).toBe(MEMBER_HOME);
     expect(portalHomeFor(null)).toBe(MEMBER_HOME);
   });

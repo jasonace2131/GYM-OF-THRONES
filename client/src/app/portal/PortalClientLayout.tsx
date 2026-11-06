@@ -9,12 +9,11 @@ import { apiFetch } from '@/lib/api';
 import { signOutMember } from '@/lib/memberSignOut';
 import { accountJustDeleted } from '@/lib/accountDeleted';
 import { signedOutLoginPath } from '@/lib/sessionReplaced';
-import { COACH_HOME, isCoach, isStaff } from '@/lib/safeNext';
+import { COACH_HOME, STAFF_HOME, isCoach, isStaff } from '@/lib/safeNext';
 import { PORTAL_NOTICES_HOME } from '@/lib/announcements/focus';
 import { MeProvider, useMe } from '@/components/rbac/MeProvider';
 import { MobileTabBar, Sidebar } from '@/components/portal/Sidebar';
 import { titleForPath, visibleNav, visibleTabs } from '@/components/portal/nav';
-import { SurfaceSwitch } from '@/components/portal/SurfaceSwitch';
 import { MoreSheet } from '@/components/portal/MoreSheet';
 import { Toaster } from '@/components/ui/sonner';
 import { PortalContainerProvider } from '@/components/ui/portal-container';
@@ -199,6 +198,19 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     router.replace(signedOutLoginPath(pathname, search));
   }, [auth, pathname, router]);
 
+  // STAFF STAY OUT OF THE PORTAL (owner, 2026-11-07). Front desk, admin and
+  // dev accounts are work accounts: a staff member who is also a gym member
+  // uses a separate member account. Sign-in already sends staff to the
+  // console (`destinationFor`); this catches a typed or bookmarked /portal
+  // address. Coaches are not staff here, so their coach dashboard is untouched.
+  //
+  // Only a known "yes" redirects. Waiting for `/me` before showing anything
+  // would break the offline check-in screen, which renders from the device
+  // cache when `/me` cannot answer.
+  useEffect(() => {
+    if (staff === 'yes') router.replace(STAFF_HOME);
+  }, [staff, router]);
+
   const signOut = useCallback(async () => {
     // Shared with My account's "Sign out" row — see lib/memberSignOut.ts.
     await signOutMember();
@@ -210,8 +222,9 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   // is an operator switch, which is a different control on a different device.
 
   // Render a neutral surface while the session resolves rather than flashing
-  // the portal to someone who is about to be redirected out of it.
-  if (auth !== 'authed') {
+  // the portal to someone who is about to be redirected out of it, staff
+  // included.
+  if (auth !== 'authed' || staff === 'yes') {
     return (
       <div className="portal-root">
         <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
@@ -224,7 +237,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
               color: 'var(--p-ink3)',
             }}
           >
-            {auth === 'checking' ? 'Loading…' : 'Redirecting…'}
+            {auth === 'checking' && staff !== 'yes' ? 'Loading…' : 'Redirecting…'}
           </div>
         </div>
       </div>
@@ -272,7 +285,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
                     style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14 }}
                   >
                     {/*
-                    [Staff console →] [Bell] [Name · avatar].
+                    [Bell] [Name · avatar].
 
                     THE BELL IS BACK, AND NOW IT IS REAL. The one that used to
                     live here had no onClick and a hardcoded "unread" dot lit
@@ -285,10 +298,8 @@ function PortalShell({ children }: { children: React.ReactNode }) {
                     announcements are read on the dashboard, a notice goes to
                     the day it is about.
 
-                    It keeps the switch's 34px geometry, so the topbar does not
-                    grow for either audience.
+                    It keeps a 34px geometry, so the topbar stays one height.
                   */}
-                    {staff === 'yes' ? <SurfaceSwitch to="admin" /> : null}
 
                     <NotificationBell />
 
@@ -344,7 +355,6 @@ function PortalShell({ children }: { children: React.ReactNode }) {
               }))}
               onSignOut={signOut}
               surface="member"
-              switchTo={staff === 'yes' ? <SurfaceSwitch to="admin" /> : undefined}
             />
 
             {/* Booking and cancellation feedback. Top-centre so it clears the

@@ -31,8 +31,8 @@ export function ShiftPill({ canManage }: { canManage: boolean }) {
   // The label is wrapped so the narrow-console rule in admin.css can drop it
   // and keep the status dot. It was a bare text node, which nothing can
   // target — and `white-space: nowrap` on the pill then pushed the topbar
-  // past the viewport, where `overflow-x: hidden` clipped the avatar and the
-  // surface switch out of reach rather than letting anyone scroll to them.
+  // past the viewport, where `overflow-x: hidden` clipped the avatar out of
+  // reach rather than letting anyone scroll to it.
   if (shift.data === null) {
     return (
       <span className="a-shift" data-state="closed" title="Drawer closed">

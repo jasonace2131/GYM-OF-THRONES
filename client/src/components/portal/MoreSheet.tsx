@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
 import type { NavItem } from './nav';
 import { IconSignOut } from './icons';
 import { NavItemBadge } from '@/components/chat/NavItemBadge';
@@ -23,8 +22,6 @@ interface MoreSheetProps {
   onSignOut: () => void | Promise<void>;
   /** Which surface's confirm button style the dialog uses. */
   surface: SignOutSurface;
-  /** The SurfaceSwitch, when this caller holds two surfaces. */
-  switchTo?: ReactNode;
 }
 
 /**
@@ -44,7 +41,7 @@ interface MoreSheetProps {
  * Members gain from this too: Sign out has never been reachable on a phone.
  * ─────────────────────────────────────────────────────────────────────────
  */
-export function MoreSheet({ open, onClose, groups, onSignOut, surface, switchTo }: MoreSheetProps) {
+export function MoreSheet({ open, onClose, groups, onSignOut, surface }: MoreSheetProps) {
   const pathname = usePathname();
 
   // Escape closes, and the body does not scroll behind an open sheet. Both are
@@ -116,7 +113,6 @@ export function MoreSheet({ open, onClose, groups, onSignOut, surface, switchTo 
         </nav>
 
         <div className="p-sheet-foot">
-          {switchTo}
           <SignOutButton surface={surface} className="p-link" onConfirm={onSignOut}>
             <IconSignOut />
             Sign out

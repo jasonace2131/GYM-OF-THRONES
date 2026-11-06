@@ -36,8 +36,7 @@ const NO_NOTICES: readonly MemberNoticeWire[] = [];
  * at once; the dots stay lit until the dropdown closes, so the member can
  * still see which rows were new.
  *
- * Geometry matches `.p-surface-switch` beside it (34px, 9px radius), and an
- * `::after` extends the hit area to 44x44 without growing the topbar. The bell
+ * 34px with a 9px radius, the topbar's control size, and an `::after` extends the hit area to 44x44 without growing the topbar. The bell
  * goes away only when no feed it reads may be read by this account (403s
  * everywhere) — a control that cannot work is worse than none.
  */

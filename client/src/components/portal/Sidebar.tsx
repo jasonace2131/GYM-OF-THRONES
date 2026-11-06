@@ -29,7 +29,8 @@ interface SidebarProps {
  * It was a gold-tinted row after an 18px spacer, between the member's own
  * sections and Sign out — filed as navigation when it was actually a change of
  * surface, present on one side only, and invisible below 900px where the whole
- * sidebar is hidden. It is now `<SurfaceSwitch>` in the topbar of BOTH shells.
+ * sidebar is hidden. Staff no longer use the portal at all (owner, 2026-11-07):
+ * the portal shell sends a staff account to the console.
  */
 export function Sidebar({ onSignOut, permissions = null }: SidebarProps) {
   const pathname = usePathname();

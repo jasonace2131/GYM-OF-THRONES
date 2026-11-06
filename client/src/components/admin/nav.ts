@@ -238,7 +238,7 @@ export function visibleNav(permissions: PermissionSet): AdminNavGroup[] {
  * as the sidebar, so the bar can never offer a screen the sidebar hides.
  *
  * Four, not five: the fifth column belongs to "More", which carries everything
- * else plus the surface switch and Sign out.
+ * else plus Sign out.
  */
 const PRIMARY_HREFS = ['/admin', '/admin/members', '/admin/attendance', '/admin/payments'];
 

@@ -1868,13 +1868,13 @@
 
 /* ── Console topbar, narrow ────────────────────────────── */
 /*
-  Two rules, CRM only, both about fitting the surface switch on a phone.
+  Two rules, CRM only, both about fitting the topbar on a phone.
 
   `.a-shift` has `white-space: nowrap` and had no responsive rule at all, so
   "OPEN · ₱4,320" simply pushed the bar wider than the viewport — and because
   `body { overflow-x: hidden }` the excess was CLIPPED rather than scrollable,
-  so the avatar and the switch went somewhere unreachable rather than
-  somewhere scrollable. Collapsing it to its status dot keeps the signal (a
+  so the avatar went somewhere unreachable rather than somewhere
+  scrollable. Collapsing it to its status dot keeps the signal (a
   shift is open) and drops the part staff can read on the Payments screen.
 
   `.p-page-title` is the flex item that should absorb the pressure instead.

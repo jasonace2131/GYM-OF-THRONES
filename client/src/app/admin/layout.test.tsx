@@ -33,7 +33,6 @@ vi.mock('@/components/announcements/NotificationBell', () => ({ NotificationBell
 vi.mock('@/components/announcements/AnnouncementsProvider', () => ({
   AnnouncementsProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
-vi.mock('@/components/portal/SurfaceSwitch', () => ({ SurfaceSwitch: () => null }));
 vi.mock('@/components/chat/NavItemBadge', () => ({ NavItemBadge: () => null }));
 vi.mock('@/components/rbac/guards', () => ({
   RequirePermission: ({ children }: { children: React.ReactNode }) => children,
