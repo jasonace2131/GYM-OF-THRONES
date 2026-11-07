@@ -51,14 +51,12 @@ const TZ = 'Asia/Manila';
 const DAY_MS = 86_400_000;
 
 type Range = 'today' | '7d' | '30d';
-type EntryFilter = 'WALK_IN' | 'GUEST_PASS' | 'BOTH';
 
 export default function AdminWalkInsPage() {
   const can = useCan();
   const router = useRouter();
 
   const [range, setRange] = useState<Range>('today');
-  const [entry, setEntry] = useState<EntryFilter>('WALK_IN');
   const [page, setPage] = useState(1);
   // The sale lives in a right-hand Drawer, not beside the table — the
   // Square/Gymdesk register shape: the LEDGER gets the full width (a
@@ -87,16 +85,19 @@ export default function AdminWalkInsPage() {
   const register = useAdminQuery(
     useCallback(
       () =>
+        // Walk-ins only (owner, 2026-11-07). The Walk-ins / Guest passes /
+        // Both chips read as redundant; guest-pass visits still show on
+        // Attendance, inside and in today's feed.
         adminApi.checkIns({
-          ...(entry === 'BOTH' ? {} : { entryType: entry }),
+          entryType: 'WALK_IN',
           from,
           to: today,
           page,
           limit: PAGE_SIZE,
         }),
-      [entry, from, today, page],
+      [from, today, page],
     ),
-    `walkins:${range}:${entry}:${page}`,
+    `walkins:${range}:${page}`,
   );
 
   const canKpis = can(PERMISSIONS.PAYMENT_READ);
@@ -217,9 +218,6 @@ export default function AdminWalkInsPage() {
             {/* Filters on their own row, not squeezed into the header — the
                 header keeps one primary action, the toolbar keeps the chips. */}
             <div className="a-toolbar" style={{ paddingBottom: 12, flexWrap: 'wrap' }}>
-              {/* Two chip groups, not one row with a spacer span: on a phone
-                  each group wraps as a unit, so "Today" never lands beside
-                  "Walk-ins" as if they were one choice. */}
               <div className="a-chip-group" role="group" aria-label="Range">
               {(
                 [
@@ -234,27 +232,6 @@ export default function AdminWalkInsPage() {
                   className={`p-btn p-btn-sm ${range === value ? 'p-btn-gold' : 'p-btn-ghost'}`}
                   onClick={() => {
                     setRange(value);
-                    setPage(1);
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-              </div>
-              <div className="a-chip-group" role="group" aria-label="Entry type">
-              {(
-                [
-                  ['WALK_IN', 'Walk-ins'],
-                  ['GUEST_PASS', 'Guest passes'],
-                  ['BOTH', 'Both'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`p-btn p-btn-sm ${entry === value ? 'p-btn-gold' : 'p-btn-ghost'}`}
-                  onClick={() => {
-                    setEntry(value);
                     setPage(1);
                   }}
                 >
@@ -282,7 +259,6 @@ export default function AdminWalkInsPage() {
                       <th>In</th>
                       <th>Out</th>
                       <th className="p-num">For</th>
-                      <th>Entry</th>
                       <th aria-label="Actions" />
                     </tr>
                   </thead>
@@ -310,11 +286,6 @@ export default function AdminWalkInsPage() {
                           {/* duration() is typed number, not number|null —
                               the guard matters. */}
                           {row.durationMinutes === null ? '—' : duration(row.durationMinutes)}
-                        </td>
-                        <td data-label="Entry" data-card="meta">
-                          <Badge tone="neutral">
-                            {row.entryType === 'GUEST_PASS' ? 'guest pass' : 'walk-in'}
-                          </Badge>
                         </td>
                         <td data-card="actions">
                           <div className="a-btn-row a-btn-row--end">
