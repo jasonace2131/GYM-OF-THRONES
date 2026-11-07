@@ -66,7 +66,7 @@ export type PublicUser = Pick<User, 'id' | 'firstName' | 'lastName' | 'avatarUrl
  * Separate from `GET /me` on purpose: `/me` is fetched by every portal screen
  * and refreshed on focus, and `medicalNotes` is sensitive personal information
  * (RA 10173 §3(l)) that only the account page needs. `email` is read-only
- * here — it changes through Supabase's confirmed email change, and the API
+ * here it changes through Supabase's confirmed email change, and the API
  * copies it from the verified token on the next request.
  */
 export interface MyProfile {

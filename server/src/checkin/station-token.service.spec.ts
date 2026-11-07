@@ -52,7 +52,7 @@ describe('StationTokenService', () => {
       // The station code is deliberately NOT covered by the MAC (§6.1.2): it
       // is a lookup handle, derived from `stationId` at read time, not a
       // second copy of the fact. So changing the code text in a payload does
-      // not, by itself, change what this pure function computes — it changes
+      // not, by itself, change what this pure function computes it changes
       // which `Station` row the CALLER looks up before calling verify(). The
       // station-A-vs-station-B test below is that same failure mode, made
       // real: a MAC signed for one station's `id` never matches once the

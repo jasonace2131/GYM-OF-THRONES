@@ -327,7 +327,7 @@ function SetupCardModal({ station, onClose }: { station: AdminStation; onClose: 
   return (
     <Modal
       open
-      title={`Setup card — ${station.name}`}
+      title={`Setup card ${station.name}`}
       subtitle="Scan to open the station display on the tablet, or type the URL manually."
       onClose={onClose}
       busy={downloading}
@@ -434,7 +434,7 @@ function SetupCardModal({ station, onClose }: { station: AdminStation; onClose: 
             </li>
             <li>
               The rotating check-in QR will appear. Members scan this with their phone to check in
-              — it changes every 30 seconds.
+             it changes every 30 seconds.
             </li>
             <li>
               Keep this tablet plugged in and the screen awake. The display manages its own
