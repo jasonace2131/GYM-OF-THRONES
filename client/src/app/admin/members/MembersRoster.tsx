@@ -526,6 +526,7 @@ export function MembersRoster() {
                             decision={row.decision}
                             daysRemaining={row.membership?.daysRemaining ?? null}
                             hasMembership={row.membership !== null}
+                            denialReason={row.denialReason}
                           />
                           {row.membership !== null && (
                             <DaysLeft days={row.membership.daysRemaining} />

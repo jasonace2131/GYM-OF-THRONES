@@ -125,6 +125,7 @@ export function toMembershipSnapshot(
     graceAdmissionsThisTerm: row.graceAdmissionsThisTerm,
     cancelRequestedOn:
       row.cancelRequestedOn === null ? null : civilDateFromPrisma(row.cancelRequestedOn),
+    cancelledOn: row.cancelledOn === null ? null : civilDateFromPrisma(row.cancelledOn),
     planName: row.planName,
     planPriceCentavos: row.planPriceCentavos,
     hold:

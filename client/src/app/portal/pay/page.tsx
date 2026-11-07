@@ -43,6 +43,12 @@ function Pay() {
   const [data, setData] = useState<PayData | null>(null);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState(false);
+  // `?plan=` from My Subscription's "Renew". Read in an effect, not with
+  // useSearchParams(), which would need a Suspense boundary at build time.
+  const [requestedPlan, setRequestedPlan] = useState<string | null>(null);
+  useEffect(() => {
+    setRequestedPlan(new URLSearchParams(window.location.search).get('plan'));
+  }, []);
 
   useEffect(() => {
     void getPayData()
@@ -155,6 +161,7 @@ function Pay() {
           no longer sends them to the counter to read a number aloud. It takes
           a claim; it does not take money. See GcashClaimCard's own header. */}
       <GcashClaimCard
+        initialPlanCode={requestedPlan}
         plans={data.plans.map((plan) => ({
           code: plan.code,
           name: plan.name,

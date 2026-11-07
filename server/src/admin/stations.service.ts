@@ -109,6 +109,49 @@ export class StationsService {
   }
 
   /**
+   * "A tablet was lost or stolen": every tablet on this station is
+   * disconnected and its codes change, in one transaction.
+   *
+   * This used to be the epoch bump alone, which kills the codes on screen and
+   * nothing else: every tablet, the stolen one included, fetched a fresh batch
+   * with its still-valid key and carried on (owner bug report, 2026-11-07).
+   * Revoking the keys is what stops a tablet; bumping the epoch is what stops
+   * the codes it had already saved. Each tablet is then set up again.
+   */
+  async disconnectTablets(stationId: string): Promise<AdminStation> {
+    const existing = await this.prisma.station.findUnique({ where: { id: stationId } });
+    if (existing === null) {
+      throw new DomainException(
+        'STATION_NOT_FOUND',
+        'No station has that id.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    const [revoked, row] = await this.prisma.$transaction([
+      this.prisma.stationCredential.updateMany({
+        where: { stationId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.station.update({
+        where: { id: stationId },
+        data: { tokenEpoch: { increment: 1 } },
+        include: {
+          credentials: { orderBy: { createdAt: 'desc' } },
+          _count: { select: { checkIns: true } },
+        },
+      }),
+    ]);
+
+    this.logger.warn(
+      `Station ${row.code}: all tablets disconnected (${revoked.count} key(s) revoked); ` +
+        `token epoch ${existing.tokenEpoch} -> ${row.tokenEpoch}.`,
+    );
+
+    return toAdminStation(row);
+  }
+
+  /**
    * Create the one station a fresh install needs.
    *
    * `code` is CSPRNG-allocated here and never afterwards: it is printed on a
@@ -192,13 +235,25 @@ export class StationsService {
     }
     if (existing.revokedAt !== null) return toAdminStationCredential(existing);
 
-    const row = await this.prisma.stationCredential.update({
-      where: { id: credentialId },
-      data: { revokedAt: new Date() },
-    });
+    // The epoch bump goes with the revoke. A revoked key gets no new codes, but
+    // the tablet already holds up to a batch of them (10 x 30 s), and a code
+    // is signed with the station and epoch, not the key, so the server would
+    // keep accepting them for minutes. Bumping kills them within one slot;
+    // every other tablet on the station sees 409 and refetches by itself.
+    const [row] = await this.prisma.$transaction([
+      this.prisma.stationCredential.update({
+        where: { id: credentialId },
+        data: { revokedAt: new Date() },
+      }),
+      this.prisma.station.update({
+        where: { id: existing.stationId },
+        data: { tokenEpoch: { increment: 1 } },
+      }),
+    ]);
 
     this.logger.warn(
-      `Station credential ${existing.label} revoked for station ${existing.station.code}.`,
+      `Station credential ${existing.label} revoked for station ${existing.station.code}; ` +
+        'its saved codes are invalid from the next slot.',
     );
 
     return toAdminStationCredential(row);

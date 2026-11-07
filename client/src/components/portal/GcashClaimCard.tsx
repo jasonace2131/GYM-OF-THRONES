@@ -55,15 +55,28 @@ function when(iso: string): string {
 
 export function GcashClaimCard({
   plans,
+  initialPlanCode = null,
   onSubmitted,
 }: {
   plans: { code: string; name: string; priceCentavos: number }[];
+  /** Pre-chosen from My Subscription's "Renew" (`/portal/pay?plan=`); ignored if not on sale. */
+  initialPlanCode?: string | null;
   onSubmitted?: () => void;
 }) {
   const [mine, setMine] = useState<MyGcashSubmission[] | null>(null);
   const [open, setOpen] = useState(false);
 
   const [planCode, setPlanCode] = useState('');
+  // Applied ONCE, when it is known, and only if the member has not picked one;
+  // `plans` is a fresh array every render, so without the flag a member who
+  // cleared the choice would see it snap back.
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (preselected.current || initialPlanCode === null) return;
+    if (!plans.some((plan) => plan.code === initialPlanCode)) return;
+    preselected.current = true;
+    setPlanCode((current) => (current === '' ? initialPlanCode : current));
+  }, [initialPlanCode, plans]);
   const [reference, setReference] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);

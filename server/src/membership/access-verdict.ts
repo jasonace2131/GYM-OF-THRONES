@@ -31,6 +31,13 @@ export interface MembershipSnapshot {
   graceDays: number;
   graceAdmissionsThisTerm: number;
   cancelRequestedOn: CivilDate | null;
+  /**
+   * The day the plan was cancelled. The desk's Cancel ends a plan THAT day and
+   * leaves `endsOn` as history of what was paid for, so for an early cancel
+   * this, not `endsOn`, is when it stopped. Optional: absent means unknown,
+   * and the verdict falls back to `endsOn`.
+   */
+  cancelledOn?: CivilDate | null;
   planName: string;
   planPriceCentavos: number;
   /** The running hold's window, when status === FROZEN. */
@@ -108,8 +115,13 @@ export function accessVerdict(
   cfg: AccessVerdictConfig,
 ): AccessResult {
   const m = subject.membership;
+  const effective = m === null ? null : effectiveStatus(m, today);
   const remaining = m === null ? 0 : Math.max(0, civilDaysBetween(today, m.endsOn));
-  const daysRemaining = m === null ? null : remaining;
+  // A cancelled plan has no days left, whatever its old end date says. It
+  // used to count down to `endsOn`, so a plan cancelled on 7 Nov showed
+  // "73 days left" on the member's page, the check-in screen and the roster.
+  const daysRemaining =
+    m === null ? null : effective === MembershipStatus.CANCELLED ? 0 : remaining;
 
   const deny = (
     denialReason: DenialReason,
@@ -164,8 +176,6 @@ export function accessVerdict(
       null,
     );
   }
-
-  const effective = m === null ? null : effectiveStatus(m, today);
 
   // 3. Inside a running term.
   if (m !== null && effective === MembershipStatus.ACTIVE && today <= m.endsOn) {
@@ -258,6 +268,17 @@ export function accessVerdict(
     }
     // 7.
     if (effective === MembershipStatus.CANCELLED) {
+      // Cancelled before the term ran out: it stopped on the day, and that is
+      // the date to name. A plan that ran out its notice ended on `endsOn`.
+      const cancelledOn = m.cancelledOn ?? null;
+      if (cancelledOn !== null && cancelledOn <= m.endsOn) {
+        return deny(
+          DenialReason.MEMBERSHIP_CANCELLED,
+          `Cancelled on ${shortDate(cancelledOn)}. Start a new plan, or sell a walk-in.`,
+          'RENEW',
+          cancelledOn,
+        );
+      }
       return deny(
         DenialReason.MEMBERSHIP_CANCELLED,
         `Cancelled — the term ended ${shortDate(m.endsOn)}. Start a new plan, or sell a walk-in.`,

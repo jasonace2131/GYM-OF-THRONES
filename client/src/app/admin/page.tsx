@@ -612,6 +612,7 @@ export default function AdminDashboardPage() {
                             decision={row.decision}
                             daysRemaining={row.daysRemaining}
                             hasMembership
+                            denialReason={row.denialReason}
                           />
                         </td>
                       </tr>

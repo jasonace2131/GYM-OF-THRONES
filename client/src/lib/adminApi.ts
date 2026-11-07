@@ -1314,6 +1314,10 @@ export const adminApi = {
       body: JSON.stringify({ label }),
     }),
 
+  /** "A tablet was lost or stolen": every tablet on the station disconnected, codes changed. */
+  disconnectStationTablets: (id: string): Promise<AdminStation> =>
+    apiFetch<AdminStation>(`/admin/stations/${id}/disconnect-tablets`, { method: 'POST' }),
+
   revokeStationCredential: (credentialId: string): Promise<AdminStationCredential> =>
     apiFetch<AdminStationCredential>(`/admin/stations/credentials/${credentialId}`, {
       method: 'DELETE',

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { DenialReason, MembershipStatus, type AllowReason } from '@got/shared';
 import type { AccessResult, MembershipDetail } from '@/lib/portalData';
-import { membershipStatusView, withoutSelfService } from './membershipStatus';
+import {
+  accessLine,
+  membershipStatusView,
+  payHrefFor,
+  withoutSelfService,
+} from './membershipStatus';
 
 const PLAN = {
   id: 'm1',
@@ -302,5 +307,72 @@ describe('withoutSelfService — the dashboard for someone who cannot manage a p
   it('leaves no button at all when the only one was the plan page', () => {
     const v = { ...base, primaryCta: renew, secondaryCta: null };
     expect(withoutSelfService(v, false)).toEqual({ ...base, primaryCta: null, secondaryCta: null });
+  });
+});
+
+/**
+ * My Subscription's date line (owner bug report, 2026-11-07): a plan the desk
+ * cancelled on 7 Nov said "Access runs to 19 Jan 2027" beside "Your plan
+ * ended", and a frozen one said "Access runs to" while the member could not
+ * get in. The line now only promises access the member actually has.
+ */
+describe('accessLine', () => {
+  const plan = (over: Loose<MembershipDetail> = {}) =>
+    ({ ...PLAN, endsOn: '2027-01-23', ...over }) as unknown as MembershipDetail;
+
+  it('says how long access runs while the plan lets them in', () => {
+    expect(accessLine(plan(), allow('MEMBERSHIP_ACTIVE'))).toBe('Access runs to 23 Jan 2027.');
+    expect(accessLine(plan(), allow('MEMBERSHIP_EXPIRING_SOON'))).toBe(
+      'Access runs to 23 Jan 2027.',
+    );
+  });
+
+  it('notes a notice already given', () => {
+    expect(
+      accessLine(plan({ cancelRequestedOn: '2026-11-01' }), allow('MEMBERSHIP_ENDING')),
+    ).toBe('Access runs to 23 Jan 2027, then the plan ends (notice given 1 Nov 2026).');
+  });
+
+  it('says when a paused plan runs to, not that access runs', () => {
+    expect(
+      accessLine(
+        plan({ status: MembershipStatus.FROZEN }),
+        deny(DenialReason.MEMBERSHIP_FROZEN, { relevantDate: '2026-11-21', offer: 'OVERRIDE' }),
+      ),
+    ).toBe('When the pause ends, your plan runs to 23 Jan 2027.');
+  });
+
+  it('says nothing for a plan that gives no access: cancelled, expired, in grace', () => {
+    expect(
+      accessLine(
+        plan({ status: MembershipStatus.CANCELLED }),
+        deny(DenialReason.MEMBERSHIP_CANCELLED, { relevantDate: '2026-11-07', daysRemaining: 0 }),
+      ),
+    ).toBeNull();
+    expect(accessLine(plan(), deny(DenialReason.MEMBERSHIP_EXPIRED))).toBeNull();
+    expect(accessLine(plan(), allow('MEMBERSHIP_IN_GRACE'))).toBeNull();
+    expect(accessLine(null, deny(DenialReason.NO_MEMBERSHIP))).toBeNull();
+  });
+});
+
+describe('payHrefFor', () => {
+  it('opens Pay / GCash with the plan already chosen', () => {
+    expect(payHrefFor('QUARTERLY')).toBe('/portal/pay?plan=QUARTERLY');
+  });
+
+  it('opens it with nothing chosen when there is no plan', () => {
+    expect(payHrefFor(null)).toBe('/portal/pay');
+  });
+});
+
+describe('membershipStatusView for a plan cancelled early', () => {
+  it('names the cancel day and draws no ring', () => {
+    const cancelled = deny(DenialReason.MEMBERSHIP_CANCELLED, {
+      relevantDate: '2026-11-07',
+      daysRemaining: 0,
+    });
+    const shown = view(cancelled, { status: MembershipStatus.CANCELLED });
+    expect(shown.line).toBe('Your plan ended 7 Nov. The desk can start a new one.');
+    expect(shown.ring).toBeNull();
   });
 });

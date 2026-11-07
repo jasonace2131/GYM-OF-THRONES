@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { MembershipStatus, PERMISSIONS, PaymentStatus } from '@got/shared';
 import { RequirePermission } from '@/components/rbac/guards';
 import {
@@ -10,10 +11,10 @@ import {
   type SubscriptionView,
 } from '@/lib/portalData';
 import { ApiError } from '@/lib/api';
-import { membershipStatusView } from '@/lib/dashboard/membershipStatus';
+import { accessLine, membershipStatusView, payHrefFor } from '@/lib/dashboard/membershipStatus';
+import { RenewPlanDialog } from '@/components/portal/RenewPlanDialog';
 import { Badge, Card, CardHead, EmptyState, ProgressRing, Skeleton } from '@/components/portal/ui';
 import type { BadgeTone } from '@/components/portal/ui';
-import { IconArrow } from '@/components/portal/icons';
 
 /**
  * The four-value vocabulary, verbatim. There is no "expiring" status: grace is a
@@ -53,8 +54,10 @@ export default function SubscriptionPage() {
 }
 
 function Subscription() {
+  const router = useRouter();
   const [data, setData] = useState<SubscriptionView | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState(false);
 
   useEffect(() => {
     void getSubscription()
@@ -91,10 +94,26 @@ function Subscription() {
    * for a plan in good standing, where the "Access runs to" line below says
    * it all.
    */
-  const memberLine = membershipStatusView(membership, verdict).line;
+  const status = membershipStatusView(membership, verdict);
+  const memberLine = status.line;
+  const dateLine = accessLine(membership, verdict);
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
+      <RenewPlanDialog
+        open={renewing}
+        plan={
+          membership === null
+            ? null
+            : {
+                name: membership.planName,
+                priceCentavos: membership.planPriceCentavos,
+                termMonths: membership.termMonths,
+              }
+        }
+        onPay={() => router.push(payHrefFor(membership?.planCode ?? null))}
+        onClose={() => setRenewing(false)}
+      />
       <Card>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'center' }}>
           <div style={{ flex: '1 1 300px', minWidth: 0 }}>
@@ -128,34 +147,33 @@ function Subscription() {
               </p>
             )}
 
-            {membership && (
+            {dateLine !== null && (
               // Keeps the gap under the price when there is no line above it.
               <p className="p-muted" style={{ marginTop: memberLine === null ? 10 : 4 }}>
-                Access runs to {formatCivilDate(membership.endsOn)}
-                {membership.cancelRequestedOn
-                  ? ` — cancelling, notice given ${formatCivilDate(membership.cancelRequestedOn)}.`
-                  : '.'}
+                {dateLine}
               </p>
             )}
 
             {verdict.offer === 'RENEW' && (
+              // This had no action at all: a member with a cancelled or
+              // expired plan tapped it and nothing happened (owner bug report,
+              // 2026-11-07). It now asks first, then opens Pay / GCash.
               <button
                 type="button"
                 className="p-btn p-btn-gold"
                 style={{ marginTop: 18, padding: '13px 28px' }}
+                onClick={() => setRenewing(true)}
               >
-                Renew at the front desk
+                {membership ? 'Renew' : 'Choose a plan'}
               </button>
             )}
           </div>
 
-          {membership && verdict.daysRemaining !== null && (
+          {/* The dashboard's own ring rule, so the two screens agree: none for
+              a plan that is cancelled, expired, paused or on its last day. */}
+          {status.ring !== null && (
             <div style={{ marginInline: 'auto', flex: 'none' }}>
-              <ProgressRing
-                remaining={verdict.daysRemaining}
-                total={membership.termMonths * 30}
-                size={128}
-              />
+              <ProgressRing remaining={status.ring.remaining} total={status.ring.total} size={128} />
             </div>
           )}
         </div>

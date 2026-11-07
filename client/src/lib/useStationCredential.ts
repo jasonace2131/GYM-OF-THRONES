@@ -1,7 +1,12 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
-import { STATION_CODE_STORAGE, STATION_KEY_STORAGE, saveStationCredential } from './stationClient';
+import {
+  STATION_CODE_STORAGE,
+  STATION_KEY_STORAGE,
+  forgetStationCredential,
+  saveStationCredential,
+} from './stationClient';
 
 /**
  * The tablet's stored credential, read as an EXTERNAL STORE rather than
@@ -54,6 +59,8 @@ function subscribe(listener: () => void): () => void {
 export function useStationCredential(): {
   credential: StationCredential;
   save: (key: string, code: string) => void;
+  /** Drops the stored key and code, and tells this tab, as `save` does. */
+  forget: () => void;
 } {
   const credential = useSyncExternalStore(subscribe, readSnapshot, () => EMPTY);
 
@@ -62,5 +69,10 @@ export function useStationCredential(): {
     for (const listener of listeners) listener();
   }, []);
 
-  return { credential, save };
+  const forget = useCallback(() => {
+    forgetStationCredential();
+    for (const listener of listeners) listener();
+  }, []);
+
+  return { credential, save, forget };
 }

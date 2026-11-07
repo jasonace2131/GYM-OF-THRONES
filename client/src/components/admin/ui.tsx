@@ -117,6 +117,15 @@ export function Person({
   );
 }
 
+/** A refused member's badge, by the door's reason. */
+const REFUSAL_BADGE: Record<string, { label: string; tone: 'danger' | 'neutral' }> = {
+  MEMBERSHIP_EXPIRED: { label: 'Expired', tone: 'danger' },
+  MEMBERSHIP_CANCELLED: { label: 'Cancelled', tone: 'danger' },
+  MEMBERSHIP_FROZEN: { label: 'Frozen', tone: 'neutral' },
+  ACCOUNT_SUSPENDED: { label: 'Suspended', tone: 'danger' },
+  ACCOUNT_DEACTIVATED: { label: 'Deactivated', tone: 'danger' },
+};
+
 /**
  * THE STANDING BADGE, and the one rule it follows.
  *
@@ -130,14 +139,24 @@ export function StandingBadge({
   decision,
   daysRemaining,
   hasMembership,
+  denialReason = null,
 }: {
   decision: 'ALLOW' | 'GRACE' | 'DENY';
   daysRemaining: number | null;
   hasMembership: boolean;
+  /**
+   * The door's reason for a DENY, so a refusal is named for what it is. Every
+   * refusal used to read "Expired", including a frozen plan and a cancelled
+   * one (owner bug report, 2026-11-07). Absent: "Expired", as before.
+   */
+  denialReason?: string | null;
 }) {
   if (!hasMembership) return <Badge tone="neutral">No plan</Badge>;
   if (decision === 'GRACE') return <Badge tone="warn">In grace</Badge>;
-  if (decision === 'DENY') return <Badge tone="danger">Expired</Badge>;
+  if (decision === 'DENY') {
+    const refused = REFUSAL_BADGE[denialReason ?? ''] ?? REFUSAL_BADGE['MEMBERSHIP_EXPIRED']!;
+    return <Badge tone={refused.tone}>{refused.label}</Badge>;
+  }
   if (daysRemaining !== null && daysRemaining <= 7) return <Badge tone="warn">Expiring</Badge>;
   return <Badge tone="ok">Active</Badge>;
 }

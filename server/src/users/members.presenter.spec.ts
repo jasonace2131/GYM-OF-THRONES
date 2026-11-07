@@ -21,6 +21,7 @@ function membershipRow(overrides: Record<string, unknown> = {}): Record<string, 
     graceDays: 3,
     graceAdmissionsThisTerm: 0,
     cancelRequestedOn: null,
+    cancelledOn: null,
     holds: [],
     ...overrides,
   };

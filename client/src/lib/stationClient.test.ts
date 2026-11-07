@@ -126,4 +126,22 @@ describe('isBatchStale', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 409 })));
     expect(await isBatchStale(TABLET, null, 'ZDQA:1:100')).toBe(true);
   });
+
+  // A disconnected tablet used to keep showing its saved codes for up to five
+  // minutes: the head check answered 401 and that read as "still good". Stale
+  // makes the display refetch at once, and the refetch says why (REVOKED, or
+  // for the staff display an expired or refused login).
+  it('is stale on a 401 or 403, so the display refetches and learns why at once', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 401 })));
+    expect(await isBatchStale(TABLET, null, 'ZDQA:1:100')).toBe(true);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 403 })));
+    expect(await isBatchStale(STAFF, null, 'ZDQA:1:100')).toBe(true);
+  });
+
+  it('keeps the batch through a network error or a rate limit', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    expect(await isBatchStale(TABLET, null, 'ZDQA:1:100')).toBe(false);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 429 })));
+    expect(await isBatchStale(TABLET, null, 'ZDQA:1:100')).toBe(false);
+  });
 });

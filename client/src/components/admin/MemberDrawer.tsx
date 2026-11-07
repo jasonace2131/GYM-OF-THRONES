@@ -23,6 +23,7 @@ import {
   type ActionAvailability,
 } from '@/lib/staff/staffRules';
 import { DaysLeft, Person, StandingBadge } from './ui';
+import { membershipActions } from '@/lib/membershipActions';
 import { ChangeEmailModal } from './actions/ChangeEmailModal';
 import { ChangeRoleModal } from './actions/ChangeRoleModal';
 import { ConfirmActionModal } from './actions/ConfirmActionModal';
@@ -276,6 +277,7 @@ export function MemberDrawer({
                 decision={member.decision}
                 daysRemaining={member.membership?.daysRemaining ?? null}
                 hasMembership={member.membership !== null}
+                denialReason={member.denialReason}
               />
               <Badge tone="neutral">{member.role.replace('_', ' ')}</Badge>
               {member.memberCode !== null && (
@@ -415,7 +417,13 @@ export function MemberDrawer({
                     Replace plan
                   </button>
                 )}
-                {!isDeleted && can(PERMISSIONS.MEMBERSHIP_FREEZE) && member.membership !== null && (
+                {/* Freeze and Cancel follow the server's transition rules,
+                    so a cancelled plan no longer offers two buttons that can
+                    only fail (owner bug report, 2026-11-07). */}
+                {!isDeleted &&
+                  can(PERMISSIONS.MEMBERSHIP_FREEZE) &&
+                  member.membership !== null &&
+                  membershipActions(member.membership.status).freeze && (
                   <button
                     type="button"
                     className="p-btn p-btn-ghost p-btn-sm"
@@ -424,7 +432,10 @@ export function MemberDrawer({
                     Freeze
                   </button>
                 )}
-                {!isDeleted && can(PERMISSIONS.MEMBERSHIP_CANCEL) && member.membership !== null && (
+                {!isDeleted &&
+                  can(PERMISSIONS.MEMBERSHIP_CANCEL) &&
+                  member.membership !== null &&
+                  membershipActions(member.membership.status).cancel && (
                   <button
                     type="button"
                     className="p-btn p-btn-ghost p-btn-sm"

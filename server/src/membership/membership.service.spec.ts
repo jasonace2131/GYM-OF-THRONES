@@ -26,6 +26,7 @@ function membershipWithHolds(holds: Partial<MembershipHold>[]): Membership & {
     graceDays: 3,
     graceAdmissionsThisTerm: 0,
     cancelRequestedOn: null,
+    cancelledOn: null,
     holds: holds as MembershipHold[],
   } as unknown as Membership & { holds: MembershipHold[] };
 }

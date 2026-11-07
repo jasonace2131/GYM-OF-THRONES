@@ -240,6 +240,7 @@ function Hit({
           decision={member.decision}
           daysRemaining={member.membership?.daysRemaining ?? null}
           hasMembership={member.membership !== null}
+          denialReason={member.denialReason}
         />
       </span>
     </button>

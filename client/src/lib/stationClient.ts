@@ -178,7 +178,11 @@ export async function isBatchStale(
       cache: 'no-store',
     });
     // 204 means the cached batch is still good; 409 means the epoch moved.
-    return response.status === 409;
+    // 401/403 mean this credential stopped working (a disconnected tablet, an
+    // expired or refused staff login): stale too, so the display refetches now
+    // and `fetchStationBatch` says which, instead of the display running on
+    // through codes it saved earlier.
+    return response.status === 409 || response.status === 401 || response.status === 403;
   } catch {
     return false;
   }

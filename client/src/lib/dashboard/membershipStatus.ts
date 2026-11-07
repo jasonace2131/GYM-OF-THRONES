@@ -1,5 +1,5 @@
 import { DENIAL_MEMBER_COPY, DenialReason, denialMemberCopy } from '@got/shared';
-import { civilDaysBetween, type CivilDate } from '@/lib/gymTime';
+import { civilDaysBetween, formatCivilDate, type CivilDate } from '@/lib/gymTime';
 import type { AccessResult, MembershipDetail } from '@/lib/portalData';
 import { dayMonth } from './dashboardView';
 
@@ -208,6 +208,48 @@ function refused(
   untilLabel: string | null,
 ): MembershipStatusView {
   return { tone, badge, line, primaryCta, secondaryCta: null, ring: null, untilLabel };
+}
+
+/** The access the member actually has, for My Subscription's date line. */
+const ACCESS_RUNS: ReadonlySet<string> = new Set([
+  'MEMBERSHIP_ACTIVE',
+  'MEMBERSHIP_EXPIRING_SOON',
+  'MEMBERSHIP_EXPIRES_TODAY',
+  'MEMBERSHIP_ENDING',
+]);
+
+/**
+ * My Subscription's date line, under the status sentence.
+ *
+ * It used to read "Access runs to {endsOn}" for every plan, so a plan the
+ * desk cancelled on 7 Nov said "Access runs to 19 Jan 2027" beside "Your plan
+ * ended", and a paused one promised access the member did not have (owner
+ * bug report, 2026-11-07). It now only promises access the verdict gives;
+ * a paused plan says where it runs to once the pause ends; a cancelled,
+ * expired or in-grace plan gets nothing, because the status sentence above
+ * already says what happened.
+ */
+export function accessLine(
+  membership: MembershipDetail | null,
+  verdict: AccessResult,
+): string | null {
+  if (membership === null) return null;
+  const ends = formatCivilDate(membership.endsOn);
+
+  if (verdict.allowReason !== null && ACCESS_RUNS.has(verdict.allowReason)) {
+    return membership.cancelRequestedOn
+      ? `Access runs to ${ends}, then the plan ends (notice given ${formatCivilDate(membership.cancelRequestedOn)}).`
+      : `Access runs to ${ends}.`;
+  }
+  if (verdict.denialReason === DenialReason.MEMBERSHIP_FROZEN) {
+    return `When the pause ends, your plan runs to ${ends}.`;
+  }
+  return null;
+}
+
+/** Pay / GCash, with the member's plan already chosen when they have one. */
+export function payHrefFor(planCode: string | null): string {
+  return planCode === null ? '/portal/pay' : `/portal/pay?plan=${encodeURIComponent(planCode)}`;
 }
 
 const SELF_SERVICE_PATH = '/portal/subscription';

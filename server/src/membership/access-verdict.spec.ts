@@ -472,3 +472,61 @@ describe('access-verdict.ts stays pure', () => {
     expect(source).not.toMatch(/@Injectable/);
   });
 });
+
+/**
+ * Owner bug report, 2026-11-07: the desk cancelled a Quarterly on 7 Nov and
+ * the member's page said "Your plan ended 19 Jan" (a date still to come),
+ * "Access runs to 19 Jan 2027" and "73 days left". The desk's Cancel ends a
+ * plan on the day; `endsOn` is kept only as history of what was paid for.
+ */
+describe('accessVerdict — a plan cancelled before its end date', () => {
+  it('names the day it was cancelled, not the old end date, and counts no days left', () => {
+    const result = accessVerdict(
+      subject({
+        membership: snapshot({
+          status: MembershipStatus.CANCELLED,
+          endsOn: d('2027-01-19'),
+          cancelledOn: d('2026-11-07'),
+        }),
+      }),
+      d('2026-11-07'),
+      CFG,
+    );
+
+    expect(result.denialReason).toBe(DenialReason.MEMBERSHIP_CANCELLED);
+    expect(result.relevantDate).toBe('2026-11-07');
+    expect(result.daysRemaining).toBe(0);
+    expect(result.message).toContain('Cancelled on 7 Nov');
+    expect(result.offer).toBe('RENEW');
+  });
+
+  it('keeps the end date for a plan that ran out its notice', () => {
+    const result = accessVerdict(
+      subject({
+        membership: snapshot({
+          status: MembershipStatus.CANCELLED,
+          endsOn: d('2026-08-17'),
+          cancelledOn: d('2026-08-18'),
+        }),
+      }),
+      d('2026-08-20'),
+      CFG,
+    );
+
+    expect(result.relevantDate).toBe('2026-08-17');
+    expect(result.daysRemaining).toBe(0);
+  });
+
+  it('falls back to the end date when the cancel date is not known', () => {
+    const result = accessVerdict(
+      subject({
+        membership: snapshot({ status: MembershipStatus.CANCELLED, endsOn: d('2027-01-19') }),
+      }),
+      d('2026-11-07'),
+      CFG,
+    );
+
+    expect(result.relevantDate).toBe('2027-01-19');
+    expect(result.daysRemaining).toBe(0);
+  });
+});

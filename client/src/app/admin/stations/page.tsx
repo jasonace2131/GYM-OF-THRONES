@@ -23,12 +23,12 @@ import type { AdminStation } from '@/lib/adminApi';
  *
  *   TURN OFF      "that tablet was stolen", "that entrance is shut". Takes
  *                 effect on the very next scan, with no redeploy.
- *   NEW CODE      the per-station panic button. Every outstanding token for
- *                 THIS station dies within one slot — the display's own head
- *                 check is what makes it one slot and not one batch — with no
- *                 effect on any other station and no secret rotation.
- *   REVOKE        one tablet's access, independently of every other tablet
- *                 and of every member.
+ *   LOST OR      the per-station panic button: every tablet on THIS station
+ *   STOLEN        is disconnected and its codes change, so a stolen tablet
+ *                 stops within one slot. Each tablet is set up again.
+ *   DISCONNECT    one tablet. Its key is revoked and the station's codes
+ *                 change, so the codes it already saved die too; the other
+ *                 tablets refetch by themselves.
  *
  * Each is confirmed before it fires, through the console's one
  * `ConfirmDialog`. Not ceremony: two of them stop members getting through a
@@ -177,9 +177,7 @@ export default function AdminStationsPage() {
                 <DisconnectAllButton
                   busy={busy}
                   stationName={station.name}
-                  onConfirm={() =>
-                    act(() => adminApi.updateStation(station.id, { bumpTokenEpoch: true }))
-                  }
+                  onConfirm={() => act(() => adminApi.disconnectStationTablets(station.id))}
                 />
 
                 <ConfirmButton
@@ -247,7 +245,7 @@ export default function AdminStationsPage() {
                                   busy={busy}
                                   label="Disconnect"
                                   title={`Disconnect “${credential.label}”?`}
-                                  question={`“${credential.label}” stops working straight away. You can set it up again any time.`}
+                                  question={`“${credential.label}” stops working within 30 seconds, including the codes it is showing. Other tablets carry on. You can set it up again any time.`}
                                   confirmLabel="Disconnect it"
                                   cancelLabel="Keep it connected"
                                   danger
@@ -557,7 +555,7 @@ function DisconnectAllButton({
       busy={busy}
       label="A tablet was lost or stolen"
       title={`Disconnect every tablet on ${stationName}?`}
-      question="Every tablet on this screen stops working within 30 seconds. You will set them up again — about a minute each."
+      question="Every tablet on this screen is disconnected and stops working within 30 seconds. To use a tablet again, press Set up a tablet: about a minute each."
       confirmLabel="Disconnect them all"
       cancelLabel="Keep them connected"
       danger

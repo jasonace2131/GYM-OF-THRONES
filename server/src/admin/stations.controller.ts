@@ -54,6 +54,18 @@ export class AdminStationsController {
   }
 
   /**
+   * "A tablet was lost or stolen": disconnect every tablet on this station
+   * and change its codes. Idempotent like every POST here, so a double-tap in
+   * a panic runs it once.
+   */
+  @Post(':id/disconnect-tablets')
+  @RequirePermission('station.manage')
+  @Idempotent()
+  async disconnectTablets(@Param('id', ParseUUIDPipe) id: string): Promise<AdminStation> {
+    return this.stations.disconnectTablets(id);
+  }
+
+  /**
    * THE SECRET IN THIS RESPONSE IS SHOWN ONCE AND IS NEVER RECOVERABLE.
    *
    * Rate-limited hard: this is the one endpoint that mints a credential which

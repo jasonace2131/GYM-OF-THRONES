@@ -176,8 +176,10 @@ function StationDisplay() {
   const params = useSearchParams();
   const router = useRouter();
   const mode: StationMode = stationModeFrom(params.get('mode'));
-  const { credential, save } = useStationCredential();
+  const { credential, save, forget } = useStationCredential();
   const [feed, setFeed] = useState<Feed>(INITIAL);
+  /** This tablet's key was disconnected in Admin → Stations, so it asks for a new one. */
+  const [disconnected, setDisconnected] = useState(false);
   const [tick, setTick] = useState(() => Date.now());
 
   const key = credential.key;
@@ -266,6 +268,19 @@ function StationDisplay() {
     };
   }, [configured, mode, key, code]);
 
+  // A refused key is a disconnected tablet, never a network blip: the guard
+  // answers 401 only for a key that was revoked or never issued. Keeping it
+  // left the screen on "network is down" with no way to enter a new key, so
+  // every key made in admin went unused ("Last seen: never"), and the retry
+  // loop ran into the rate limit. Forget it and ask for a new one instead.
+  // The staff display has no key; its 401/403 mean sign in again / no access.
+  useEffect(() => {
+    if (mode !== 'tablet' || !feed.revoked) return;
+    forget();
+    setDisconnected(true);
+    setFeed(INITIAL);
+  }, [mode, feed.revoked, forget]);
+
   const state: DisplayState = displayState({
     batch: feed.batch,
     nowMs: now,
@@ -337,7 +352,17 @@ function StationDisplay() {
     };
   }, [state]);
 
-  if (state === 'UNCONFIGURED') return <SetupPanel onSave={save} />;
+  if (state === 'UNCONFIGURED') {
+    return (
+      <SetupPanel
+        disconnected={disconnected}
+        onSave={(newKey, newCode) => {
+          setDisconnected(false);
+          save(newKey, newCode);
+        }}
+      />
+    );
+  }
 
   const clock = deskClock(now, GYM_TIMEZONE);
   const token = activeToken(feed.batch, now);
@@ -525,16 +550,26 @@ function diagnosticLine(input: {
  * Step 1 tells staff exactly where to get the key so they never need
  * external documentation. Step 2 is the paste-and-start form.
  */
-function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void }) {
+function SetupPanel({
+  onSave,
+  disconnected,
+}: {
+  onSave: (key: string, code: string) => void;
+  /** The tablet's previous key was disconnected in admin. */
+  disconnected: boolean;
+}) {
   const [step, setStep] = useState<1 | 2>(1);
   const [value, setValue] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const adminUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/admin/stations`
-      : '/admin/stations';
+  // The full address is read after mount. Branching on `typeof window` in
+  // render gave the server "/admin/stations" and the browser the full URL, a
+  // hydration mismatch on every load of an unconfigured tablet.
+  const [adminUrl, setAdminUrl] = useState('/admin/stations');
+  useEffect(() => {
+    setAdminUrl(`${window.location.origin}/admin/stations`);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -555,6 +590,24 @@ function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void })
 
       <div className="st-stage">
         <div style={{ width: '100%', maxWidth: 460 }}>
+          {disconnected ? (
+            <div
+              role="status"
+              style={{
+                marginBottom: 24,
+                padding: '12px 16px',
+                borderRadius: 10,
+                background: 'rgba(220,60,60,0.12)',
+                border: '1px solid rgba(220,60,60,0.3)',
+                fontSize: 14,
+                lineHeight: 1.55,
+                color: 'var(--d-text, #f2eee6)',
+              }}
+            >
+              This tablet was disconnected. Make a new key in Admin → Stations → Set up a tablet,
+              then paste it here.
+            </div>
+          ) : null}
 
           {/* ── Step progress indicator ── */}
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 32 }}>
@@ -608,12 +661,12 @@ function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void })
                 {[
                   'Open the Admin panel in any browser — not this tablet.',
                   'Click Stations in the left sidebar.',
-                  'Click "Provision a tablet" on the front desk station.',
+                  'Press "Set up a tablet" on the front desk station.',
                   'Copy the key that appears — it is shown ONCE and cannot be recovered.',
                 ].map((text, i) => (
                   <li
                     key={i}
-                    style={{ display: 'flex', gap: 12, fontSize: 14, lineHeight: 1.5, color: 'var(--d-text-2, #999)' }}
+                    style={{ display: 'flex', gap: 12, fontSize: 14, lineHeight: 1.5, color: 'var(--d-text-2, #999)', textAlign: 'left' }}
                   >
                     <span style={{ color: 'var(--d-gold, #c9922a)', fontWeight: 700, flex: 'none', minWidth: 18 }}>
                       {['①', '②', '③', '④'][i]}
@@ -654,7 +707,7 @@ function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void })
                 </div>
                 <div style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--d-text-2, #999)' }}>
                   Paste the key you copied from Admin → Stations. It is saved on this tablet
-                  only and never sent back to the server in readable form.
+                  only; the server keeps just a scrambled copy.
                 </div>
               </div>
 
@@ -716,8 +769,8 @@ function SetupPanel({ onSave }: { onSave: (key: string, code: string) => void })
               </div>
 
               <div style={{ fontSize: 12, color: 'var(--d-text-3, #666)', lineHeight: 1.5 }}>
-                If this tablet is ever lost or stolen, go to Admin → Stations and click Revoke.
-                The display goes dark within 30 seconds.
+                If this tablet is ever lost or stolen, go to Admin → Stations and press
+                Disconnect next to it. It stops working within 30 seconds.
               </div>
             </form>
           )}
