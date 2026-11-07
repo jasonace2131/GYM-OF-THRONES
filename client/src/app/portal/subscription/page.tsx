@@ -145,7 +145,6 @@ function Subscription() {
                 style={{ marginTop: 18, padding: '13px 28px' }}
               >
                 Renew at the front desk
-                <IconArrow />
               </button>
             )}
           </div>
