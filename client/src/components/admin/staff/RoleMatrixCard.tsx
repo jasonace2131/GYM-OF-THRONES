@@ -14,7 +14,7 @@ import { MATRIX_ROLES, buildRoleMatrix, cellLabel, matrixRoleLabel } from '@/lib
  * SEEDED grants (`permission.read`). Collapsed by default: it is reference,
  * not the job, and sixty rows would push the staff list off the screen.
  */
-export function RoleMatrixCard() {
+export function RoleMatrixCard({ version = 0 }: { version?: number }) {
   const matrix = useAdminQuery(
     useCallback(async () => {
       const [catalogue, grants] = await Promise.all([
@@ -23,7 +23,7 @@ export function RoleMatrixCard() {
       ]);
       return buildRoleMatrix(catalogue, grants);
     }, []),
-    'staff-role-matrix',
+    `staff-role-matrix:${version}`,
   );
 
   return (

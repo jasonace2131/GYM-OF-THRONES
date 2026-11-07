@@ -378,6 +378,10 @@ enum AuditAction {
   // payments, memberships and attendance kept. `details` holds COUNTS only —
   // never a name, email, phone or health value.
   MEMBER_SELF_DELETED
+  // ── Edit role access (feat/role-access-editor, owner 2026-11-07) ──
+  // What a role can do, changed or reset to defaults from Staff & Access.
+  // { role, reset, added, removed, changed } — permission keys and reaches only.
+  ROLE_PERMISSIONS_UPDATED
 }
 
 // ── GCash proof submissions ──────────────────────────────────────────────

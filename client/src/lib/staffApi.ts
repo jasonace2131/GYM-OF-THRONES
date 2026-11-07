@@ -15,6 +15,7 @@ import type { MemberListItem } from './adminApi';
 import type { CoachMemberRow } from './coachApi';
 import type { CoachMemberProgress } from './progress/types';
 import type { PermissionCatalogue, RoleGrants } from './staff/roleMatrix';
+import type { AccessRole, Grant, RoleAccessView } from './staff/accessEditor';
 
 /**
  * Staff & Access, on the wire. Kept out of `adminApi.ts` so the console's
@@ -77,6 +78,26 @@ export const staffApi = {
 
   /** `permission.read`. The SEEDED grants per role; DEV is absent (it bypasses). */
   roleGrants: (): Promise<RoleGrants> => apiFetch<RoleGrants>('/admin/permissions/roles'),
+
+  /** `permission.read`. Every role's live grants and defaults, and which this caller may edit. */
+  roleAccess: (): Promise<RoleAccessView> => apiFetch<RoleAccessView>('/admin/roles/permissions'),
+
+  /** `role.permissions.update`. The WHOLE set the role should hold. */
+  saveRoleAccess: (
+    role: AccessRole,
+    body: { grants: Grant[]; reason: string; confirm?: boolean },
+  ): Promise<RoleAccessView> =>
+    apiFetch<RoleAccessView>(`/admin/roles/${seg(role)}/permissions`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  /** `role.permissions.update`. Back to what the code gives the role. */
+  resetRoleAccess: (role: AccessRole, reason: string): Promise<RoleAccessView> =>
+    apiFetch<RoleAccessView>(`/admin/roles/${seg(role)}/permissions/reset`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 
   /** `coach.read`. Every live coach's profile the caller can reach. */
   coachProfiles: (): Promise<CoachProfileView[]> =>

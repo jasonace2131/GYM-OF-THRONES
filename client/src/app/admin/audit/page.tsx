@@ -66,6 +66,7 @@ const ACTION_LABELS: Record<AuditEntry['action'], string> = {
   ASSISTANT_INSTRUCTIONS_RESET: 'Assistant instructions reset',
   GYM_EQUIPMENT_CHANGED: 'Equipment list changed',
   MEMBER_SELF_DELETED: 'Member deleted their account',
+  ROLE_PERMISSIONS_UPDATED: 'Role access changed',
 };
 
 /**
@@ -138,6 +139,8 @@ const TONE: Record<AuditEntry['action'], 'danger' | 'warn' | 'ok' | 'neutral'> =
   // What the AI planners may use: routine, like the assistant's instructions.
   GYM_EQUIPMENT_CHANGED: 'neutral',
   MEMBER_SELF_DELETED: 'warn',
+  // What a whole role can do: like a role change, it hands out or takes away access.
+  ROLE_PERMISSIONS_UPDATED: 'warn',
 };
 
 const PAGE_SIZE = 25;

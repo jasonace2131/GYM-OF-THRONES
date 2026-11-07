@@ -257,6 +257,19 @@ export type DomainErrorCode =
   // 404. The account named is not a live coach — one code whether it does
   // not exist or holds another role, so the route is no oracle for either.
   | 'COACH_NOT_FOUND'
+  // Edit role access (`PUT /admin/roles/:role/permissions`). NOT_EDITABLE is
+  // 403: this caller may not edit this role (`role-access-rules.ts`).
+  // ESCALATION is 403: granting a key, or a wider reach, the caller does not
+  // hold. The rest are 422, a set the rules refuse: an unknown key, Own on a
+  // key the app does not scope, a key without what it needs, a locked key
+  // turned off, or a dangerous key granted without `confirm: true`.
+  | 'ROLE_ACCESS_NOT_EDITABLE'
+  | 'ROLE_ACCESS_ESCALATION'
+  | 'ROLE_ACCESS_UNKNOWN_PERMISSION'
+  | 'ROLE_ACCESS_SCOPE_NOT_SUPPORTED'
+  | 'ROLE_ACCESS_PREREQUISITE_MISSING'
+  | 'ROLE_ACCESS_LOCKED'
+  | 'ROLE_ACCESS_CONFIRM_REQUIRED'
   // ── end Staff & Access ────────────────────────────────────────────────────
 
   // ── C2 — member creation with a magic link ──────────────────────────────

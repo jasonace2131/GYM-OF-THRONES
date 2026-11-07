@@ -1,15 +1,49 @@
 import { PrismaClient } from '@prisma/client';
+import { ADMIN_LOCKED_PERMISSIONS } from '@got/shared';
 import {
   PERMISSION_CATALOGUE,
   ROLE_PERMISSIONS,
   assertRequiresClosure,
   assertRequiresKeysExist,
+  type PermissionGrant,
 } from '../src/rbac/permission-registry';
+import {
+  applyOverrides,
+  closeOverPrerequisites,
+  type GrantOverride,
+} from '../src/rbac/role-access';
 import { bumpPermissionVersionForRoles } from '../src/rbac/permission-version';
 import { seedPlans } from '../src/catalogue/plan-registry';
 import { seedStationRegistry } from '../src/checkin/station-registry';
 
 const prisma = new PrismaClient();
+
+/**
+ * One role's live grants: defaults + the gym's edits, with ADMIN's locked keys
+ * forced on and any key left without its prerequisites dropped (fail-closed;
+ * see `closeOverPrerequisites`). Never throws over a stored edit: a seed that
+ * failed would fail the deploy over a gym setting.
+ */
+function liveGrantsFor(
+  role: keyof typeof ROLE_PERMISSIONS,
+  overrides: GrantOverride[],
+): PermissionGrant[] {
+  const defaults = ROLE_PERMISSIONS[role];
+  const merged = applyOverrides(defaults, overrides);
+  for (const key of ADMIN_LOCKED_PERMISSIONS) {
+    const fallback = defaults.find((grant) => grant.key === key);
+    if (role === 'ADMIN' && fallback && !merged.some((grant) => grant.key === key)) {
+      merged.push(fallback);
+    }
+  }
+  const { kept, dropped } = closeOverPrerequisites(PERMISSION_CATALOGUE, merged);
+  if (dropped.length > 0) {
+    console.warn(
+      `${role}: dropped ${dropped.join(', ')} — a saved edit left them without a prerequisite.`,
+    );
+  }
+  return kept;
+}
 
 /**
  * Idempotent and convergent: safe to run against a database that already has
@@ -24,6 +58,10 @@ const prisma = new PrismaClient();
  * every user holding a role whose grant set actually changed gets
  * `permissionVersion` incremented, so a revocation is visible on the next
  * request rather than after a 60-second TTL.
+ *
+ * Since 2026-11-07 the grant pass converges on defaults + the gym's edits
+ * (`RolePermissionOverride`), not on the defaults alone, so a deploy no longer
+ * undoes what an admin changed on Staff & Access.
  */
 async function main(): Promise<void> {
   assertRequiresKeysExist(PERMISSION_CATALOGUE);
@@ -73,14 +111,28 @@ async function main(): Promise<void> {
     console.info(`Pruned ${prunedPermissions} permission(s) no longer in the catalogue.`);
   }
 
+  // The gym's own edits (Staff & Access → Edit role access, owner 2026-11-07).
+  // Read AFTER the permission prune, so edits to a dropped key are already
+  // gone with it (CASCADE). Live grants = the code's defaults with these laid
+  // over them: a deploy adds new permissions and never undoes an edit.
+  const storedOverrides = await prisma.rolePermissionOverride.findMany({
+    select: { role: true, scope: true, permission: { select: { key: true } } },
+  });
+
   const roles = Object.keys(ROLE_PERMISSIONS) as Array<keyof typeof ROLE_PERMISSIONS>;
   const affectedRoles: Array<keyof typeof ROLE_PERMISSIONS> = [];
   let grantCount = 0;
 
   for (const role of roles) {
     const desiredIds: string[] = [];
+    const live = liveGrantsFor(
+      role,
+      storedOverrides
+        .filter((row) => row.role === role)
+        .map((row) => ({ key: row.permission.key, scope: row.scope })),
+    );
 
-    for (const grant of ROLE_PERMISSIONS[role]) {
+    for (const grant of live) {
       const permission = await prisma.permission.findUniqueOrThrow({ where: { key: grant.key } });
       await prisma.rolePermission.upsert({
         where: { role_permissionId: { role, permissionId: permission.id } },
@@ -101,7 +153,7 @@ async function main(): Promise<void> {
     }
 
     const previous = before.get(role) ?? new Set<string>();
-    const desired = new Set(ROLE_PERMISSIONS[role].map((g) => `${g.key}:${g.scope}`));
+    const desired = new Set(live.map((g) => `${g.key}:${g.scope}`));
     const changed =
       previous.size !== desired.size || [...desired].some((entry) => !previous.has(entry));
     if (changed) {

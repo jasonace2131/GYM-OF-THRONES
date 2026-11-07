@@ -22,6 +22,7 @@ export * from './constants/permissions';
 // Staff & Access: who may give which role to whom. Enforced by the API,
 // offered by the console — one copy, two runtimes.
 export * from './rbac/role-hierarchy';
+export * from './rbac/role-access-rules';
 export * from './types/staff.types';
 // Counter sign-up: a staff-created member's setup link.
 export * from './types/member-join.types';

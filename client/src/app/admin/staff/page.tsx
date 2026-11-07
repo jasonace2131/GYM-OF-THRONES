@@ -11,6 +11,7 @@ import { InviteStaffModal } from '@/components/admin/staff/InviteStaffModal';
 import { IssuedLinkCard } from '@/components/admin/staff/IssuedLinkCard';
 import { InvitationsCard } from '@/components/admin/staff/InvitationsCard';
 import { RoleMatrixCard } from '@/components/admin/staff/RoleMatrixCard';
+import { RoleAccessEditorCard } from '@/components/admin/staff/RoleAccessEditorCard';
 import { civilDate, type MemberListItem } from '@/lib/adminApi';
 import { staffApi } from '@/lib/staffApi';
 import { useAdminQuery } from '@/lib/useAdminQuery';
@@ -54,6 +55,7 @@ export default function StaffAccessPage() {
   const [inviting, setInviting] = useState(false);
   const [issued, setIssued] = useState<IssuedStaffInvitation | null>(null);
   const [selected, setSelected] = useState<MemberListItem | null>(null);
+  const [accessVersion, setAccessVersion] = useState(0);
 
   // ALWAYS the whole staff list, filtered here: the last-admin count must
   // see every admin whatever the filter shows, and a gym's staff fits in one
@@ -220,7 +222,13 @@ export default function StaffAccessPage() {
       </DataState>
 
       <Can permission={PERMISSIONS.PERMISSION_READ} scope="ALL">
-        <RoleMatrixCard />
+        <RoleMatrixCard version={accessVersion} />
+      </Can>
+
+      {/* The editor is its own card; the read-only table above stays as it was
+          and re-reads after every save. */}
+      <Can permission={PERMISSIONS.ROLE_PERMISSIONS_UPDATE} scope="ALL">
+        <RoleAccessEditorCard onSaved={() => setAccessVersion((v) => v + 1)} />
       </Can>
 
       <InviteStaffModal open={inviting} onClose={() => setInviting(false)} onIssued={onIssued} />

@@ -676,7 +676,9 @@ export interface AuditEntry {
     // ── Gym equipment list ── an admin added, edited, removed or reordered
     // equipment ({ change, before?, after? }).
     | 'GYM_EQUIPMENT_CHANGED'
-    | 'MEMBER_SELF_DELETED';
+    | 'MEMBER_SELF_DELETED'
+    // Staff & Access → Edit role access: { role, reset, added, removed, changed }.
+    | 'ROLE_PERMISSIONS_UPDATED';
   actorId: string;
   actorName: string;
   actorRole: string;

@@ -61,3 +61,33 @@ describe('summariseAuditDetails', () => {
     expect(line).toBe(`note: ${'💪'.repeat(60)}…`);
   });
 });
+
+describe('summariseAuditDetails — role access', () => {
+  it('reads a save as what went on, off and wider', () => {
+    const line = summariseAuditDetails('ROLE_PERMISSIONS_UPDATED', {
+      role: 'FRONT_DESK',
+      reset: false,
+      added: [
+        { key: 'payment.void', scope: 'ALL' },
+        { key: 'member.read', scope: 'OWN' },
+      ],
+      removed: ['shift.manage'],
+      changed: [{ key: 'checkin.read', from: 'OWN', to: 'ALL' }],
+    });
+    expect(line).toBe(
+      'on: payment.void, member.read (Own) · off: shift.manage · reach: checkin.read Own → All',
+    );
+  });
+
+  it('says so when the role went back to its defaults', () => {
+    expect(
+      summariseAuditDetails('ROLE_PERMISSIONS_UPDATED', {
+        role: 'COACH',
+        reset: true,
+        added: [],
+        removed: ['payment.void'],
+        changed: [],
+      }),
+    ).toBe('reset to defaults · off: payment.void');
+  });
+});

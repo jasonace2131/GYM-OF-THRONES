@@ -168,6 +168,7 @@ model User {
   leadConvertedFrom    Lead[]            @relation("LeadConvertedUser")
   openingHoursUpdated  OpeningHours[]    @relation("OpeningHoursUpdatedBy")
   assistantSettingsUpdated AssistantSettings[] @relation("AssistantSettingsUpdatedBy")
+  rolePermissionOverridesUpdated RolePermissionOverride[] @relation("RolePermissionOverrideUpdatedBy")
   memberJoinLink        MemberJoinLink?  @relation("MemberJoinLinkUser")
   memberJoinLinksIssued MemberJoinLink[] @relation("MemberJoinLinkIssuedBy")
   loginVerifications    LoginVerification[] @relation("LoginVerificationUser")

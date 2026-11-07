@@ -1,0 +1,29 @@
+/// The gym's own changes to a role's default grants, made on Staff & Access →
+/// "Edit role access" (feat/role-access-editor, owner 2026-11-07).
+///
+/// WHY A SEPARATE TABLE. `RolePermission` is what PermissionsService reads, and
+/// the seed rewrites it on every deploy from `ROLE_PERMISSIONS` in the code.
+/// Edits stored only there would be undone by the next deploy. So the code
+/// keeps the defaults, this table keeps the differences, and the seed writes
+/// `RolePermission` = defaults + these rows.
+///
+/// One row per (role, permission) that DIFFERS from the default:
+///   scope set  → the role holds the key at that reach (added, or reach changed)
+///   scope NULL → the role does not hold the key (a default grant removed)
+/// A row equal to the default is never stored. A permission the code drops
+/// takes its rows with it (CASCADE). DEV never has rows (CHECK, in the
+/// migration only): it bypasses the table.
+model RolePermissionOverride {
+  id           String           @id @default(uuid()) @db.Uuid
+  role         Role
+  permissionId String           @db.Uuid
+  scope        PermissionScope?
+  updatedById  String?          @db.Uuid
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(3)
+
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  updatedBy  User?      @relation("RolePermissionOverrideUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([role, permissionId])
+  @@index([role])
+}
