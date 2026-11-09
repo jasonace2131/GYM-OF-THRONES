@@ -573,6 +573,23 @@ export interface CheckInRecord {
 }
 
 /**
+ * `GET /check-ins/summary` — the totals above Attendance → History
+ * (feat/attendance-history, owner 2026-11-09). Same filters as `GET /check-ins`;
+ * voided visits never count.
+ */
+export interface CheckInSummary {
+  visits: number;
+  /** Members counted once each, plus one per walk-in guest visit (a guest has no account to dedupe on). */
+  people: number;
+  byType: { MEMBERSHIP: number; WALK_IN: number; GUEST_PASS: number };
+  /**
+   * Over closed visits only, leaving out visits closed automatically at
+   * closing time (nobody timed those). Null when no visit qualifies.
+   */
+  averageMinutes: number | null;
+}
+
+/**
  * `GET /me/check-ins` — the member's own visit history.
  *
  * Deliberately NARROWER than `CheckInRecord`: no `DeskMember`, because a

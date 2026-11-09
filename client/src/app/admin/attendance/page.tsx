@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   PERMISSIONS,
   type ActiveCheckIn,
@@ -13,6 +13,7 @@ import { DataState, Kpi, Person } from '@/components/admin/ui';
 import { ManualCheckIn } from '@/components/admin/ManualCheckIn';
 import { CheckOutConfirm } from '@/components/admin/CheckOutConfirm';
 import { NewMemberDrawer } from '@/components/admin/NewMemberDrawer';
+import { AttendanceHistory } from '@/components/admin/attendance/AttendanceHistory';
 import { usePermission } from '@/components/rbac/MeProvider';
 import { adminApi, duration, gymTime } from '@/lib/adminApi';
 import { seedFromGuest, type NewMemberSeed } from '@/lib/memberSeed';
@@ -42,10 +43,65 @@ import { STAFF_QR_PATH } from '@/lib/stationAuth';
  * the blunt form that never went to the member's phone — rendered verbatim.
  */
 
+/**
+ * Today and History (feat/attendance-history, owner 2026-11-09).
+ *
+ * `?view=history` picks the tab, so the drawer's "See all visits" and a link
+ * sent between staff land on the right one. Today unmounts while History is
+ * open, which also stops its three-second poll.
+ *
+ * Inside a <Suspense> boundary because the tab reads `useSearchParams()`;
+ * without one `next build` fails its prerender pass (see admin/members/page.tsx).
+ */
+export default function AdminAttendancePage() {
+  return (
+    <Suspense
+      fallback={
+        <Card>
+          <p className="p-muted">Loading attendance…</p>
+        </Card>
+      }
+    >
+      <AttendanceScreen />
+    </Suspense>
+  );
+}
+
+function AttendanceScreen() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const view = params.get('view') === 'history' ? 'history' : 'today';
+  return (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <div className="a-viewtabs" role="tablist" aria-label="Attendance view">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'today'}
+          className="a-viewtab"
+          onClick={() => router.push('/admin/attendance', { scroll: false })}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === 'history'}
+          className="a-viewtab"
+          onClick={() => router.push('/admin/attendance?view=history', { scroll: false })}
+        >
+          History
+        </button>
+      </div>
+      {view === 'history' ? <AttendanceHistory /> : <TodayView />}
+    </div>
+  );
+}
+
 /** Three seconds. Fast enough to feel live at a counter, slow enough to be free. */
 const POLL_MS = 3_000;
 
-export default function AdminAttendancePage() {
+function TodayView() {
   const [feed, setFeed] = useState<DeskTodayPayload | null>(null);
   const [stale, setStale] = useState(false);
 

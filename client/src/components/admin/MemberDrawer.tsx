@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/portal/ui';
 import {
   adminApi,
@@ -12,6 +13,7 @@ import {
   type MembershipDetail,
 } from '@/lib/adminApi';
 import { useAdminQuery } from '@/lib/useAdminQuery';
+import { memberHistoryHref } from '@/lib/attendance/historyFilters';
 import { confirmErrorMessage } from '@/lib/confirm';
 import { Drawer } from './Drawer';
 import { PrintSlipButton } from './PrintSlipButton';
@@ -592,6 +594,13 @@ export function MemberDrawer({
                 ))}
               </div>
             )}
+            {/* The drawer keeps its short list; the whole history, with date
+                filters, is Attendance → History for this member, all time. */}
+            {member.checkInCount > 0 ? (
+              <Link href={memberHistoryHref(member.userId)} className="a-drawer-more">
+                See all {member.checkInCount} visits
+              </Link>
+            ) : null}
           </section>
 
           {/* ── Notes / audit ──────────────────────────────────── */}

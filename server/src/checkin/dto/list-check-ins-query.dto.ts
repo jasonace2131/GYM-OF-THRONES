@@ -1,4 +1,4 @@
-import { IsBoolean, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, IsUUID, Length } from 'class-validator';
 import { CheckInEntryType, CheckInMethod } from '@prisma/client';
 import { Transform, type TransformFnParams } from 'class-transformer';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
@@ -27,6 +27,18 @@ export class ListCheckInsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID('4')
   userId?: string;
+
+  /**
+   * Attendance → History's search box: a member's first name, last name or
+   * member code, or a walk-in guest's name. Each word must match one of them.
+   */
+  @IsOptional()
+  @Transform(({ value }: TransformFnParams): unknown =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @Length(2, 64)
+  q?: string;
 
   @IsOptional()
   @IsUUID('4')

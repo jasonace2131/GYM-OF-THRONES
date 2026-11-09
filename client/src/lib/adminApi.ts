@@ -11,6 +11,7 @@ import type {
   AnnouncementImageUpload,
   AnnouncementUploadStatus,
   CheckInRecord,
+  CheckInSummary,
   CheckInResult,
   ClassRegisterEntryWire,
   CreateClassSessionResultWire,
@@ -1261,6 +1262,8 @@ export const adminApi = {
       page?: number;
       limit?: number;
       userId?: string;
+      /** Attendance → History's search: name, member code or guest name (2+ characters). */
+      q?: string;
       stationId?: string;
       from?: string;
       to?: string;
@@ -1271,6 +1274,20 @@ export const adminApi = {
     } = {},
   ): Promise<PaginatedData<CheckInRecord>> =>
     apiFetch<PaginatedData<CheckInRecord>>(`/check-ins${qs(params)}`),
+
+  /**
+   * `GET /check-ins/summary` — the totals above Attendance → History, for the
+   * same filters (`checkin.read`). Voided visits never count.
+   */
+  checkInSummary: (params: {
+    userId?: string;
+    q?: string;
+    from?: string;
+    to?: string;
+    method?: string;
+    entryType?: string;
+    openOnly?: boolean;
+  }): Promise<CheckInSummary> => apiFetch<CheckInSummary>(`/check-ins/summary${qs(params)}`),
 
   activeCheckIns: (
     params: { page?: number; limit?: number } = {},

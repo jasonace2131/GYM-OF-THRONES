@@ -4198,3 +4198,353 @@
     justify-self: start;
   }
 }
+
+/* ── Attendance → History (feat/attendance-history, owner 2026-11-09) ──────
+   The filter bar is the Payments toolbar's (.a-filters); these are the few
+   pieces it lacks: the view tabs, the member chip, the visit-type split and
+   the clickable member cell. Visit-type colours are the badge tones. */
+.a-viewtabs {
+  display: inline-flex;
+  justify-self: start;
+  overflow: hidden;
+  border: 1px solid var(--p-border-2);
+  border-radius: 10px;
+  background: var(--p-paper);
+}
+
+.a-viewtab {
+  padding: 8px 18px;
+  border: 0;
+  background: none;
+  color: var(--p-ink2);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.a-viewtab + .a-viewtab {
+  border-left: 1px solid var(--p-border-2);
+}
+
+.a-viewtab[aria-selected='true'] {
+  background: var(--p-ink);
+  color: var(--p-paper);
+}
+
+.a-viewtab:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -2px;
+}
+
+.a-history {
+  display: grid;
+  /* minmax(0, 1fr), not the implicit auto track: an auto track grows to its
+     widest child, and the table then pushed the whole page sideways beside
+     the sidebar on a small laptop. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+
+.a-history-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.a-history-how {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--p-ink3);
+  white-space: nowrap;
+}
+
+/* A value never breaks inside itself ("8:16 / PM", "1 h / 1 m") on a desktop
+   table; the member cell still wraps a long name. */
+@media (min-width: 901px) {
+  .a-history .p-table td + td {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-root .a-history-how {
+    display: inline;
+    margin-top: 0;
+    font-size: 12.5px;
+  }
+}
+
+.a-history-search {
+  /* A width, not a flex-basis: on a phone the controls stack in a column,
+     where a basis would become the box's height. */
+  flex: none;
+  width: 340px;
+  max-width: 100%;
+}
+
+.a-history-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 12%, var(--p-paper));
+  color: var(--p-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.a-history-chip button {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--p-paper);
+  color: var(--p-ink2);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.a-history-chip button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+
+.a-history-split {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin: 10px 0 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--p-border);
+}
+
+.a-history-split i,
+.a-history-legend i {
+  display: block;
+  background: var(--p-ok);
+}
+
+.a-history-split i[data-type='WALK_IN'],
+.a-history-legend i[data-type='WALK_IN'] {
+  background: var(--p-warn);
+}
+
+.a-history-split i[data-type='GUEST_PASS'],
+.a-history-legend i[data-type='GUEST_PASS'] {
+  background: var(--p-info);
+}
+
+.a-history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--p-ink2);
+  font-variant-numeric: tabular-nums;
+}
+
+.a-history-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.a-history-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.a-history-head .a-field-hint {
+  padding: 8px 18px 0;
+}
+
+.a-history-person {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.a-history-person:hover .a-person-name,
+.a-history-person:focus-visible .a-person-name {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.a-history-person:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.a-history-day {
+  white-space: nowrap;
+}
+
+.a-history-empty {
+  margin: 0;
+  padding: 28px 18px;
+  color: var(--p-ink3);
+  text-align: center;
+}
+
+/* A voided visit is a correction, shown only on request: greyed, its date struck. */
+.p-table tr[data-voided] td {
+  color: var(--p-ink3);
+}
+
+.p-table tr[data-voided] .a-history-day {
+  text-decoration: line-through;
+}
+
+/* The member drawer's "See all N visits" (Attendance → History, that member). */
+.a-drawer-more {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--gold-dark, var(--gold));
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.a-drawer-more:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.a-history-pager {
+  padding: 0 18px 16px;
+}
+
+/* Six quick picks do not fit one phone-width row: three by two instead.
+   640px is where .a-filters stacks. */
+@media (max-width: 640px) {
+  .a-history .a-range {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    height: auto;
+  }
+
+  .a-history-search {
+    width: 100%;
+  }
+}
+
+/* On a phone a visit is a two-line card (the stacked table's title/value/meta
+   parts): the person and how long they stayed, then the date, the time, the
+   type and how they came in. */
+
+/* The totals on a tablet or phone: the three figures share one row, and the
+   visit-type split takes the full row under them, so no tile stands taller
+   than its neighbour or leaves a gap beside it. */
+@media (max-width: 860px) {
+  .admin-root .a-history .a-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-root .a-history .a-kpis > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-root .a-history .a-kpis {
+    gap: 8px;
+  }
+
+  .admin-root .a-history .a-kpis > .p-card {
+    padding: 12px;
+  }
+
+  .admin-root .a-history .a-kpis .p-stat-val {
+    font-size: 20px;
+  }
+
+  .admin-root .a-history .a-kpis .p-stat-label {
+    letter-spacing: 0.1em;
+  }
+}
+
+/* When a row's controls wrap onto a second line, its label stays level with
+   the first line (40px is the controls' height) instead of floating between
+   the two. Above 640px only: below it the label sits on its own line. */
+@media (min-width: 641px) {
+  .a-history .a-filters-row {
+    align-items: flex-start;
+  }
+
+  .a-history .a-filters-label {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+}
+
+/* Touch widths make the controls 44px tall (.admin-root at ≤900px). */
+@media (min-width: 641px) and (max-width: 900px) {
+  .a-history .a-filters-label {
+    min-height: 44px;
+  }
+}
+
+/* The stay line under the time exists only between 901 and 1100px, where the
+   Stayed column is dropped so the table fits beside the sidebar without
+   scrolling sideways. Everywhere else the column (or the phone card's value)
+   shows it. */
+.a-history-stay {
+  display: none;
+}
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .a-history .a-history-stayed {
+    display: none;
+  }
+
+  .a-history .a-history-stay:not(:empty) {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--p-ink3);
+  }
+
+  .a-history .a-scroll .p-table {
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1101px) {
+  .a-history .a-scroll .p-table {
+    min-width: 0;
+  }
+}
+
+/* 901–1000px: the sidebar is back but the content box is at its narrowest
+   (~570px). The avatars step aside and the cells tighten, so the table still
+   fits without scrolling sideways; the name and member code say who it is. */
+@media (min-width: 901px) and (max-width: 1000px) {
+  .a-history .p-table .a-avatar {
+    display: none;
+  }
+
+  .a-history .p-table th,
+  .a-history .p-table td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
